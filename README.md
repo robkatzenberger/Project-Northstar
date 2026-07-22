@@ -1,83 +1,88 @@
-# Northstar — Glass product workspace
+# Northstar — Glass MVP (local)
 
 **Codename:** `northstar`  
-**Product surface:** **Glass** (enterprise verification & enforcement)  
-**Ecosystem:** [Trust Layer AI](https://trust-layer-ai.github.io/Trust-Layer-AI/)
+**Product:** **Glass** — human + machine trust layer  
+**Status:** runnable local MVP for critique (not on GitHub)
 
-Northstar is the working home for **Glass**: the checkpoint that receives Prism intent signals, evaluates policy / identity / risk, applies human-in-the-loop controls, issues authorization, and writes tamper-evident audit before execution.
-
-This repo is intentionally a **workspace + planning shell**. Runtime product code lands after we lock scope against Prism and APEX-Lite.
+Intent is declared **before** execution. When something goes wrong, an append-only audit trail shows **who declared**, **what Glass decided**, **who approved**, and **who executed** — for humans and machines.
 
 ---
 
-## Trust Layer map
+## Quick start
 
-| Layer | Name | Role | Public home |
-| --- | --- | --- | --- |
-| Signal | **Prism** | Open, metadata-only pre-execution intent signal. Describes intent; does not judge. | [prism-protocol](https://github.com/Trust-Layer-AI/prism-protocol) |
-| Gate (OSS ref) | **APEX-Lite / Trust-Engine** | Minimal deterministic policy boundary: `ALLOW` / `REQUIRE_APPROVAL`, receipts, local console. | [Trust-Engine](https://github.com/Trust-Layer-AI/Trust-Engine) |
-| Gate (product) | **Glass** ← *this workspace* | Enterprise verification: policy, risk, HITL, auth tokens, revocation, audit, ops. | *Northstar* |
-| Narrative | **Trust Layer AI** | Product story + architecture site. | [site](https://trust-layer-ai.github.io/Trust-Layer-AI/) · [repo](https://github.com/Trust-Layer-AI/Trust-Layer-AI) |
+```bash
+cd ~/projects/northstar
 
-Local reference on this machine (earlier APEX work):
-
-- `~/APEX-Lite` — local APEX-Lite checkout / experiments
-
----
-
-## Canonical flow
-
-```text
-Agent proposes action
-  → Prism emits intent metadata
-  → Glass receives signal
-  → Policy engine: identity, risk, scope, authorization
-  → Human approval if required
-  → Signed authorization token (product goal)
-  → Execution proceeds
-  → Tamper-evident audit log
+npm test          # 23 assertions
+npm run demo      # 3 scenarios → var/demo-audit.jsonl
 ```
 
-**Principle:** verification *before* execution. Agent-agnostic, model-agnostic, vendor-neutral. Deterministic rules — not in-model guardrails.
+```bash
+# evaluate → approve → execute → incident
+node bin/glass.mjs evaluate examples/intent-pii-email.json config/policy.yaml --log var/audit.jsonl
+node bin/glass.mjs approve <receipt_id> --operator human.ops.alex --log var/audit.jsonl
+node bin/glass.mjs execute <receipt_id> --executor runtime.mailer --status EXECUTED --log var/audit.jsonl
+node bin/glass.mjs incident <receipt_id> --log var/audit.jsonl --why "Wrong attachment sent"
+node bin/glass.mjs chain <receipt_id> --log var/audit.jsonl
+```
+
+Zero npm dependencies. Node 18+.
 
 ---
 
-## Repo layout
+## Trust chain
 
 ```text
-northstar/
-  AGENTS.md          # conventions for humans + coding agents
-  README.md          # this file
-  docs/
-    vision.md        # product north star and non-goals
-    architecture.md  # target Glass shape vs APEX-Lite
-  config/            # future policy / gate config samples
-  examples/          # future Prism signals + decisions
-  src/               # empty until first implementation slice
+DECLARER (human|machine)  →  Prism signal
+EVALUATOR (glass/machine) →  ALLOW | REQUIRE_APPROVAL
+AUTHORIZER (human, if escalated) → APPROVE | REJECT
+EXECUTOR (human|machine)  →  EXECUTED | BLOCKED | FAILED
+AUDIT → optional INCIDENT → accountability report
 ```
 
 ---
 
-## Related local paths
+## Layout
 
-| Path | Notes |
-| --- | --- |
-| `~/APEX-Lite` | Prior APEX-Lite reference work |
-| `~/projects/northstar` | This Glass product workspace |
+```text
+bin/glass.mjs              CLI
+src/prism.mjs              Intent signal
+src/policy.mjs             Deterministic rules (APEX-Lite compatible)
+src/glass.mjs              Decide / authorize / execute records
+src/audit.mjs              JSONL append + read
+src/accountability.mjs     Human + machine evidence graph
+config/policy.yaml         Demo policy pack
+examples/                  Intent fixtures
+scripts/test.mjs           Tests
+scripts/demo.mjs           Narrative demo
+docs/MVP.md                Full handoff brief
+docs/vision.md             Product thesis
+docs/architecture.md       Layering notes
+AGENTS.md                  Collaboration rules
+```
 
 ---
 
-## Status
+## Ecosystem map
 
-- [x] Workspace created
-- [x] Git initialized
-- [x] Vision + architecture notes
-- [x] Agent conventions (`AGENTS.md`)
-- [ ] Product MVP scope locked
-- [ ] First implementation slice (TBD)
+| Layer | Role | Reference |
+| --- | --- | --- |
+| **Prism** | Metadata-only intent signal | [prism-protocol](https://github.com/Trust-Layer-AI/prism-protocol) |
+| **APEX-Lite** | OSS minimal gate | `~/APEX-Lite`, [Trust-Engine](https://github.com/Trust-Layer-AI/Trust-Engine) |
+| **Glass** | Product trust layer (this repo) | `~/projects/northstar` |
+| Site | Public story | [Trust Layer AI](https://trust-layer-ai.github.io/Trust-Layer-AI/) |
 
 ---
 
-## License
+## Read next
 
-TBD — ecosystem public refs are Apache-2.0; product licensing for Glass is a separate decision.
+1. **[docs/MVP.md](docs/MVP.md)** — what we built, scope, patent-research notes, open questions  
+2. Run **`npm run demo`** and read the accountability findings  
+3. Upload your additional docs when ready so we can refine against the real framework
+
+---
+
+## License / remote
+
+- Code is **local-only**, `UNLICENSED` until you decide.  
+- **No GitHub remote** by design. Public Apache-2.0 refs are separate projects.

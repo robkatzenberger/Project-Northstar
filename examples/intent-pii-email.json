@@ -1,0 +1,9 @@
+{
+  "agent": "agent.support.mailer",
+  "actor_type": "machine",
+  "intent_summary": "Send customer support email with account profile attachment",
+  "action": "send_email",
+  "target": "external_user",
+  "risk": "medium",
+  "data_classes": ["PII"]
+}

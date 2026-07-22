@@ -1,0 +1,20 @@
+{
+  "name": "northstar-glass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glass MVP — human + machine trust layer (local reference)",
+  "type": "module",
+  "license": "UNLICENSED",
+  "bin": {
+    "glass": "./bin/glass.mjs"
+  },
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "demo": "node scripts/demo.mjs",
+    "evaluate": "node bin/glass.mjs evaluate",
+    "incident": "node bin/glass.mjs incident"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

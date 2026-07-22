@@ -1,0 +1,9 @@
+{
+  "agent": "agent.docs.summarizer",
+  "actor_type": "machine",
+  "intent_summary": "Summarize internal quarterly report for workspace readers",
+  "action": "summarize_report",
+  "target": "internal_workspace",
+  "risk": "low",
+  "data_classes": []
+}

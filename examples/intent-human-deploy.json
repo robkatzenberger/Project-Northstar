@@ -1,0 +1,9 @@
+{
+  "agent": "human.ops.jordan",
+  "actor_type": "human",
+  "intent_summary": "Deploy release v1.4.2 to production cluster",
+  "action": "deploy",
+  "target": "production",
+  "risk": "high",
+  "data_classes": []
+}

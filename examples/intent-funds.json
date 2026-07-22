@@ -1,0 +1,9 @@
+{
+  "agent": "agent.finance.ops",
+  "actor_type": "machine",
+  "intent_summary": "Prepare payment authorization request to external vendor account",
+  "action": "transfer_funds",
+  "target": "external_account",
+  "risk": "high",
+  "data_classes": ["FINANCIAL"]
+}

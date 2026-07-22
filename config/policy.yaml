@@ -1,0 +1,23 @@
+# Glass MVP default policy pack
+# Deterministic rules only — no model judgment.
+
+rules:
+  - id: rule_high_risk
+    description: Require human approval for high-risk actions
+    if: risk == "high"
+    require: human_approval
+
+  - id: rule_pii_email
+    description: Require human approval when email involves PII
+    if: action == "send_email" and "PII" in data_classes
+    require: human_approval
+
+  - id: rule_funds
+    description: Require human approval for any fund transfer
+    if: action == "transfer_funds"
+    require: human_approval
+
+  - id: rule_prod_deploy
+    description: Require human approval for production deploys
+    if: action == "deploy" and target == "production"
+    require: human_approval

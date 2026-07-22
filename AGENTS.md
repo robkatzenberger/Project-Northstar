@@ -38,19 +38,17 @@ Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 ## Commands
 
-None yet — scaffold only. When `package.json` lands, document:
-
 ```bash
-# expected later
-npm test
-npm start
+cd ~/projects/northstar
+npm test              # deterministic suite
+npm run demo          # 3 scenarios + accountability report
+node bin/glass.mjs help
 ```
 
-Until then:
+Local APEX-Lite reference (outside this repo):
 
 ```bash
-# local APEX-Lite reference (outside this repo)
-cd ~/APEX-Lite && npm test   # if package scripts exist
+cd ~/APEX-Lite && npm test
 ```
 
 ## Related code (do not treat as this repo)
