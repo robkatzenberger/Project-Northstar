@@ -38,7 +38,7 @@ import {
   resolveAuthorizationFromAudit
 } from "./src/index.mjs";
 
-const auditPath = "var/audit.jsonl";
+const auditPath = "var/tech-test-audit.jsonl"; // canonical local technical-test log
 
 const decision = evaluateIntent(intent, policy, { auditPath, switchboard });
 
