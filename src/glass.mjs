@@ -1,15 +1,17 @@
 /**
- * TL-PX / Glass core: evaluate declared intent against policy, emit decision receipt.
- * Reference implementation of Trust Layer Pre-Execution Minimum Standard 0.1.
+ * TL-PX / Glass core — air-gapped by default.
+ *
+ * Durable operations require opts.auditPath (append-only log).
+ * Authorization for execution is derived from the audit chain, not caller-supplied status fields.
  */
 
 import { receiptId, nowIso, uuid } from "./ids.mjs";
 import { evaluateRules } from "./policy.mjs";
-import { appendAudit } from "./audit.mjs";
+import { appendAudit, readAudit } from "./audit.mjs";
 import {
+  CONTROL_MODE,
   STANDARD_ID,
   STANDARD_VERSION,
-  CONTROL_MODE,
   standardStamp
 } from "./standard.mjs";
 import { validateEvaluationRequest } from "./validate.mjs";
@@ -17,16 +19,45 @@ import {
   routeThroughSwitchboard,
   enrichIntentWithSwitchboard
 } from "./switchboard.mjs";
+import {
+  assertNotAlreadyResolved,
+  findDecisionInRecords,
+  resolveAuthorizationFromAudit
+} from "./chain.mjs";
 
 export const GLASS_VERSION = "0.1.0";
-export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION };
+export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION, resolveAuthorizationFromAudit };
 
 /**
- * @param {object} intent - evaluation intent (from toEvaluationIntent or raw)
+ * Air-gapped mode requires an audit path unless explicitly marked ephemeral
+ * (unit tests of pure decision logic only — never for authorize/execute).
+ */
+function requireAuditPath(opts, fnName) {
+  if (opts?.allowEphemeral) return;
+  if (!opts?.auditPath) {
+    throw new Error(
+      `${fnName}: auditPath required for air-gapped operation. ` +
+        `Pass { auditPath: "…/audit.jsonl" }. ` +
+        `For non-durable unit tests only: { allowEphemeral: true }.`
+    );
+  }
+}
+
+function persist(opts, record) {
+  if (opts.auditPath) {
+    appendAudit(opts.auditPath, record);
+  }
+  return record;
+}
+
+/**
+ * @param {object} intent
  * @param {object} policy
- * @param {{ auditPath?: string, switchboard?: object }} [opts]
+ * @param {{ auditPath?: string, switchboard?: object, allowEphemeral?: boolean }} [opts]
  */
 export function evaluateIntent(intent, policy, opts = {}) {
+  requireAuditPath(opts, "evaluateIntent");
+
   if (!intent?.intent_id && !intent?.prism_id) {
     throw new Error("evaluateIntent: intent_id or prism_id required");
   }
@@ -50,7 +81,6 @@ export function evaluateIntent(intent, policy, opts = {}) {
   /** @type {object|null} */
   let switchboard_context = null;
 
-  // Switchboard: identity → whitelist → credibility → approval route
   if (opts.switchboard) {
     switchboard_context = routeThroughSwitchboard(opts.switchboard, normalized);
     normalized = enrichIntentWithSwitchboard(normalized, switchboard_context);
@@ -62,8 +92,6 @@ export function evaluateIntent(intent, policy, opts = {}) {
   }
 
   let outcome;
-
-  // Hard switchboard gate (unknown / not whitelisted / action not permitted)
   if (switchboard_context?.gate) {
     outcome = { ...switchboard_context.gate };
   } else {
@@ -116,7 +144,6 @@ export function evaluateIntent(intent, policy, opts = {}) {
         type: "machine"
       },
       authorizer: null,
-      // Switchboard as routing machine on the chain
       router: opts.switchboard
         ? {
             id: opts.switchboard.switchboard_id || "switchboard",
@@ -125,7 +152,6 @@ export function evaluateIntent(intent, policy, opts = {}) {
         : null
     },
     authorization_status,
-    // Who should handle escalation (from switchboard route)
     approval_route: switchboard_context?.approval_route || [],
     switchboard: switchboard_context
       ? {
@@ -141,33 +167,47 @@ export function evaluateIntent(intent, policy, opts = {}) {
     original_intent: normalized
   };
 
-  if (opts.auditPath) {
-    appendAudit(opts.auditPath, decision);
-  }
-
-  return decision;
+  return persist(opts, decision);
 }
 
 /**
- * Human (or designated principal) resolves a REQUIRE_APPROVAL decision.
- * @param {"APPROVE"|"REJECT"} outcome
+ * Resolve REQUIRE_APPROVAL using audit as source of truth.
+ * Single terminal operator outcome per receipt (state machine).
+ *
+ * @param {object} input - { receipt_id } or decision object with receipt_id
+ * @param {{ operator_id: string, outcome: "APPROVE"|"REJECT", note?: string }} action
+ * @param {{ auditPath: string, allowEphemeral?: boolean }} opts
  */
-export function resolveEscalation(decision, { operator_id, outcome, note } = {}, opts = {}) {
-  const isDecision =
-    decision &&
-    (decision.record_type === "tlpx.decision" || decision.record_type === "glass.decision");
-  if (!isDecision) {
-    throw new Error("resolveEscalation: tlpx.decision (or glass.decision) required");
-  }
-  if (decision.decision !== "REQUIRE_APPROVAL") {
-    throw new Error("resolveEscalation: only REQUIRE_APPROVAL decisions can be resolved");
-  }
-  if (!operator_id) {
-    throw new Error("resolveEscalation: operator_id required");
-  }
+export function resolveEscalation(input, action = {}, opts = {}) {
+  requireAuditPath(opts, "resolveEscalation");
+
+  const operator_id = action.operator_id;
+  const outcome = action.outcome;
+  const note = action.note;
+
+  if (!operator_id) throw new Error("resolveEscalation: operator_id required");
   if (outcome !== "APPROVE" && outcome !== "REJECT") {
     throw new Error('resolveEscalation: outcome must be "APPROVE" or "REJECT"');
   }
+
+  const receiptId = input?.receipt_id || input?.linked_receipt_id;
+  if (!receiptId) {
+    throw new Error("resolveEscalation: receipt_id required (pass decision or { receipt_id })");
+  }
+
+  const records = readAudit(opts.auditPath);
+  const decision = findDecisionInRecords(records, receiptId);
+  if (!decision) {
+    throw new Error(`resolveEscalation: no decision in audit for receipt_id=${receiptId}`);
+  }
+
+  if (decision.decision !== "REQUIRE_APPROVAL") {
+    throw new Error(
+      `resolveEscalation: only REQUIRE_APPROVAL can be resolved (got ${decision.decision})`
+    );
+  }
+
+  assertNotAlreadyResolved(opts.auditPath, receiptId);
 
   const record = {
     record_type: "tlpx.operator_action",
@@ -196,47 +236,44 @@ export function resolveEscalation(decision, { operator_id, outcome, note } = {},
     authorization_status: outcome === "APPROVE" ? "AUTHORIZED" : "DENIED"
   };
 
-  if (opts.auditPath) {
-    appendAudit(opts.auditPath, record);
-  }
-
-  return record;
+  return persist(opts, record);
 }
 
 /**
- * Record that an action was executed (or blocked) after the trust checkpoint.
- * This is the machine/human execution side of the accountability chain.
+ * Record execution. Authorization is ALWAYS re-derived from audit.
+ * Caller-supplied decision.authorization_status is IGNORED.
  */
-export function recordExecution(
-  {
-    decision,
-    operator_action = null,
-    executor_id,
-    executor_type = "machine",
-    status, // "EXECUTED" | "BLOCKED" | "FAILED"
-    result_summary = null,
-    error = null
-  },
-  opts = {}
-) {
-  if (!decision) throw new Error("recordExecution: decision required");
+export function recordExecution(input = {}, opts = {}) {
+  requireAuditPath(opts, "recordExecution");
+
+  const executor_id = input.executor_id;
+  const executor_type = input.executor_type || "machine";
+  const status = input.status;
+  const result_summary = input.result_summary ?? null;
+  const error = input.error ?? null;
+
   if (!executor_id) throw new Error("recordExecution: executor_id required");
   if (!["EXECUTED", "BLOCKED", "FAILED"].includes(status)) {
     throw new Error("recordExecution: invalid status");
   }
 
-  const authStatus = operator_action
-    ? operator_action.authorization_status
-    : decision.authorization_status;
+  const receiptId = input.receipt_id || input.decision?.receipt_id;
+  if (!receiptId) {
+    throw new Error("recordExecution: receipt_id required");
+  }
 
-  // Guardrail: cannot claim EXECUTED without authorization (includes switchboard DENY)
+  const auth = resolveAuthorizationFromAudit(opts.auditPath, receiptId);
+  const decision = auth.decision;
+  const operator_action = auth.operator_action;
+  const authStatus = auth.authorization_status;
+
   if (status === "EXECUTED" && authStatus !== "AUTHORIZED") {
     throw new Error(
-      `recordExecution: cannot EXECUTED when authorization_status=${authStatus}`
+      `recordExecution: cannot EXECUTED when audit authorization_status=${authStatus} (source=${auth.source})`
     );
   }
   if (status === "EXECUTED" && decision.decision === "DENY") {
-    throw new Error("recordExecution: cannot EXECUTED after switchboard DENY");
+    throw new Error("recordExecution: cannot EXECUTED after DENY");
   }
 
   const record = {
@@ -255,6 +292,7 @@ export function recordExecution(
       type: executor_type
     },
     authorization_status: authStatus,
+    authorization_source: auth.source,
     decision_snapshot: {
       decision: decision.decision,
       reason: decision.reason,
@@ -272,9 +310,5 @@ export function recordExecution(
     original_intent: decision.original_intent
   };
 
-  if (opts.auditPath) {
-    appendAudit(opts.auditPath, record);
-  }
-
-  return record;
+  return persist(opts, record);
 }

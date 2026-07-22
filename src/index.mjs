@@ -4,6 +4,7 @@ export {
   evaluateIntent,
   resolveEscalation,
   recordExecution,
+  resolveAuthorizationFromAudit,
   GLASS_VERSION,
   CONTROL_MODE,
   STANDARD_ID,
@@ -33,3 +34,5 @@ export {
   CRED_MIN,
   CRED_MAX
 } from "./switchboard.mjs";
+export { assertNotAlreadyResolved, findDecisionInRecords } from "./chain.mjs";
+export { executeAuthorized } from "./executor.mjs";

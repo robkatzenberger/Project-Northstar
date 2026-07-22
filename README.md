@@ -75,6 +75,8 @@ See [`docs/switchboard.md`](docs/switchboard.md) and `config/switchboard.json`.
 
 **Hard rule for conforming executors:** never emit `EXECUTED` unless authorization is `AUTHORIZED`.
 
+**Air-gapped mode (default):** audit log required; execution auth is derived only from the audit chain; single operator outcome; use `executeAuthorized` so side effects never run without AUTHORIZED. See [`docs/airgap.md`](docs/airgap.md).
+
 ---
 
 ## For real-world adopters

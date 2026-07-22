@@ -26,7 +26,8 @@ import {
   reportFromAuditFile,
   buildChain,
   loadSwitchboard,
-  lookupPrincipal
+  lookupPrincipal,
+  resolveAuthorizationFromAudit
 } from "../src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -131,14 +132,16 @@ async function main() {
   if (!cmd || cmd === "help" || cmd === "--help") {
     console.log(`Glass / TL-PX CLI
 
-  evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--no-switchboard] [--log PATH]
+  evaluate <intent.json> <policy.yaml> --log PATH [--switchboard PATH] [--no-switchboard]
   switchboard <agent_id> [--switchboard PATH]
   approve  <receipt_id> --operator ID --log PATH [--note TEXT]
   reject   <receipt_id> --operator ID --log PATH [--note TEXT]
   execute  <receipt_id> --executor ID --status EXECUTED|BLOCKED|FAILED --log PATH [--summary TEXT]
+  auth     <receipt_id> --log PATH
   chain    <receipt_id> --log PATH
   incident <receipt_id> --log PATH --why TEXT [--observed ACTION] [--severity low|medium|high]
 
+Air-gapped: --log (audit JSONL) is required for evaluate/approve/execute.
 Default switchboard: config/switchboard.json (if present)
 `);
     process.exit(0);
@@ -163,17 +166,24 @@ Default switchboard: config/switchboard.json (if present)
   if (cmd === "evaluate") {
     const intentPath = args._[1];
     const policyPath = args._[2];
-    if (!intentPath || !policyPath) {
-      die("Usage: glass evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--log PATH]");
+    if (!intentPath || !policyPath || !args.log) {
+      die("Usage: glass evaluate <intent.json> <policy.yaml> --log PATH [--switchboard PATH]");
     }
     const intent = loadIntent(path.resolve(intentPath));
     const policy = readPolicyFile(path.resolve(policyPath));
     const switchboard = resolveSwitchboard(args);
     const decision = evaluateIntent(intent, policy, {
-      auditPath: args.log ? path.resolve(args.log) : undefined,
+      auditPath: path.resolve(args.log),
       switchboard
     });
     print(decision);
+    return;
+  }
+
+  if (cmd === "auth") {
+    const receiptId = args._[1];
+    if (!receiptId || !args.log) die("Usage: glass auth <receipt_id> --log PATH");
+    print(resolveAuthorizationFromAudit(path.resolve(args.log), receiptId));
     return;
   }
 
@@ -202,12 +212,10 @@ Default switchboard: config/switchboard.json (if present)
       die("Usage: glass execute <receipt_id> --executor ID --status STATUS --log PATH");
     }
     const logPath = path.resolve(args.log);
-    const { records, decision } = findDecision(logPath, receiptId);
-    const operator_action = findLatestOperator(records, receiptId) || null;
+    // Chain-verified: ignores any client-forged status; audit is source of truth
     const execution = recordExecution(
       {
-        decision,
-        operator_action,
+        receipt_id: receiptId,
         executor_id: args.executor,
         executor_type: "machine",
         status: args.status,

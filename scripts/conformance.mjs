@@ -1,8 +1,5 @@
 /**
- * TL-PX 0.1 Minimum Profile — conformance suite
- *
- * Any implementation claiming TL-PX 0.1 conformance for this reference surface
- * must pass these checks. Alternate runtimes can port the fixtures + assertions.
+ * TL-PX 0.1 Minimum Profile — conformance suite (air-gapped audit required)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -56,20 +53,20 @@ function loadExample(name) {
   return JSON.parse(fs.readFileSync(path.join(root, "examples", name), "utf8"));
 }
 
+function ev(file, log) {
+  return evaluateIntent(
+    toEvaluationIntent(createPrismSignal(loadExample(file))),
+    policy,
+    { auditPath: log }
+  );
+}
+
 console.log(`TL-PX ${STANDARD_VERSION} Minimum Profile conformance\n`);
 
-// ---------------------------------------------------------------------------
-// C1 Deterministic decision fixtures
-// ---------------------------------------------------------------------------
 console.log("C1  Decision determinism");
 {
   const cases = [
-    {
-      file: "intent-safe.json",
-      decision: "ALLOW",
-      policy_id: null,
-      auth: "AUTHORIZED"
-    },
+    { file: "intent-safe.json", decision: "ALLOW", policy_id: null, auth: "AUTHORIZED" },
     {
       file: "intent-pii-email.json",
       decision: "REQUIRE_APPROVAL",
@@ -91,19 +88,15 @@ console.log("C1  Decision determinism");
   ];
 
   for (const c of cases) {
-    const intent = toEvaluationIntent(createPrismSignal(loadExample(c.file)));
-    const d1 = evaluateIntent(intent, policy);
-    const d2 = evaluateIntent(intent, policy);
+    const log = tmpLog();
+    const d1 = ev(c.file, log);
+    const d2 = ev(c.file, log);
     check(
       `${c.file} → ${c.decision}`,
       d1.decision === c.decision && d1.policy_id === c.policy_id,
       `got ${d1.decision}/${d1.policy_id}`
     );
-    check(
-      `${c.file} auth status`,
-      d1.authorization_status === c.auth,
-      d1.authorization_status
-    );
+    check(`${c.file} auth status`, d1.authorization_status === c.auth, d1.authorization_status);
     check(
       `${c.file} deterministic decision+policy`,
       d1.decision === d2.decision && d1.policy_id === d2.policy_id
@@ -116,127 +109,117 @@ console.log("C1  Decision determinism");
         d1.standard_version === STANDARD_VERSION &&
         d1.control_mode === CONTROL_MODE
     );
+    fs.unlinkSync(log);
   }
 }
 
-// ---------------------------------------------------------------------------
-// C2 Authorization mapping + operator
-// ---------------------------------------------------------------------------
 console.log("\nC2  Authorization + operator");
 {
-  const intent = toEvaluationIntent(createPrismSignal(loadExample("intent-pii-email.json")));
-  const d = evaluateIntent(intent, policy);
+  const log = tmpLog();
+  const d = ev("intent-pii-email.json", log);
   check("escalation pending", d.authorization_status === "PENDING_HUMAN_APPROVAL");
 
-  const approve = resolveEscalation(d, {
-    operator_id: "human.ops.alex",
-    outcome: "APPROVE"
-  });
+  const approve = resolveEscalation(
+    d,
+    { operator_id: "human.ops.alex", outcome: "APPROVE" },
+    { auditPath: log }
+  );
   check("approve → AUTHORIZED", approve.authorization_status === "AUTHORIZED");
   check("operator is human", approve.operator.type === "human");
   const va = validateOperatorAction(approve);
   check("operator action validates", va.ok, va.errors.join("; "));
 
-  const d2 = evaluateIntent(
-    toEvaluationIntent(createPrismSignal(loadExample("intent-funds.json"))),
-    policy
+  const log2 = tmpLog();
+  const d2 = ev("intent-funds.json", log2);
+  const reject = resolveEscalation(
+    d2,
+    { operator_id: "human.finance.sam", outcome: "REJECT" },
+    { auditPath: log2 }
   );
-  const reject = resolveEscalation(d2, {
-    operator_id: "human.finance.sam",
-    outcome: "REJECT"
-  });
   check("reject → DENIED", reject.authorization_status === "DENIED");
   const vr = validateOperatorAction(reject);
   check("reject action validates", vr.ok, vr.errors.join("; "));
+  fs.unlinkSync(log);
+  fs.unlinkSync(log2);
 }
 
-// ---------------------------------------------------------------------------
-// C3 Execution guard
-// ---------------------------------------------------------------------------
 console.log("\nC3  Execution guard");
 {
-  const intent = toEvaluationIntent(createPrismSignal(loadExample("intent-pii-email.json")));
-  const d = evaluateIntent(intent, policy);
+  const log = tmpLog();
+  const d = ev("intent-pii-email.json", log);
   let blocked = false;
   try {
-    recordExecution({ decision: d, executor_id: "runtime", status: "EXECUTED" });
+    recordExecution(
+      { receipt_id: d.receipt_id, executor_id: "runtime", status: "EXECUTED" },
+      { auditPath: log }
+    );
   } catch {
     blocked = true;
   }
   check("cannot EXECUTED while PENDING", blocked);
 
-  const op = resolveEscalation(d, { operator_id: "human.ops.alex", outcome: "APPROVE" });
-  const exec = recordExecution({
-    decision: d,
-    operator_action: op,
-    executor_id: "runtime.mailer",
-    executor_type: "machine",
-    status: "EXECUTED"
-  });
+  const op = resolveEscalation(
+    d,
+    { operator_id: "human.ops.alex", outcome: "APPROVE" },
+    { auditPath: log }
+  );
+  check("approve → AUTHORIZED", op.authorization_status === "AUTHORIZED");
+
+  const exec = recordExecution(
+    {
+      receipt_id: d.receipt_id,
+      executor_id: "runtime.mailer",
+      executor_type: "machine",
+      status: "EXECUTED"
+    },
+    { auditPath: log }
+  );
   check("EXECUTED after APPROVE", exec.status === "EXECUTED");
   const ve = validateExecutionRecord(exec);
   check("execution record validates", ve.ok, ve.errors.join("; "));
 
-  const safe = evaluateIntent(
-    toEvaluationIntent(createPrismSignal(loadExample("intent-safe.json"))),
-    policy
+  const logSafe = tmpLog();
+  const safe = ev("intent-safe.json", logSafe);
+  const safeExec = recordExecution(
+    { receipt_id: safe.receipt_id, executor_id: "runtime", status: "EXECUTED" },
+    { auditPath: logSafe }
   );
-  const safeExec = recordExecution({
-    decision: safe,
-    executor_id: "runtime",
-    status: "EXECUTED"
-  });
   check("ALLOW path EXECUTED", safeExec.status === "EXECUTED");
   check(
     "EXECUTED requires AUTHORIZED (record)",
     safeExec.authorization_status === "AUTHORIZED"
   );
+  fs.unlinkSync(log);
+  fs.unlinkSync(logSafe);
 }
 
-// ---------------------------------------------------------------------------
-// C4 Party model (human + machine)
-// ---------------------------------------------------------------------------
 console.log("\nC4  Party model");
 {
+  const log = tmpLog();
   const humanIntent = toEvaluationIntent(
     createPrismSignal(loadExample("intent-human-deploy.json"))
   );
-  check(
-    "human declarer on request",
-    humanIntent.actor_type === "human",
-    humanIntent.actor_type
-  );
-  const d = evaluateIntent(humanIntent, policy);
+  check("human declarer on request", humanIntent.actor_type === "human", humanIntent.actor_type);
+  const d = evaluateIntent(humanIntent, policy, { auditPath: log });
   check("declarer type human", d.parties.declarer.type === "human");
   check("evaluator type machine", d.parties.evaluator.type === "machine");
 
-  const machineIntent = toEvaluationIntent(
-    createPrismSignal(loadExample("intent-safe.json"))
-  );
-  const d2 = evaluateIntent(machineIntent, policy);
+  const d2 = ev("intent-safe.json", log);
   check("machine declarer", d2.parties.declarer.type === "machine");
+  fs.unlinkSync(log);
 }
 
-// ---------------------------------------------------------------------------
-// C5 Chain integrity
-// ---------------------------------------------------------------------------
 console.log("\nC5  Chain integrity");
 {
   const log = tmpLog();
-  const intent = toEvaluationIntent(createPrismSignal(loadExample("intent-pii-email.json")));
-  const d = evaluateIntent(intent, policy, { auditPath: log });
+  const d = ev("intent-pii-email.json", log);
   const op = resolveEscalation(
     d,
     { operator_id: "human.ops.alex", outcome: "APPROVE" },
     { auditPath: log }
   );
   recordExecution(
-    {
-      decision: d,
-      operator_action: op,
-      executor_id: "runtime.mailer",
-      status: "EXECUTED"
-    },
+    { receipt_id: d.receipt_id, executor_id: "runtime.mailer", status: "EXECUTED" },
     { auditPath: log }
   );
   const chain = buildChain(readAudit(log), d.receipt_id);
@@ -260,29 +243,21 @@ console.log("\nC5  Chain integrity");
     "all chain rows share receipt",
     chain.every((r) => r.receipt_id === d.receipt_id || r.linked_receipt_id === d.receipt_id)
   );
+  void op;
   fs.unlinkSync(log);
 }
 
-// ---------------------------------------------------------------------------
-// C6 Accountability (human + machine surfaces)
-// ---------------------------------------------------------------------------
 console.log("\nC6  Accountability");
 {
   const log = tmpLog();
-  const intent = toEvaluationIntent(createPrismSignal(loadExample("intent-pii-email.json")));
-  const d = evaluateIntent(intent, policy, { auditPath: log });
-  const op = resolveEscalation(
+  const d = ev("intent-pii-email.json", log);
+  resolveEscalation(
     d,
     { operator_id: "human.ops.alex", outcome: "APPROVE" },
     { auditPath: log }
   );
   recordExecution(
-    {
-      decision: d,
-      operator_action: op,
-      executor_id: "runtime.mailer",
-      status: "EXECUTED"
-    },
+    { receipt_id: d.receipt_id, executor_id: "runtime.mailer", status: "EXECUTED" },
     { auditPath: log }
   );
   const chain = buildChain(readAudit(log), d.receipt_id);
@@ -303,16 +278,10 @@ console.log("\nC6  Accountability");
     report.parties_involved.machine.length >= 1,
     JSON.stringify(report.parties_involved.machine)
   );
-  check(
-    "findings non-empty",
-    Array.isArray(report.findings) && report.findings.length > 0
-  );
+  check("findings non-empty", Array.isArray(report.findings) && report.findings.length > 0);
   fs.unlinkSync(log);
 }
 
-// ---------------------------------------------------------------------------
-// C7 Evaluation request validation
-// ---------------------------------------------------------------------------
 console.log("\nC7  Evaluation request shape");
 {
   const ok = validateEvaluationRequest({
@@ -326,9 +295,6 @@ console.log("\nC7  Evaluation request shape");
   check("incomplete request fails", !bad.ok);
 }
 
-// ---------------------------------------------------------------------------
-// Summary
-// ---------------------------------------------------------------------------
 console.log(`\n${"─".repeat(48)}`);
 console.log(`Conformance: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

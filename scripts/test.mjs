@@ -29,9 +29,16 @@ function tmpLog() {
   return path.join(os.tmpdir(), `glass-audit-${Date.now()}-${Math.random().toString(16).slice(2)}.jsonl`);
 }
 
-console.log("Glass MVP tests\n");
+function loadExample(name) {
+  return toEvaluationIntent(
+    createPrismSignal(
+      JSON.parse(fs.readFileSync(path.join(root, "examples", name), "utf8"))
+    )
+  );
+}
 
-// --- Prism ---
+console.log("Glass MVP tests (air-gapped)\n");
+
 {
   console.log("prism");
   const signal = createPrismSignal({
@@ -48,46 +55,36 @@ console.log("Glass MVP tests\n");
   assert(intent.actor === "agent.x", "evaluation intent actor");
 }
 
-// --- Safe allow ---
 {
   console.log("evaluate allow");
   const log = tmpLog();
-  const intent = toEvaluationIntent(
-    createPrismSignal(JSON.parse(fs.readFileSync(path.join(root, "examples/intent-safe.json"), "utf8")))
-  );
-  const d = evaluateIntent(intent, policy, { auditPath: log });
+  const d = evaluateIntent(loadExample("intent-safe.json"), policy, { auditPath: log });
   assert(d.decision === "ALLOW", "safe intent ALLOW");
   assert(d.authorization_status === "AUTHORIZED", "auto authorized");
   assert(d.parties.declarer.type === "machine", "machine declarer");
   assert(d.parties.evaluator.type === "machine", "machine evaluator");
   assert(d.standard === "TL-PX", "TL-PX standard stamp");
   const exec = recordExecution(
-    {
-      decision: d,
-      executor_id: "runtime.worker",
-      status: "EXECUTED",
-      result_summary: "summary ok"
-    },
+    { receipt_id: d.receipt_id, executor_id: "runtime.worker", status: "EXECUTED", result_summary: "summary ok" },
     { auditPath: log }
   );
   assert(exec.status === "EXECUTED", "safe path executed");
   fs.unlinkSync(log);
 }
 
-// --- PII escalate + human approve + execute ---
 {
   console.log("evaluate escalate + human approve");
   const log = tmpLog();
-  const intent = toEvaluationIntent(
-    createPrismSignal(JSON.parse(fs.readFileSync(path.join(root, "examples/intent-pii-email.json"), "utf8")))
-  );
-  const d = evaluateIntent(intent, policy, { auditPath: log });
+  const d = evaluateIntent(loadExample("intent-pii-email.json"), policy, { auditPath: log });
   assert(d.decision === "REQUIRE_APPROVAL", "PII email requires approval");
   assert(d.policy_id === "rule_pii_email", "matched pii rule");
 
   let threw = false;
   try {
-    recordExecution({ decision: d, executor_id: "runtime", status: "EXECUTED" }, { auditPath: log });
+    recordExecution(
+      { receipt_id: d.receipt_id, executor_id: "runtime", status: "EXECUTED" },
+      { auditPath: log }
+    );
   } catch {
     threw = true;
   }
@@ -102,15 +99,11 @@ console.log("Glass MVP tests\n");
   assert(op.parties.authorizer.type === "human", "authorizer is human");
 
   const exec = recordExecution(
-    {
-      decision: d,
-      operator_action: op,
-      executor_id: "runtime.mailer",
-      status: "EXECUTED"
-    },
+    { receipt_id: d.receipt_id, executor_id: "runtime.mailer", status: "EXECUTED" },
     { auditPath: log }
   );
   assert(exec.parties.authorizer.id === "human.ops.alex", "chain keeps human authorizer");
+  assert(exec.authorization_source === "human_approve", "auth source human_approve");
 
   const chain = buildChain(readAudit(log), d.receipt_id);
   assert(chain.length === 3, "chain has decision+operator+execution");
@@ -122,54 +115,34 @@ console.log("Glass MVP tests\n");
   });
   assert(report.parties_involved.human.includes("human.ops.alex"), "human on accountability report");
   assert(report.parties_involved.machine.length >= 1, "machine parties present");
-  assert(
-    report.findings.some((f) => f.code === "ACCOUNTABILITY_SURFACE_HUMAN"),
-    "human accountability surface"
-  );
-  assert(
-    report.findings.some((f) => f.code === "ACCOUNTABILITY_SURFACE_DECLARER"),
-    "declarer accountability surface"
-  );
+  assert(report.findings.some((f) => f.code === "ACCOUNTABILITY_SURFACE_HUMAN"), "human accountability surface");
+  assert(report.findings.some((f) => f.code === "ACCOUNTABILITY_SURFACE_DECLARER"), "declarer accountability surface");
   fs.unlinkSync(log);
 }
 
-// --- Human reject blocks execute ---
 {
   console.log("human reject");
   const log = tmpLog();
-  const intent = toEvaluationIntent(
-    createPrismSignal(JSON.parse(fs.readFileSync(path.join(root, "examples/intent-funds.json"), "utf8")))
-  );
-  const d = evaluateIntent(intent, policy, { auditPath: log });
-  const op = resolveEscalation(
+  const d = evaluateIntent(loadExample("intent-funds.json"), policy, { auditPath: log });
+  resolveEscalation(
     d,
     { operator_id: "human.finance.sam", outcome: "REJECT", note: "Wrong vendor" },
     { auditPath: log }
   );
-  assert(op.authorization_status === "DENIED", "rejected is denied");
   const blocked = recordExecution(
-    {
-      decision: d,
-      operator_action: op,
-      executor_id: "runtime.payments",
-      status: "BLOCKED"
-    },
+    { receipt_id: d.receipt_id, executor_id: "runtime.payments", status: "BLOCKED" },
     { auditPath: log }
   );
   assert(blocked.status === "BLOCKED", "blocked execution recorded");
   fs.unlinkSync(log);
 }
 
-// --- Intent/execution mismatch finding ---
 {
   console.log("mismatch finding");
   const log = tmpLog();
-  const intent = toEvaluationIntent(
-    createPrismSignal(JSON.parse(fs.readFileSync(path.join(root, "examples/intent-safe.json"), "utf8")))
-  );
-  const d = evaluateIntent(intent, policy, { auditPath: log });
+  const d = evaluateIntent(loadExample("intent-safe.json"), policy, { auditPath: log });
   recordExecution(
-    { decision: d, executor_id: "runtime", status: "EXECUTED" },
+    { receipt_id: d.receipt_id, executor_id: "runtime", status: "EXECUTED" },
     { auditPath: log }
   );
   const chain = buildChain(readAudit(log), d.receipt_id);
@@ -183,6 +156,17 @@ console.log("Glass MVP tests\n");
     "detects declared vs observed mismatch"
   );
   fs.unlinkSync(log);
+}
+
+{
+  console.log("audit required");
+  let threw = false;
+  try {
+    evaluateIntent(loadExample("intent-safe.json"), policy);
+  } catch (e) {
+    threw = e.message.includes("auditPath required");
+  }
+  assert(threw, "evaluate without auditPath throws");
 }
 
 console.log(`\nAll tests passed (${passed} assertions).`);

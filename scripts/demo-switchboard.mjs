@@ -15,11 +15,15 @@ import fs from "node:fs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policy = readPolicyFile(path.join(root, "config", "policy.yaml"));
 const sb = loadSwitchboard(path.join(root, "config", "switchboard.json"));
+const logPath = path.join(root, "var", "demo-switchboard-audit.jsonl");
+fs.mkdirSync(path.dirname(logPath), { recursive: true });
+if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
 
 function run(label, file) {
   const raw = JSON.parse(fs.readFileSync(path.join(root, "examples", file), "utf8"));
   const d = evaluateIntent(toEvaluationIntent(createPrismSignal(raw)), policy, {
-    switchboard: sb
+    switchboard: sb,
+    auditPath: logPath
   });
   console.log(`\n▸ ${label}`);
   console.log(
@@ -52,4 +56,5 @@ run("Low credibility finance (0.35) → finance route", "intent-funds.json");
 run("Unknown agent → DENY", "intent-unknown-agent.json");
 run("Not whitelisted → DENY", "intent-not-whitelisted.json");
 
-console.log("\nDone. Config: config/switchboard.json");
+console.log(`\nDone. Config: config/switchboard.json`);
+console.log(`Audit: ${logPath}`);

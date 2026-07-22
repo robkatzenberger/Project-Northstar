@@ -47,7 +47,7 @@ show("Glass decision", {
 });
 const safeExec = recordExecution(
   {
-    decision: safeDecision,
+    receipt_id: safeDecision.receipt_id,
     executor_id: "runtime.docs",
     status: "EXECUTED",
     result_summary: "Report summarized"
@@ -88,8 +88,7 @@ show("Human operator action", {
 
 recordExecution(
   {
-    decision: emailDecision,
-    operator_action: approval,
+    receipt_id: emailDecision.receipt_id,
     executor_id: "runtime.mailer",
     status: "EXECUTED",
     result_summary: "Email sent"
@@ -134,8 +133,7 @@ const rejection = resolveEscalation(
 );
 const blocked = recordExecution(
   {
-    decision: fundsDecision,
-    operator_action: rejection,
+    receipt_id: fundsDecision.receipt_id,
     executor_id: "runtime.payments",
     status: "BLOCKED",
     result_summary: "Transfer not sent"
