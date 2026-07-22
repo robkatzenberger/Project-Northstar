@@ -14,6 +14,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 | Audience | Read first |
 | --- | --- |
+| **Share with anyone (plain language)** | **[SHARE.md](./SHARE.md)** — human-readable overview + diagrams |
 | New to the project | [Getting Started](./getting-started.md) |
 | Want the big idea | [Vision](./vision.md) · [Concepts](./concepts.md) |
 | Implementers / integrators | [Architecture](./architecture.md) · [API Reference](./api-reference.md) · [Integration Guide](./integration.md) |

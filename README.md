@@ -15,10 +15,13 @@
 
 ## Documentation suite
 
-**Start here → [`docs/README.md`](docs/README.md)**
+**Start here → [`docs/README.md`](docs/README.md)**  
+
+**Shareable plain-language overview → [`docs/SHARE.md`](docs/SHARE.md)** (diagrams included)
 
 | Guide | Description |
 | --- | --- |
+| [**SHARE.md** — simple overview](docs/SHARE.md) | Human-readable story + Mermaid diagrams |
 | [Getting Started](docs/getting-started.md) | Install, first evaluate, demos |
 | [Concepts](docs/concepts.md) | Mental model |
 | [Architecture](docs/architecture.md) | Layers and modules |
