@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.1/evaluation-request.schema.json",
+  "title": "TL-PX 0.1 Evaluation Request",
+  "type": "object",
+  "required": ["intent_id", "actor", "actor_type", "declared_intent"],
+  "properties": {
+    "intent_id": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "actor_type": { "enum": ["human", "machine"] },
+    "declared_intent": { "type": "string", "minLength": 1 },
+    "action": { "type": ["string", "null"] },
+    "target": { "type": ["string", "null"] },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "data_classes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "timestamp": {},
+    "prism_id": { "type": ["string", "null"] },
+    "prism_version": { "type": ["string", "null"] },
+    "context": { "type": "object" }
+  }
+}

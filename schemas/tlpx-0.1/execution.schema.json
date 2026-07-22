@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.1/execution.schema.json",
+  "title": "TL-PX 0.1 Execution Record",
+  "type": "object",
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "executed_at",
+    "status",
+    "executor",
+    "authorization_status"
+  ],
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "enum": ["tlpx.execution", "glass.execution"]
+    },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.1.0" },
+    "receipt_id": { "type": "string" },
+    "linked_receipt_id": { "type": "string" },
+    "executed_at": { "type": "string" },
+    "status": { "enum": ["EXECUTED", "BLOCKED", "FAILED"] },
+    "executor": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["human", "machine"] }
+      }
+    },
+    "authorization_status": {
+      "enum": ["AUTHORIZED", "PENDING_HUMAN_APPROVAL", "DENIED"]
+    },
+    "result_summary": { "type": ["string", "null"] },
+    "error": { "type": ["string", "null"] }
+  }
+}

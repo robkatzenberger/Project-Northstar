@@ -1,20 +1,31 @@
 {
-  "name": "northstar-glass",
+  "name": "tlpx-reference",
   "version": "0.1.0",
   "private": true,
-  "description": "Glass MVP — human + machine trust layer (local reference)",
+  "description": "TL-PX 0.1 Minimum Profile — Trust Layer pre-execution standard, conformance suite, and reference implementation",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "bin": {
-    "glass": "./bin/glass.mjs"
+    "glass": "./bin/glass.mjs",
+    "tlpx": "./bin/glass.mjs"
   },
   "scripts": {
     "test": "node scripts/test.mjs",
+    "conformance": "node scripts/conformance.mjs",
     "demo": "node scripts/demo.mjs",
     "evaluate": "node bin/glass.mjs evaluate",
     "incident": "node bin/glass.mjs incident"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "keywords": [
+    "trust-layer",
+    "tl-px",
+    "pre-execution",
+    "ai-governance",
+    "apex",
+    "prism",
+    "accountability"
+  ]
 }

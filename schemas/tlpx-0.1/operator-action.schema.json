@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.1/operator-action.schema.json",
+  "title": "TL-PX 0.1 Operator Action Record",
+  "type": "object",
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "acted_at",
+    "operator",
+    "outcome",
+    "authorization_status"
+  ],
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "enum": ["tlpx.operator_action", "glass.operator_action"]
+    },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.1.0" },
+    "receipt_id": { "type": "string" },
+    "linked_receipt_id": { "type": "string" },
+    "acted_at": { "type": "string" },
+    "operator": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "human" }
+      }
+    },
+    "outcome": { "enum": ["APPROVE", "REJECT"] },
+    "authorization_status": { "enum": ["AUTHORIZED", "DENIED"] },
+    "note": { "type": ["string", "null"] }
+  }
+}

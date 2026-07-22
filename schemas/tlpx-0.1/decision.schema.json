@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.1/decision.schema.json",
+  "title": "TL-PX 0.1 Decision Record",
+  "type": "object",
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "receipt_id",
+    "evaluated_at",
+    "control_mode",
+    "decision",
+    "reason",
+    "policy_id",
+    "authorization_status",
+    "parties",
+    "original_intent"
+  ],
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "enum": ["tlpx.decision", "glass.decision"]
+    },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.1.0" },
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "evaluated_at": { "type": "string", "minLength": 1 },
+    "control_mode": { "const": "ALLOW_OR_ESCALATE" },
+    "decision": { "enum": ["ALLOW", "REQUIRE_APPROVAL"] },
+    "reason": { "type": "string" },
+    "policy_id": { "type": ["string", "null"] },
+    "authorization_status": {
+      "enum": ["AUTHORIZED", "PENDING_HUMAN_APPROVAL", "DENIED"]
+    },
+    "parties": {
+      "type": "object",
+      "required": ["declarer", "evaluator"],
+      "properties": {
+        "declarer": { "$ref": "#/$defs/party" },
+        "evaluator": { "$ref": "#/$defs/party" },
+        "authorizer": {
+          "anyOf": [{ "$ref": "#/$defs/party" }, { "type": "null" }]
+        }
+      }
+    },
+    "original_intent": { "type": "object" },
+    "reward_signal": {
+      "type": "string",
+      "enum": ["TRANSPARENCY_REWARDED", "AUTO_ALLOW"]
+    }
+  },
+  "$defs": {
+    "party": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["human", "machine"] }
+      }
+    }
+  }
+}

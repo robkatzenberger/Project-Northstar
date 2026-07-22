@@ -89,15 +89,22 @@ function loadIntent(filePath) {
 function findDecision(auditPath, receiptId) {
   const records = readAudit(auditPath);
   const decision = records.find(
-    (r) => r.record_type === "glass.decision" && r.receipt_id === receiptId
+    (r) =>
+      (r.record_type === "tlpx.decision" || r.record_type === "glass.decision") &&
+      r.receipt_id === receiptId
   );
-  if (!decision) die(`No glass.decision for receipt_id=${receiptId}`);
+  if (!decision) die(`No tlpx.decision for receipt_id=${receiptId}`);
   return { records, decision };
 }
 
 function findLatestOperator(records, receiptId) {
   return records
-    .filter((r) => r.record_type === "glass.operator_action" && r.receipt_id === receiptId)
+    .filter(
+      (r) =>
+        (r.record_type === "tlpx.operator_action" ||
+          r.record_type === "glass.operator_action") &&
+        r.receipt_id === receiptId
+    )
     .at(-1);
 }
 

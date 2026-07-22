@@ -28,18 +28,12 @@ export function findByReceiptId(records, receiptId) {
   return records.filter((r) => r.receipt_id === receiptId || r.linked_receipt_id === receiptId);
 }
 
-export function chainForReceipt(records, receiptId) {
-  const chain = records.filter(
-    (r) =>
-      r.receipt_id === receiptId ||
-      r.linked_receipt_id === receiptId ||
-      (r.original_intent && r.original_intent.intent_id && records.some(
-        (x) => x.receipt_id === receiptId && x.original_intent?.intent_id === r.original_intent?.intent_id
-      ))
-  );
+function isDecisionType(t) {
+  return t === "tlpx.decision" || t === "glass.decision";
+}
 
-  // Prefer explicit linkage via receipt_id / linked_receipt_id
-  const primary = records.find((r) => r.record_type === "glass.decision" && r.receipt_id === receiptId);
+export function chainForReceipt(records, receiptId) {
+  const primary = records.find((r) => isDecisionType(r.record_type) && r.receipt_id === receiptId);
   if (!primary) {
     return records.filter((r) => r.receipt_id === receiptId || r.linked_receipt_id === receiptId);
   }

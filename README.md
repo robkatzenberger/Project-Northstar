@@ -1,10 +1,14 @@
-# Northstar — Glass MVP (local)
+# Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
-**Codename:** `northstar`  
-**Product:** **Glass** — human + machine trust layer  
-**Status:** runnable local MVP for critique (not on GitHub)
+**Codename:** Northstar  
+**What this is:** An **open minimum standard** + **conforming reference implementation** for human + machine trust checkpoints *before* execution.
 
-Intent is declared **before** execution. When something goes wrong, an append-only audit trail shows **who declared**, **what Glass decided**, **who approved**, and **who executed** — for humans and machines.
+APEX-Lite was the playable concept. **TL-PX** is the hardened minimum you can implement against, test with a conformance suite, and wire into real applications.
+
+> Intent is declared before action. Decisions are deterministic. Humans and machines are both accountable on the audit trail.
+
+**Local only for now** — no GitHub remote until you say so.  
+**License:** Apache-2.0 (prepared for open release).
 
 ---
 
@@ -13,76 +17,109 @@ Intent is declared **before** execution. When something goes wrong, an append-on
 ```bash
 cd ~/projects/northstar
 
-npm test          # 23 assertions
-npm run demo      # 3 scenarios → var/demo-audit.jsonl
+npm run conformance   # TL-PX 0.1 Minimum Profile pass/fail
+npm test              # unit/integration suite
+npm run demo          # three real-world-shaped scenarios
 ```
 
 ```bash
-# evaluate → approve → execute → incident
 node bin/glass.mjs evaluate examples/intent-pii-email.json config/policy.yaml --log var/audit.jsonl
-node bin/glass.mjs approve <receipt_id> --operator human.ops.alex --log var/audit.jsonl
-node bin/glass.mjs execute <receipt_id> --executor runtime.mailer --status EXECUTED --log var/audit.jsonl
-node bin/glass.mjs incident <receipt_id> --log var/audit.jsonl --why "Wrong attachment sent"
-node bin/glass.mjs chain <receipt_id> --log var/audit.jsonl
+node bin/glass.mjs approve  <receipt_id> --operator human.ops.alex --log var/audit.jsonl
+node bin/glass.mjs execute  <receipt_id> --executor runtime.mailer --status EXECUTED --log var/audit.jsonl
+node bin/glass.mjs incident <receipt_id> --log var/audit.jsonl --why "What went wrong"
+node bin/glass.mjs chain    <receipt_id> --log var/audit.jsonl
 ```
 
-Zero npm dependencies. Node 18+.
+Zero runtime npm dependencies. Node 18+.
 
 ---
 
-## Trust chain
+## Open-source layers (recommended)
 
-```text
-DECLARER (human|machine)  →  Prism signal
-EVALUATOR (glass/machine) →  ALLOW | REQUIRE_APPROVAL
-AUTHORIZER (human, if escalated) → APPROVE | REJECT
-EXECUTOR (human|machine)  →  EXECUTED | BLOCKED | FAILED
-AUDIT → optional INCIDENT → accountability report
-```
-
----
-
-## Layout
-
-```text
-bin/glass.mjs              CLI
-src/prism.mjs              Intent signal
-src/policy.mjs             Deterministic rules (APEX-Lite compatible)
-src/glass.mjs              Decide / authorize / execute records
-src/audit.mjs              JSONL append + read
-src/accountability.mjs     Human + machine evidence graph
-config/policy.yaml         Demo policy pack
-examples/                  Intent fixtures
-scripts/test.mjs           Tests
-scripts/demo.mjs           Narrative demo
-docs/MVP.md                Full handoff brief
-docs/vision.md             Product thesis
-docs/architecture.md       Layering notes
-AGENTS.md                  Collaboration rules
-```
-
----
-
-## Ecosystem map
-
-| Layer | Role | Reference |
+| Layer | Open? | Role |
 | --- | --- | --- |
-| **Prism** | Metadata-only intent signal | [prism-protocol](https://github.com/Trust-Layer-AI/prism-protocol) |
-| **APEX-Lite** | OSS minimal gate | `~/APEX-Lite`, [Trust-Engine](https://github.com/Trust-Layer-AI/Trust-Engine) |
-| **Glass** | Product trust layer (this repo) | `~/projects/northstar` |
-| Site | Public story | [Trust Layer AI](https://trust-layer-ai.github.io/Trust-Layer-AI/) |
+| **Prism** | Yes (existing) | Metadata-only intent signal |
+| **TL-PX Minimum** | Yes (this) | Spec + schemas + conformance + reference gate |
+| **APEX-Lite** | Yes (existing) | Early concept playground |
+| **Glass enterprise** | Your call | Tokens, multi-tenant, ops UI, advanced policy — *extends* TL-PX |
+
+“Open to an extent” = ship a **minimum everyone can implement**, keep differentiated enterprise value optional on top.
 
 ---
 
-## Read next
+## Standard documents
 
-1. **[docs/MVP.md](docs/MVP.md)** — what we built, scope, patent-research notes, open questions  
-2. Run **`npm run demo`** and read the accountability findings  
-3. Upload your additional docs when ready so we can refine against the real framework
+| Path | Contents |
+| --- | --- |
+| [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Normative MUST/SHOULD minimum profile |
+| [`docs/standard/README.md`](docs/standard/README.md) | Standard overview |
+| [`schemas/tlpx-0.1/`](schemas/tlpx-0.1/) | JSON Schema for records |
+| `npm run conformance` | Automated conformance suite |
+
+### Minimum contract (one screen)
+
+```text
+Evaluation Request
+  → Decision Record   ALLOW | REQUIRE_APPROVAL
+  → Operator Action   APPROVE | REJECT   (when escalated)
+  → Execution Record  EXECUTED | BLOCKED | FAILED
+  → Audit chain + optional Accountability Report
+
+Parties on the chain: declarer | evaluator | authorizer | executor
+Each party: { id, type: human|machine }
+```
+
+**Hard rule for conforming executors:** never emit `EXECUTED` unless authorization is `AUTHORIZED`.
 
 ---
 
-## License / remote
+## For real-world adopters
 
-- Code is **local-only**, `UNLICENSED` until you decide.  
-- **No GitHub remote** by design. Public Apache-2.0 refs are separate projects.
+Integrate as an **admission controller** for agent tools / sensitive actions:
+
+1. Build an Evaluation Request from the pending action.  
+2. Call `evaluate` (or your TL-PX-conforming service).  
+3. If `PENDING_HUMAN_APPROVAL`, route to your ops queue.  
+4. Only perform the side effect when `AUTHORIZED`.  
+5. Append an Execution Record (success, block, or failure).  
+6. On incidents, run accountability over the receipt chain.
+
+Alternate languages should: implement the **spec**, emit the **record shapes**, and port the **conformance fixtures** — not necessarily this JS runtime.
+
+---
+
+## Repository layout
+
+```text
+docs/standard/     TL-PX specification
+schemas/tlpx-0.1/  JSON schemas
+src/               Reference implementation
+bin/glass.mjs      CLI
+config/policy.yaml Demo policy pack
+examples/          Fixtures for humans + machines
+scripts/
+  conformance.mjs  Standard pass/fail
+  test.mjs         Extra tests
+  demo.mjs         Narrative demo
+```
+
+---
+
+## Related
+
+- Site: https://trust-layer-ai.github.io/Trust-Layer-AI/
+- Prism: https://github.com/Trust-Layer-AI/prism-protocol
+- APEX-Lite / Trust-Engine: https://github.com/Trust-Layer-AI/Trust-Engine
+- Local early reference: `~/APEX-Lite`
+
+---
+
+## Status
+
+- [x] Minimum Profile draft (v0.1)
+- [x] Schemas + validators
+- [x] Conformance suite
+- [x] Reference implementation (local)
+- [ ] Public repo release (when you choose)
+- [ ] Language SDKs / HTTP profile
+- [ ] Signed authorization extension profile

@@ -6,26 +6,36 @@
  * for post-incident review.
  */
 
-import { chainForReceipt, readAudit } from "./audit.mjs";
+import { chainForReceipt, readAudit, appendAudit } from "./audit.mjs";
 import { nowIso, uuid } from "./ids.mjs";
-import { appendAudit } from "./audit.mjs";
+import { standardStamp } from "./standard.mjs";
 
 /**
  * Build a chronological chain for a receipt.
  */
+function typeRank(t) {
+  const order = {
+    "tlpx.decision": 1,
+    "glass.decision": 1,
+    "tlpx.operator_action": 2,
+    "glass.operator_action": 2,
+    "tlpx.execution": 3,
+    "glass.execution": 3,
+    "tlpx.incident": 4,
+    "glass.incident": 4,
+    "tlpx.accountability_report": 5,
+    "glass.accountability_report": 5
+  };
+  return order[t] || 9;
+}
+
 export function buildChain(auditRecords, receiptId) {
   const chain = chainForReceipt(auditRecords, receiptId);
-  const order = {
-    "glass.decision": 1,
-    "glass.operator_action": 2,
-    "glass.execution": 3,
-    "glass.incident": 4
-  };
   return [...chain].sort((a, b) => {
     const ta = a.evaluated_at || a.acted_at || a.executed_at || a.recorded_at || "";
     const tb = b.evaluated_at || b.acted_at || b.executed_at || b.recorded_at || "";
     if (ta !== tb) return ta < tb ? -1 : 1;
-    return (order[a.record_type] || 9) - (order[b.record_type] || 9);
+    return typeRank(a.record_type) - typeRank(b.record_type);
   });
 }
 
@@ -35,10 +45,19 @@ export function buildChain(auditRecords, receiptId) {
  * @param {object[]} chain
  * @param {{ what_went_wrong?: string, observed_action?: string, severity?: string }} [incident]
  */
+function isType(r, kind) {
+  const map = {
+    decision: ["tlpx.decision", "glass.decision"],
+    operator_action: ["tlpx.operator_action", "glass.operator_action"],
+    execution: ["tlpx.execution", "glass.execution"]
+  };
+  return map[kind]?.includes(r.record_type);
+}
+
 export function analyzeAccountability(chain, incident = {}) {
-  const decision = chain.find((r) => r.record_type === "glass.decision");
-  const operator = chain.filter((r) => r.record_type === "glass.operator_action").at(-1);
-  const execution = chain.filter((r) => r.record_type === "glass.execution").at(-1);
+  const decision = chain.find((r) => isType(r, "decision"));
+  const operator = chain.filter((r) => isType(r, "operator_action")).at(-1);
+  const execution = chain.filter((r) => isType(r, "execution")).at(-1);
 
   /** @type {object[]} */
   const findings = [];
@@ -240,7 +259,8 @@ function summarize(findings, decision, operator, execution, incident) {
   }
 
   return {
-    record_type: "glass.accountability_report",
+    record_type: "tlpx.accountability_report",
+    ...standardStamp(),
     report_id: uuid(),
     generated_at: nowIso(),
     receipt_id: decision?.receipt_id || null,
@@ -277,7 +297,8 @@ export function reportFromAuditFile(auditPath, receiptId, incident = {}, opts = 
 
   if (opts.persist) {
     const incidentRecord = {
-      record_type: "glass.incident",
+      record_type: "tlpx.incident",
+      ...standardStamp(),
       incident_id: uuid(),
       linked_receipt_id: receiptId,
       receipt_id: receiptId,

@@ -1,13 +1,21 @@
 /**
- * Glass core: evaluate declared intent against policy, emit decision receipt.
+ * TL-PX / Glass core: evaluate declared intent against policy, emit decision receipt.
+ * Reference implementation of Trust Layer Pre-Execution Minimum Standard 0.1.
  */
 
 import { receiptId, nowIso, uuid } from "./ids.mjs";
 import { evaluateRules } from "./policy.mjs";
 import { appendAudit } from "./audit.mjs";
+import {
+  STANDARD_ID,
+  STANDARD_VERSION,
+  CONTROL_MODE,
+  standardStamp
+} from "./standard.mjs";
+import { validateEvaluationRequest } from "./validate.mjs";
 
 export const GLASS_VERSION = "0.1.0";
-export const CONTROL_MODE = "ALLOW_OR_ESCALATE";
+export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION };
 
 /**
  * @param {object} intent - evaluation intent (from toEvaluationIntent or raw)
@@ -35,12 +43,19 @@ export function evaluateIntent(intent, policy, opts = {}) {
     timestamp: intent.timestamp || nowIso()
   };
 
+  const reqCheck = validateEvaluationRequest(normalized);
+  if (!reqCheck.ok) {
+    throw new Error(`evaluateIntent: invalid request: ${reqCheck.errors.join("; ")}`);
+  }
+
   const outcome = evaluateRules(normalized, policy);
   const evaluatedAt = nowIso();
   const rid = receiptId(normalized.intent_id, new Date(evaluatedAt));
 
   const decision = {
-    record_type: "glass.decision",
+    record_type: "tlpx.decision",
+    ...standardStamp(),
+    // Product alias for readability in Glass-branded deployments
     glass_version: GLASS_VERSION,
     control_mode: CONTROL_MODE,
     blocking: outcome.decision === "REQUIRE_APPROVAL",
@@ -51,14 +66,13 @@ export function evaluateIntent(intent, policy, opts = {}) {
     policy_id: outcome.policy_id,
     policy_pack_id: policy.policy_pack_id || "default",
     reward_signal: outcome.decision === "REQUIRE_APPROVAL" ? "TRANSPARENCY_REWARDED" : "AUTO_ALLOW",
-    // Accountability anchors
     parties: {
       declarer: {
         id: normalized.actor,
         type: normalized.actor_type
       },
       evaluator: {
-        id: "glass",
+        id: "tlpx-reference",
         type: "machine"
       },
       authorizer: null
@@ -80,8 +94,11 @@ export function evaluateIntent(intent, policy, opts = {}) {
  * @param {"APPROVE"|"REJECT"} outcome
  */
 export function resolveEscalation(decision, { operator_id, outcome, note } = {}, opts = {}) {
-  if (!decision || decision.record_type !== "glass.decision") {
-    throw new Error("resolveEscalation: glass.decision required");
+  const isDecision =
+    decision &&
+    (decision.record_type === "tlpx.decision" || decision.record_type === "glass.decision");
+  if (!isDecision) {
+    throw new Error("resolveEscalation: tlpx.decision (or glass.decision) required");
   }
   if (decision.decision !== "REQUIRE_APPROVAL") {
     throw new Error("resolveEscalation: only REQUIRE_APPROVAL decisions can be resolved");
@@ -94,7 +111,8 @@ export function resolveEscalation(decision, { operator_id, outcome, note } = {},
   }
 
   const record = {
-    record_type: "glass.operator_action",
+    record_type: "tlpx.operator_action",
+    ...standardStamp(),
     glass_version: GLASS_VERSION,
     action_id: uuid(),
     linked_receipt_id: decision.receipt_id,
@@ -107,7 +125,6 @@ export function resolveEscalation(decision, { operator_id, outcome, note } = {},
     outcome,
     note: note || null,
     original_intent: decision.original_intent,
-    // Dual accountability: human now on the authorization chain
     parties: {
       declarer: decision.parties.declarer,
       evaluator: decision.parties.evaluator,
@@ -161,7 +178,8 @@ export function recordExecution(
   }
 
   const record = {
-    record_type: "glass.execution",
+    record_type: "tlpx.execution",
+    ...standardStamp(),
     glass_version: GLASS_VERSION,
     execution_id: uuid(),
     linked_receipt_id: decision.receipt_id,

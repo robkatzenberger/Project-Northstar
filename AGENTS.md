@@ -1,16 +1,21 @@
-# AGENTS.md — Northstar (Glass)
+# AGENTS.md — Northstar / TL-PX
 
 Instructions for AI coding agents and collaborators working in this repo.
 
 ## What this project is
 
-**Northstar** is the product workspace for **Glass**: the Trust Layer enterprise gate.
+**Northstar** hosts the **Trust Layer Pre-Execution Minimum Standard (TL-PX)** plus a conforming reference implementation.
 
-- **Prism** = open intent signal (upstream protocol; do not redefine casually)
-- **APEX-Lite / Trust-Engine** = open-source minimal reference boundary
-- **Glass** = productized verification & enforcement layer we build here
+Open-source intent: a **minimum standard** people can implement, test (conformance), and run in real apps — not only a concept demo (that was APEX-Lite).
+
+- **Prism** = open intent signal (upstream; do not redefine casually)
+- **TL-PX** = minimum standard (spec + schemas + conformance) — primary artifact here
+- **APEX-Lite / Trust-Engine** = early playable references
+- **Glass** = enterprise product profile that **extends** TL-PX
 
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
+
+Normative doc: `docs/standard/SPEC-v0.1.md`
 
 ## Non-negotiables
 
@@ -40,10 +45,13 @@ Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 ```bash
 cd ~/projects/northstar
-npm test              # deterministic suite
+npm run conformance   # TL-PX 0.1 pass/fail (required for standard changes)
+npm test              # extra suite
 npm run demo          # 3 scenarios + accountability report
 node bin/glass.mjs help
 ```
+
+When changing decision enums, party model, or record fields: **update SPEC + schemas + conformance together**.
 
 Local APEX-Lite reference (outside this repo):
 

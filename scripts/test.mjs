@@ -59,7 +59,8 @@ console.log("Glass MVP tests\n");
   assert(d.decision === "ALLOW", "safe intent ALLOW");
   assert(d.authorization_status === "AUTHORIZED", "auto authorized");
   assert(d.parties.declarer.type === "machine", "machine declarer");
-  assert(d.parties.evaluator.id === "glass", "glass evaluator");
+  assert(d.parties.evaluator.type === "machine", "machine evaluator");
+  assert(d.standard === "TL-PX", "TL-PX standard stamp");
   const exec = recordExecution(
     {
       decision: d,
