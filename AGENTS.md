@@ -15,7 +15,8 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
-Normative doc: `docs/standard/SPEC-v0.1.md`
+Normative doc: `docs/standard/SPEC-v0.1.md`  
+Full documentation hub: `docs/README.md`
 
 ## Non-negotiables
 

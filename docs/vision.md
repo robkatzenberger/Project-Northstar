@@ -1,72 +1,90 @@
-# Glass vision (Northstar)
+# Vision
 
 ## Problem
 
-AI agents can act faster than humans can supervise. Logs arrive after the damage. Sensitive systems (finance, health, infra, government) need **authorization before action**, and agent-to-agent workflows need a **shared neutral trust signal**.
+AI agents are moving from chat to **action**: tools, money movement, production systems, agent-to-agent workflows. Supervision that only looks at logs **after** execution is structurally late.
 
-## Solution
+Sensitive domains (finance, health, infrastructure, government, regulated industry) need:
 
-The Trust Layer puts a checkpoint between **intent** and **execution**:
+1. **Declared intent before action**  
+2. **Independent verification** (not only the model judging itself)  
+3. **Human escalation** where risk demands it  
+4. **Accountability** when something goes wrong — for **human error and machine error**
 
-1. **Prism** — agent emits a lightweight intent signal (metadata only).
-2. **Glass** — evaluates policy, identity, risk, and approval requirements.
-3. **Authorize or escalate** — then execute; always audit.
+## Solution thesis
 
-Glass is not another model. It is **trust, verification, and authorization infrastructure**.
+The missing layer is not another model. It is a **trust, verification, and authorization layer before execution**.
 
-## Product thesis
+```text
+Intent → Signal (Prism) → Verify (Switchboard + Glass) → Authorize → Execute → Audit
+```
 
-APEX-Lite proves the interlock: external, deterministic, inspectable.  
-**Glass productizes it** for enterprises that need:
+- **Prism** describes intent (metadata only).  
+- **Switchboard** identifies who is acting and whether they may act.  
+- **Glass / TL-PX** decides ALLOW / REQUIRE_APPROVAL (and DENY for access gates).  
+- **Humans** authorize escalations.  
+- **Executors** fail closed without AUTHORIZED.  
+- **Audit** preserves the evidence graph.
 
-- Operator identity and role-aware gates
-- Richer policy packs and environments (dev / staging / prod)
-- Human-in-the-loop queues that scale beyond a local console
-- Authorization tokens that downstream systems can verify
-- Revocation, emergency stop, multi-party / sentinel quorum (roadmap)
-- Durable, exportable audit suitable for compliance review
-- Deployable service form (not only CLI + local server)
+## Product layering (open to an extent)
+
+| Layer | Open? | Purpose |
+| --- | --- | --- |
+| Prism | Yes | Intent signal standard |
+| TL-PX Minimum | Yes (this repo) | Spec + conformance + reference gate |
+| APEX-Lite | Yes | Early playable concept |
+| Glass enterprise | Optional commercial | Tokens, multi-tenant ops, advanced packs |
+
+Ship a **minimum everyone can implement**; keep differentiated enterprise features as extensions that remain TL-PX-compatible where claimed.
+
+## Design principles
+
+1. **External boundary** — authority outside the model  
+2. **Determinism** — same intent + policy ⇒ same decision (modulo ids/timestamps)  
+3. **Air-gap capable** — local audit, no cloud required  
+4. **Switchboard first** — identity and access before policy nuance  
+5. **Transparency-rewarded escalation** — honest high-risk declaration is not punished by silent failure modes  
+6. **Dual accountability** — humans and machines both appear on the chain  
+7. **Honest scope** — do not claim universal containment of non-mediated processes  
 
 ## Target users
 
-| Persona | Job |
+| Persona | Job to be done |
 | --- | --- |
-| Platform / AI eng | Drop a gate in front of agent tool use |
+| Platform / AI engineer | Gate agent tool use before side effects |
 | Security / GRC | Policy packs, audit export, proof of authorization |
-| Operators | Approve / reject escalations with a clear receipt trail |
+| Operators | Approve/reject escalations with clear receipts |
 | Agent framework authors | Emit Prism; honor Glass decisions |
 
-## Use cases (from Trust Layer narrative)
+## Non-goals (near term)
 
-- Enterprise internal agents on production systems
-- Financial operations before money moves
-- Healthcare workflows with required HITL
-- Legal & compliance audit trails
-- DevOps automation (deploy, migrate, infra)
-- AI-to-AI transactions with a shared trust signal
-- Government / regulated industry oversight
-
-## Non-goals (for early Glass)
-
-- Replacing the LLM or doing “ethical reasoning” in-model
-- Becoming a general agent orchestrator
-- Storing prompts or chain-of-thought in the intent signal
-- Opaque ML-based allow/deny as the primary decision path
-- Capturing the open Prism standard under a single vendor (protocol stays open)
+- Replacing LLMs or “ethical reasoning” in weights  
+- General agent orchestration  
+- Storing prompts / CoT in the intent signal  
+- ML-based allow/deny as the primary gate  
+- Capturing the open Prism standard under a single vendor  
 
 ## Success metrics (draft)
 
-- Time-to-integrate: agent emits Prism → gets Glass decision in one HTTP round trip
-- Decision determinism: same intent + policy → same decision + stable reason codes
-- Audit completeness: every evaluation and operator outcome has a receipt line
-- Escalation quality: high-risk paths hit HITL; safe paths stay low-friction
+- Time-to-integrate: intent → decision in one local call  
+- Determinism of policy outcomes  
+- Audit completeness for evaluations and operator outcomes  
+- Escalation quality: high-risk paths hit HITL; safe paths stay low-friction  
+- Technical test #1 green on mediated executor paths  
+
+## Status snapshot
+
+- Spec draft v0.1  
+- Reference implementation with Switchboard + air-gap hardening  
+- Conformance + formal technical test #1 **passed**  
+- Local-only until public release is intentionally chosen  
 
 ## Open product questions
 
-1. Glass API contract: extend APEX-Lite receipts or version a new `glass.receipt`?
-2. AuthN for agents and operators (API keys, mTLS, OIDC)?
-3. Multi-tenant policy isolation model?
-4. Where signed authorization tokens live (JWT, custom MAC, offline verify)?
-5. Relationship to nonprofit standards body vs commercial Glass ops (per site “separation of powers”)?
+1. Receipt naming long-term: `tlpx.*` only vs dual Glass aliases  
+2. When to introduce hard policy `DENY` beyond Switchboard  
+3. Operator authentication standard  
+4. Signed authorization tokens profile  
+5. Governance split: standards nonprofit vs commercial Glass ops  
 
-Resolve these before large implementation surface area.
+See [Architecture](./architecture.md) and [SPEC-v0.1](./standard/SPEC-v0.1.md).

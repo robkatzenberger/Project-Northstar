@@ -17,6 +17,8 @@
     "conformance": "node scripts/conformance.mjs",
     "demo": "node scripts/demo.mjs",
     "demo:switchboard": "node scripts/demo-switchboard.mjs",
+    "tech-test": "node scripts/tech-test.mjs",
+    "redteam": "node scripts/adversarial-redteam.mjs",
     "evaluate": "node bin/glass.mjs evaluate",
     "incident": "node bin/glass.mjs incident"
   },

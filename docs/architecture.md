@@ -1,81 +1,139 @@
-# Glass architecture notes
+# Architecture
 
-Status: **planning**. No runtime code in this repo yet.
+## Overview
 
-## Layers
+Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions:
+
+- **Switchboard** — identity / whitelist / credibility / approval routing  
+- **Air-gapped audit chain** — authorization derived only from append-only JSONL  
+- **Fail-closed executor** — side effects only when AUTHORIZED  
+
+It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`) and pairs with **Prism** as an optional intent signal dialect.
+
+## Logical layers
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│  Agent / app / orchestrator                             │
-│  - forms action                                         │
-│  - emits Prism signal                                   │
-│  - waits for authorization                              │
-└───────────────────────────┬─────────────────────────────┘
-                            │ Prism intent (metadata only)
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│  Glass (Northstar product)                              │
-│  1. Ingest + validate signal                            │
-│  2. Identity / scope binding                            │
-│  3. Gates + policy evaluation (deterministic)           │
-│  4. Risk / approval routing                             │
-│  5. HITL queue (if required)                            │
-│  6. Issue auth decision (+ future signed token)         │
-│  7. Append audit / receipts                             │
-└───────────────────────────┬─────────────────────────────┘
-                            │ ALLOW | REQUIRE_APPROVAL | (future DENY?)
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│  Execution runtime                                      │
-│  - proceeds only with valid authorization               │
-│  - may re-check token / revocation                      │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Clients                                                     │
+│  CLI · library callers · future HTTP · optional harness hooks│
+└────────────────────────────┬─────────────────────────────────┘
+                             │ Evaluation Request
+┌────────────────────────────▼─────────────────────────────────┐
+│  Switchboard (src/switchboard.mjs)                           │
+│  lookup → whitelist → action scope → credibility → routes    │
+│  optional HARD DENY                                          │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ enriched intent (or DENY outcome)
+┌────────────────────────────▼─────────────────────────────────┐
+│  Policy engine (src/policy.mjs)                              │
+│  first-match deterministic rules                             │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ ALLOW | REQUIRE_APPROVAL
+┌────────────────────────────▼─────────────────────────────────┐
+│  Glass core (src/glass.mjs)                                  │
+│  decision / operator_action / execution records              │
+│  mandatory auditPath (air-gap)                               │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────┐
+│  Chain auth (src/chain.mjs) + Executor (src/executor.mjs)    │
+│  resolveAuthorizationFromAudit · executeAuthorized           │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────┐
+│  Audit JSONL (src/audit.mjs) + Accountability                │
+│  (src/accountability.mjs)                                    │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## Inheritance from APEX-Lite
+## Module map (`src/`)
 
-Carry forward unless we deliberately version a break:
+| Module | Responsibility |
+| --- | --- |
+| `prism.mjs` | Create Prism-compatible signals; map to evaluation intent |
+| `switchboard.mjs` | Principal registry, routing, hard gates, credibility helpers |
+| `policy.mjs` | Load/parse policy; evaluate conditions/rules |
+| `glass.mjs` | evaluateIntent, resolveEscalation, recordExecution |
+| `chain.mjs` | Audit-derived authorization; single-outcome guards |
+| `executor.mjs` | Fail-closed `executeAuthorized` |
+| `audit.mjs` | Append/read JSONL; chain filter |
+| `accountability.mjs` | Findings / dual human-machine report |
+| `validate.mjs` | Structural validators for TL-PX records |
+| `standard.mjs` | Standard id/version/record type constants |
+| `ids.mjs` | UUID, receipt id (time + entropy) |
+| `index.mjs` | Public exports |
 
-| Concept | APEX-Lite today | Glass direction |
-| --- | --- | --- |
-| Decision model | `ALLOW`, `REQUIRE_APPROVAL` | Same core; map escalation cleanly; DENY is an explicit product choice |
-| Control mode | `ALLOW_OR_ESCALATE` | Keep transparency-rewarded escalation as default philosophy |
-| Policy | Simple YAML rules + keyword gates | Policy packs, env scoping, stronger expression language later |
-| Receipt | `apex-lite.receipt` JSON | Stable, versioned receipt; possible `glass.receipt` with backward mapping |
-| Audit | Append-only JSONL | Same semantics; durable store + export for enterprise |
-| Console | Local operator UI | Product ops console / APIs |
-| Notifications | Optional SMS config | Pluggable notifiers |
+## CLI
 
-Local reference: `~/APEX-Lite`  
-Upstream OSS: https://github.com/Trust-Layer-AI/Trust-Engine
+`bin/glass.mjs` — operator and automation entrypoint. See [CLI Reference](./cli-reference.md).
 
-## Prism contract (do not invent casually)
+## Configuration surface
 
-v0.1 core fields (from Prism docs):
+| Artifact | Role |
+| --- | --- |
+| `config/policy.yaml` | Deterministic rules |
+| `config/switchboard.json` | Identity router |
+| `examples/*` | Fixtures |
+| `schemas/tlpx-0.1/*` | JSON Schema documents |
+| `var/*.jsonl` | Runtime audits (gitignored) |
 
-- `prism_id`
-- `timestamp`
-- `agent`
-- `intent_summary`
-- `prism_version` (e.g. `prism_v0.1`)
+## Data flow (sequence)
 
-Glass may accept **enriched evaluation intents** (risk, action, data_classes, etc.) as APEX-Lite does today, while remaining able to bind a pure Prism envelope. Document any required extension fields as **Glass request schema**, not as Prism core.
+```text
+1. Client builds intent (Prism or flat)
+2. evaluateIntent:
+   a. require auditPath
+   b. routeThroughSwitchboard (if enabled)
+   c. if switchboard.gate → DENY/escalate outcome
+   d. else evaluateRules(policy)
+   e. append tlpx.decision
+3. If REQUIRE_APPROVAL:
+   a. human resolveEscalation (once)
+   b. append tlpx.operator_action
+4. executeAuthorized:
+   a. resolveAuthorizationFromAudit
+   b. if not AUTHORIZED → record BLOCKED, return (no sideEffect)
+   c. else run sideEffect; record EXECUTED or FAILED
+5. Optional: incident / accountability report
+```
 
-Upstream: https://github.com/Trust-Layer-AI/prism-protocol
+## Decision ownership
 
-## Suggested first implementation slices (later)
+| Stage | Owner of outcome |
+| --- | --- |
+| Access / identity | Switchboard |
+| Intent vs policy rules | Policy engine |
+| Human judgment on escalate | Operator action |
+| Whether side effect runs | Executor + audit chain |
 
-1. **Contract pack** — JSON schemas for Glass evaluate request, decision, receipt.
-2. **Core evaluator port** — TypeScript (or shared) port of APEX-Lite evaluate path + fixtures.
-3. **HTTP service** — `POST /v1/evaluate`, `POST /v1/operator-action`, `GET /v1/audit`.
-4. **Prism adapter** — map pure Prism v0.1 → Glass evaluation intent.
-5. **Ops MVP** — queue + single-operator resolution + audit export.
+## Relationship to public Trust Layer story
 
-Do not start slice 2+ until slice 1 (or an agreed subset) is written down.
+| Public name | This repo |
+| --- | --- |
+| Prism | `prism.mjs` + examples |
+| Glass | product framing + gate implementation |
+| APEX-Lite | policy semantics + early lineage |
+| Separation of powers (standards vs ops) | Spec in `docs/standard/`; commercial Glass may extend |
 
-## Explicit out of scope for v0 code
+## Non-goals in architecture
 
-- Cryptographic token issuance (design first)
-- Multi-region HA
-- Full RBAC admin product
-- Model-based risk scoring as primary gate
+- Multi-region HA  
+- Built-in operator SSO  
+- Cryptographic token profile (roadmap extension)  
+- In-process sandbox for untrusted policy authors  
+- Automatic wrapping of third-party agent binaries  
+
+## Extension points
+
+1. **New principals** — Switchboard config only  
+2. **New rules** — policy YAML  
+3. **New clients** — call the same JS API or CLI  
+4. **HTTP profile** — wrap glass/chain/executor without changing record types  
+5. **Signed receipts** — add fields; keep TL-PX core intact for conformance  
+
+## See also
+
+- [Concepts](./concepts.md)  
+- [SPEC-v0.1](./standard/SPEC-v0.1.md)  
+- [Security](./security.md)  
+- [Integration](./integration.md)  
