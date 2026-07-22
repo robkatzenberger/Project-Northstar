@@ -19,9 +19,10 @@ Enterprise product features (Glass full suite: signed tokens, multi-tenant ops, 
 
 ## Start here
 
-1. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)**
-2. Inspect schemas in `../../schemas/tlpx-0.1/`
-3. Run:
+1. Project docs hub: **[../README.md](../README.md)**  
+2. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)** (normative)  
+3. Inspect schemas in `../../schemas/tlpx-0.1/`  
+4. Run:
 
 ```bash
 cd ../..
