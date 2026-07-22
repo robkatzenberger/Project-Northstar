@@ -13,6 +13,10 @@ import {
   standardStamp
 } from "./standard.mjs";
 import { validateEvaluationRequest } from "./validate.mjs";
+import {
+  routeThroughSwitchboard,
+  enrichIntentWithSwitchboard
+} from "./switchboard.mjs";
 
 export const GLASS_VERSION = "0.1.0";
 export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION };
@@ -20,14 +24,14 @@ export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION };
 /**
  * @param {object} intent - evaluation intent (from toEvaluationIntent or raw)
  * @param {object} policy
- * @param {{ auditPath?: string }} [opts]
+ * @param {{ auditPath?: string, switchboard?: object }} [opts]
  */
 export function evaluateIntent(intent, policy, opts = {}) {
   if (!intent?.intent_id && !intent?.prism_id) {
     throw new Error("evaluateIntent: intent_id or prism_id required");
   }
 
-  const normalized = {
+  let normalized = {
     intent_id: intent.intent_id || intent.prism_id,
     prism_id: intent.prism_id || intent.intent_id,
     prism_version: intent.prism_version || null,
@@ -43,42 +47,97 @@ export function evaluateIntent(intent, policy, opts = {}) {
     timestamp: intent.timestamp || nowIso()
   };
 
+  /** @type {object|null} */
+  let switchboard_context = null;
+
+  // Switchboard: identity → whitelist → credibility → approval route
+  if (opts.switchboard) {
+    switchboard_context = routeThroughSwitchboard(opts.switchboard, normalized);
+    normalized = enrichIntentWithSwitchboard(normalized, switchboard_context);
+  }
+
   const reqCheck = validateEvaluationRequest(normalized);
   if (!reqCheck.ok) {
     throw new Error(`evaluateIntent: invalid request: ${reqCheck.errors.join("; ")}`);
   }
 
-  const outcome = evaluateRules(normalized, policy);
+  let outcome;
+
+  // Hard switchboard gate (unknown / not whitelisted / action not permitted)
+  if (switchboard_context?.gate) {
+    outcome = { ...switchboard_context.gate };
+  } else {
+    outcome = evaluateRules(normalized, policy);
+  }
+
   const evaluatedAt = nowIso();
   const rid = receiptId(normalized.intent_id, new Date(evaluatedAt));
+
+  let authorization_status;
+  let blocking;
+  let reward_signal;
+
+  if (outcome.decision === "ALLOW") {
+    authorization_status = "AUTHORIZED";
+    blocking = false;
+    reward_signal = "AUTO_ALLOW";
+  } else if (outcome.decision === "DENY") {
+    authorization_status = "DENIED";
+    blocking = true;
+    reward_signal = "SWITCHBOARD_DENIED";
+  } else {
+    authorization_status = "PENDING_HUMAN_APPROVAL";
+    blocking = true;
+    reward_signal = "TRANSPARENCY_REWARDED";
+  }
 
   const decision = {
     record_type: "tlpx.decision",
     ...standardStamp(),
-    // Product alias for readability in Glass-branded deployments
     glass_version: GLASS_VERSION,
     control_mode: CONTROL_MODE,
-    blocking: outcome.decision === "REQUIRE_APPROVAL",
+    blocking,
     receipt_id: rid,
     evaluated_at: evaluatedAt,
     decision: outcome.decision,
     reason: outcome.reason,
     policy_id: outcome.policy_id,
     policy_pack_id: policy.policy_pack_id || "default",
-    reward_signal: outcome.decision === "REQUIRE_APPROVAL" ? "TRANSPARENCY_REWARDED" : "AUTO_ALLOW",
+    reward_signal,
     parties: {
       declarer: {
         id: normalized.actor,
-        type: normalized.actor_type
+        type: normalized.actor_type,
+        credibility: normalized.credibility ?? null,
+        whitelisted: normalized.whitelisted ?? null
       },
       evaluator: {
         id: "tlpx-reference",
         type: "machine"
       },
-      authorizer: null
+      authorizer: null,
+      // Switchboard as routing machine on the chain
+      router: opts.switchboard
+        ? {
+            id: opts.switchboard.switchboard_id || "switchboard",
+            type: "machine"
+          }
+        : null
     },
-    authorization_status:
-      outcome.decision === "ALLOW" ? "AUTHORIZED" : "PENDING_HUMAN_APPROVAL",
+    authorization_status,
+    // Who should handle escalation (from switchboard route)
+    approval_route: switchboard_context?.approval_route || [],
+    switchboard: switchboard_context
+      ? {
+          switchboard_id: switchboard_context.switchboard_id,
+          lookup: switchboard_context.lookup,
+          whitelisted: switchboard_context.whitelisted,
+          credibility: switchboard_context.credibility,
+          credibility_band: switchboard_context.credibility_band,
+          flags: switchboard_context.flags,
+          approval_route: switchboard_context.approval_route
+        }
+      : null,
     original_intent: normalized
   };
 
@@ -170,11 +229,14 @@ export function recordExecution(
     ? operator_action.authorization_status
     : decision.authorization_status;
 
-  // Guardrail: cannot claim EXECUTED without authorization
+  // Guardrail: cannot claim EXECUTED without authorization (includes switchboard DENY)
   if (status === "EXECUTED" && authStatus !== "AUTHORIZED") {
     throw new Error(
       `recordExecution: cannot EXECUTED when authorization_status=${authStatus}`
     );
+  }
+  if (status === "EXECUTED" && decision.decision === "DENY") {
+    throw new Error("recordExecution: cannot EXECUTED after switchboard DENY");
   }
 
   const record = {

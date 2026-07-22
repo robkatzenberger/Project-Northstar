@@ -1,0 +1,9 @@
+{
+  "agent": "agent.shadow.unknown",
+  "actor_type": "machine",
+  "intent_summary": "Disabled principal tries to send email",
+  "action": "send_email",
+  "target": "external_user",
+  "risk": "low",
+  "data_classes": []
+}

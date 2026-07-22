@@ -1,0 +1,9 @@
+{
+  "agent": "agent.rogue.unregistered",
+  "actor_type": "machine",
+  "intent_summary": "Attempt action without switchboard registration",
+  "action": "summarize_report",
+  "target": "internal_workspace",
+  "risk": "low",
+  "data_classes": []
+}

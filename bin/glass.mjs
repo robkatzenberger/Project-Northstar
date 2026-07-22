@@ -3,7 +3,8 @@
  * Glass CLI — local trust-layer checkpoint
  *
  * Usage:
- *   glass evaluate <intent.json> <policy.yaml> [--log var/audit.jsonl]
+ *   glass evaluate <intent.json> <policy.yaml> [--switchboard config/switchboard.json] [--log var/audit.jsonl]
+ *   glass switchboard <agent_id> [--switchboard config/switchboard.json]
  *   glass approve <receipt_id> --operator <id> --log var/audit.jsonl [--note "..."]
  *   glass reject  <receipt_id> --operator <id> --log var/audit.jsonl [--note "..."]
  *   glass execute <receipt_id> --executor <id> --status EXECUTED|BLOCKED|FAILED --log var/audit.jsonl
@@ -23,10 +24,13 @@ import {
   readPolicyFile,
   readAudit,
   reportFromAuditFile,
-  buildChain
+  buildChain,
+  loadSwitchboard,
+  lookupPrincipal
 } from "../src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const defaultSwitchboard = path.resolve(__dirname, "../config/switchboard.json");
 
 function print(obj) {
   console.log(JSON.stringify(obj, null, 2));
@@ -50,10 +54,22 @@ function parseArgs(argv) {
     else if (a === "--observed") args.observed = argv[++i];
     else if (a === "--severity") args.severity = argv[++i];
     else if (a === "--summary") args.summary = argv[++i];
+    else if (a === "--switchboard") args.switchboard = argv[++i];
+    else if (a === "--no-switchboard") args.noSwitchboard = true;
     else if (a.startsWith("--")) die(`Unknown flag: ${a}`);
     else args._.push(a);
   }
   return args;
+}
+
+function resolveSwitchboard(args) {
+  if (args.noSwitchboard) return null;
+  const p = path.resolve(args.switchboard || defaultSwitchboard);
+  if (!fs.existsSync(p)) {
+    if (args.switchboard) die(`Switchboard config not found: ${p}`);
+    return null;
+  }
+  return loadSwitchboard(p);
 }
 
 function loadIntent(filePath) {
@@ -113,25 +129,50 @@ async function main() {
   const cmd = args._[0];
 
   if (!cmd || cmd === "help" || cmd === "--help") {
-    console.log(`Glass MVP CLI
+    console.log(`Glass / TL-PX CLI
 
-  evaluate <intent.json> <policy.yaml> [--log PATH]
+  evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--no-switchboard] [--log PATH]
+  switchboard <agent_id> [--switchboard PATH]
   approve  <receipt_id> --operator ID --log PATH [--note TEXT]
   reject   <receipt_id> --operator ID --log PATH [--note TEXT]
   execute  <receipt_id> --executor ID --status EXECUTED|BLOCKED|FAILED --log PATH [--summary TEXT]
   chain    <receipt_id> --log PATH
   incident <receipt_id> --log PATH --why TEXT [--observed ACTION] [--severity low|medium|high]
+
+Default switchboard: config/switchboard.json (if present)
 `);
     process.exit(0);
+  }
+
+  if (cmd === "switchboard") {
+    const agentId = args._[1];
+    if (!agentId) die("Usage: glass switchboard <agent_id> [--switchboard PATH]");
+    const sb = resolveSwitchboard({ ...args, noSwitchboard: false, switchboard: args.switchboard || defaultSwitchboard });
+    if (!sb) die("No switchboard config loaded");
+    const { status, principal } = lookupPrincipal(sb, agentId);
+    print({
+      switchboard_id: sb.switchboard_id,
+      lookup: status,
+      principal,
+      thresholds: sb.thresholds,
+      unknown_agent_policy: sb.unknown_agent_policy
+    });
+    return;
   }
 
   if (cmd === "evaluate") {
     const intentPath = args._[1];
     const policyPath = args._[2];
-    if (!intentPath || !policyPath) die("Usage: glass evaluate <intent.json> <policy.yaml> [--log PATH]");
+    if (!intentPath || !policyPath) {
+      die("Usage: glass evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--log PATH]");
+    }
     const intent = loadIntent(path.resolve(intentPath));
     const policy = readPolicyFile(path.resolve(policyPath));
-    const decision = evaluateIntent(intent, policy, { auditPath: args.log });
+    const switchboard = resolveSwitchboard(args);
+    const decision = evaluateIntent(intent, policy, {
+      auditPath: args.log ? path.resolve(args.log) : undefined,
+      switchboard
+    });
     print(decision);
     return;
   }

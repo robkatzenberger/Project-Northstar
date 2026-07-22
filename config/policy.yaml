@@ -1,8 +1,16 @@
-# Glass MVP default policy pack
+# Glass / TL-PX policy pack
 # Deterministic rules only — no model judgment.
+# Switchboard attaches: whitelisted, credibility, low_credibility, high_trust
 
-# First match wins — put specific action rules before broad risk catch-alls.
+# First match wins — specific actions before broad catch-alls.
+
 rules:
+  # Credibility: low-trust principals always get a human in the loop
+  - id: rule_low_credibility
+    description: Low credibility principal requires human approval
+    if: low_credibility == true
+    require: human_approval
+
   - id: rule_funds
     description: Require human approval for any fund transfer
     if: action == "transfer_funds"

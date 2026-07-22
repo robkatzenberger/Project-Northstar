@@ -10,9 +10,12 @@
     "tlpx": "./bin/glass.mjs"
   },
   "scripts": {
-    "test": "node scripts/test.mjs",
+    "test": "node scripts/test.mjs && node scripts/test-switchboard.mjs",
+    "test:unit": "node scripts/test.mjs",
+    "test:switchboard": "node scripts/test-switchboard.mjs",
     "conformance": "node scripts/conformance.mjs",
     "demo": "node scripts/demo.mjs",
+    "demo:switchboard": "node scripts/demo-switchboard.mjs",
     "evaluate": "node bin/glass.mjs evaluate",
     "incident": "node bin/glass.mjs incident"
   },

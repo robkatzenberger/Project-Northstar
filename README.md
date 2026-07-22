@@ -17,9 +17,10 @@ APEX-Lite was the playable concept. **TL-PX** is the hardened minimum you can im
 ```bash
 cd ~/projects/northstar
 
-npm run conformance   # TL-PX 0.1 Minimum Profile pass/fail
-npm test              # unit/integration suite
-npm run demo          # three real-world-shaped scenarios
+npm run conformance      # TL-PX 0.1 Minimum Profile pass/fail
+npm test                 # unit + switchboard suite
+npm run demo             # three trust-chain scenarios
+npm run demo:switchboard # whitelist + credibility + routes
 ```
 
 ```bash
@@ -59,15 +60,18 @@ Zero runtime npm dependencies. Node 18+.
 ### Minimum contract (one screen)
 
 ```text
-Evaluation Request
-  → Decision Record   ALLOW | REQUIRE_APPROVAL
-  → Operator Action   APPROVE | REJECT   (when escalated)
+Agent/Machine
+  → Switchboard (whitelist + credibility 0–0.99 + approval route)
+  → Evaluation Request
+  → Decision Record   ALLOW | REQUIRE_APPROVAL | DENY (switchboard hard gate)
+  → Operator Action   APPROVE | REJECT   (when escalated, via approval_route)
   → Execution Record  EXECUTED | BLOCKED | FAILED
   → Audit chain + optional Accountability Report
 
-Parties on the chain: declarer | evaluator | authorizer | executor
-Each party: { id, type: human|machine }
+Parties: declarer | router (switchboard) | evaluator | authorizer | executor
 ```
+
+See [`docs/switchboard.md`](docs/switchboard.md) and `config/switchboard.json`.
 
 **Hard rule for conforming executors:** never emit `EXECUTED` unless authorization is `AUTHORIZED`.
 

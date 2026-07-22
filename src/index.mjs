@@ -23,3 +23,13 @@ export {
   validateAccountabilityReport
 } from "./validate.mjs";
 export { RECORD_TYPES, standardStamp } from "./standard.mjs";
+export {
+  loadSwitchboard,
+  normalizeConfig,
+  lookupPrincipal,
+  routeThroughSwitchboard,
+  enrichIntentWithSwitchboard,
+  suggestCredibilityDelta,
+  CRED_MIN,
+  CRED_MAX
+} from "./switchboard.mjs";

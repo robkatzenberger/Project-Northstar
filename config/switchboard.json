@@ -1,0 +1,60 @@
+{
+  "switchboard_id": "local-switchboard-v0",
+  "description": "Agent/machine identity router: whitelist + credibility (0–0.99) + approval routes",
+  "unknown_agent_policy": "DENY",
+  "thresholds": {
+    "force_escalate_below": 0.4,
+    "high_trust_at_or_above": 0.85,
+    "max_credibility": 0.99
+  },
+  "defaults": {
+    "approval_route": ["human.ops.alex"]
+  },
+  "principals": [
+    {
+      "id": "agent.docs.summarizer",
+      "type": "machine",
+      "label": "Docs summarizer",
+      "whitelisted": true,
+      "credibility": 0.91,
+      "allowed_actions": ["summarize_report"],
+      "approval_route": ["human.ops.alex"]
+    },
+    {
+      "id": "agent.support.mailer",
+      "type": "machine",
+      "label": "Support mailer",
+      "whitelisted": true,
+      "credibility": 0.62,
+      "allowed_actions": ["send_email"],
+      "approval_route": ["human.ops.alex", "human.support.lead"]
+    },
+    {
+      "id": "agent.finance.ops",
+      "type": "machine",
+      "label": "Finance ops agent",
+      "whitelisted": true,
+      "credibility": 0.35,
+      "allowed_actions": ["transfer_funds"],
+      "approval_route": ["human.finance.sam", "human.finance.lead"]
+    },
+    {
+      "id": "human.ops.jordan",
+      "type": "human",
+      "label": "Ops engineer Jordan",
+      "whitelisted": true,
+      "credibility": 0.88,
+      "allowed_actions": ["deploy", "summarize_report"],
+      "approval_route": ["human.ops.lead"]
+    },
+    {
+      "id": "agent.shadow.unknown",
+      "type": "machine",
+      "label": "Not on active whitelist (disabled)",
+      "whitelisted": false,
+      "credibility": 0.5,
+      "allowed_actions": [],
+      "approval_route": []
+    }
+  ]
+}

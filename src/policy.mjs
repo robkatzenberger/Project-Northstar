@@ -49,16 +49,47 @@ export function parsePolicyText(text) {
   };
 }
 
+/**
+ * Evaluate a tiny policy expression against intent fields.
+ * Avoids `with` so missing fields are undefined (not ReferenceError).
+ * Supports: ==, !=, &&, ||, "X" in fieldName, bare field identifiers.
+ */
 function evaluateCondition(expression, intent) {
-  const normalized = expression
+  let expr = expression
     .replace(/\band\b/g, "&&")
-    .replace(/\bor\b/g, "||")
-    .replace(/"([^"]+)"\s+in\s+([A-Za-z_][A-Za-z0-9_]*)/g, 'includes($2, "$1")');
+    .replace(/\bor\b/g, "||");
+
+  // "PII" in data_classes → __includes(__intent["data_classes"], "PII")
+  expr = expr.replace(
+    /"([^"]+)"\s+in\s+([A-Za-z_][A-Za-z0-9_]*)/g,
+    '__includes(__intent["$2"], "$1")'
+  );
+
+  // Replace bare field identifiers without touching string literals.
+  // Split on "..." segments; only rewrite odd/even outside quotes.
+  const parts = expr.split(/("(?:\\.|[^"\\])*")/);
+  expr = parts
+    .map((part, i) => {
+      // Even indices are outside quotes (split keeps delimiters on odd indices)
+      if (i % 2 === 1) return part;
+      return part.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (id) => {
+        if (
+          id === "true" ||
+          id === "false" ||
+          id === "__intent" ||
+          id === "__includes"
+        ) {
+          return id;
+        }
+        return `__intent[${JSON.stringify(id)}]`;
+      });
+    })
+    .join("");
 
   const evaluator = new Function(
-    "intent",
-    "includes",
-    `with (intent) { return (${normalized}); }`
+    "__intent",
+    "__includes",
+    `return (${expr});`
   );
 
   return Boolean(
