@@ -63,6 +63,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [cli-reference.md](./cli-reference.md) | `bin/glass.mjs` / `tlpx` commands |
 | [configuration.md](./configuration.md) | Policy YAML, Switchboard JSON, examples |
 | [integration.md](./integration.md) | Wiring real runtimes (air-gapped first; optional harness adapters) |
+| [http-api.md](./http-api.md) | Go `tlpxd` localhost control plane |
 | [testing.md](./testing.md) | Unit, conformance, red-team, technical test #1 |
 | [MVP.md](./MVP.md) | Historical MVP handoff brief |
 | [changelog.md](./changelog.md) | Project changelog |
