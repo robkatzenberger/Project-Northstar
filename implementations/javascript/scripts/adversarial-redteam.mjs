@@ -253,55 +253,71 @@ console.log("══════════════════════�
   fs.unlinkSync(log);
 }
 
-// A9: Raw appendAudit forge full AUTHORIZED path without evaluate
+// A9: Raw file forgery without hash-chain / HMAC seal
 {
   const log = tmp();
+  // Establish a real sealed log + seal key via a legitimate evaluate
+  evaluateIntent(intent("intent-safe.json"), policy, { auditPath: log });
   const fakeId = "rcpt_forged_only";
-  appendAudit(log, {
-    record_type: "tlpx.decision",
-    standard: "TL-PX",
-    standard_version: "0.1.0",
-    receipt_id: fakeId,
-    decision: "ALLOW",
-    authorization_status: "AUTHORIZED",
-    reason: "forged",
-    policy_id: null,
-    control_mode: "ALLOW_OR_ESCALATE",
-    parties: {
-      declarer: { id: "evil", type: "machine" },
-      evaluator: { id: "forger", type: "machine" }
-    },
-    original_intent: {
-      intent_id: "x",
-      actor: "evil",
-      actor_type: "machine",
-      declared_intent: "steal",
-      action: "transfer_funds",
-      risk: "high",
-      data_classes: []
-    }
-  });
-  // If attacker can write the audit file, they can forge a whole chain
-  let executed = false;
+  // Attacker writes JSONL directly (no seal / broken chain)
+  fs.appendFileSync(
+    log,
+    JSON.stringify({
+      record_type: "tlpx.decision",
+      standard: "TL-PX",
+      standard_version: "0.1.0",
+      receipt_id: fakeId,
+      decision: "ALLOW",
+      authorization_status: "AUTHORIZED",
+      reason: "forged",
+      policy_id: null,
+      control_mode: "ALLOW_OR_ESCALATE",
+      parties: {
+        declarer: { id: "evil", type: "machine" },
+        evaluator: { id: "forger", type: "machine" }
+      },
+      original_intent: {
+        intent_id: "x",
+        actor: "evil",
+        actor_type: "machine",
+        declared_intent: "steal",
+        action: "transfer_funds",
+        risk: "high",
+        data_classes: []
+      }
+    }) + "\n"
+  );
+  let held = false;
   try {
     recordExecution(
       { receipt_id: fakeId, executor_id: "evil", status: "EXECUTED" },
       { auditPath: log }
     );
-    executed = true;
-  } catch {
-    executed = false;
+  } catch (e) {
+    held =
+      e.message.includes("integrity") ||
+      e.message.includes("seal") ||
+      e.message.includes("Audit integrity");
   }
   row(
     "A9",
-    "Direct audit file forgery (write access to JSONL)",
-    executed ? "FAIL" : "PASS",
-    "THEATER",
-    executed
-      ? "WHOEVER CAN WRITE AUDIT CAN AUTHORIZE — OS ACL / signatures still required"
-      : "unexpectedly blocked"
+    "Raw audit file forgery (no hash-chain/HMAC seal)",
+    held ? "PASS" : "FAIL",
+    held ? "REAL" : "HOLE",
+    held
+      ? "unsealed forge rejected by integrity verify"
+      : "raw forge still authorized"
   );
-  fs.unlinkSync(log);
+  try {
+    fs.unlinkSync(log);
+  } catch {
+    /* */
+  }
+  try {
+    fs.unlinkSync(path.join(path.dirname(log), `.${path.basename(log)}.seal`));
+  } catch {
+    /* */
+  }
 }
 
 // A10: evaluate without auditPath
@@ -579,22 +595,21 @@ In-scope defenses (cooperative runtime that uses audit + executeAuthorized):
   - Operator state machine: ${fail.some((f) => ["A4", "A14"].includes(f.id)) ? "BROKEN" : "HELD"}
   - Mandatory audit: ${fail.some((f) => f.id === "A10") ? "BROKEN" : "HELD"}
 
-Residual THEATER / WARN (expected for air-gap design):
-  - A9  Audit file write access = forge authority (protect the log)
+Residual WARN (deployment / product boundaries):
   - A12 Declared-intent honesty (not DPI)
   - A16 Process that never calls the gate
   - A18 Operator identity not authenticated
   - A7  Policy expression not multi-tenant sandbox
   - A17 allowEphemeral escape hatch
 
+A9 (raw unsealed forge): should PASS with hash-chain + HMAC seal.
+
 Production-tomorrow as air-gapped checkpoint used by a mediated executor?
   ${
     fail.length === 0
       ? "CONDITIONALLY YES for that narrow scope — residual risks are deployment boundaries."
-      : "NO — fix FAIL items before technical test."
+      : "NO — fix FAIL items first."
   }
-
-Formal product technical test: NOT RUN (awaiting your approval).
 `);
 
 if (fail.length > 0) process.exit(1);

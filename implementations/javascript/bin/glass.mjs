@@ -27,7 +27,8 @@ import {
   buildChain,
   loadSwitchboard,
   lookupPrincipal,
-  resolveAuthorizationFromAudit
+  resolveAuthorizationFromAudit,
+  verifyAudit
 } from "../src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -138,10 +139,12 @@ async function main() {
   reject   <receipt_id> --operator ID --log PATH [--note TEXT]
   execute  <receipt_id> --executor ID --status EXECUTED|BLOCKED|FAILED --log PATH [--summary TEXT]
   auth     <receipt_id> --log PATH
+  verify   --log PATH
   chain    <receipt_id> --log PATH
   incident <receipt_id> --log PATH --why TEXT [--observed ACTION] [--severity low|medium|high]
 
 Air-gapped: --log (audit JSONL) is required for evaluate/approve/execute.
+Audit lines are hash-chained + HMAC-sealed (see docs/security.md).
 Default switchboard: config/switchboard.json (if present)
 `);
     process.exit(0);
@@ -184,6 +187,14 @@ Default switchboard: config/switchboard.json (if present)
     const receiptId = args._[1];
     if (!receiptId || !args.log) die("Usage: glass auth <receipt_id> --log PATH");
     print(resolveAuthorizationFromAudit(path.resolve(args.log), receiptId));
+    return;
+  }
+
+  if (cmd === "verify") {
+    if (!args.log) die("Usage: glass verify --log PATH");
+    const result = verifyAudit(path.resolve(args.log));
+    print(result);
+    if (!result.ok) process.exit(2);
     return;
   }
 

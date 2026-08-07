@@ -18,9 +18,9 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 
 | Folder | Status | Notes |
 | --- | --- | --- |
-| [`javascript/`](./javascript/) | **Active reference** | Node 18+ ES modules; CLI, tests, tech test #1 |
-| [`go/`](./go/) | Placeholder | Good fit for enterprise control-plane service |
-| [`java/`](./java/) | Placeholder | JVM enterprise environments |
+| [`javascript/`](./javascript/) | **Active reference** | Node 18+ ES modules; CLI, sealed audit, tests, tech test #1 |
+| [`go/`](./go/) | **Skeleton** | Policy evaluate + CLI + tests (no Switchboard/audit yet) |
+| [`java/`](./java/) | **Skeleton** | Policy evaluate + Maven + tests (no Switchboard/audit yet) |
 | [`rust/`](./rust/) | Placeholder | Hardened PEP / high-assurance runtime |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 

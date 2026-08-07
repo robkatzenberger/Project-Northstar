@@ -4,15 +4,15 @@
 
 | Path | Purpose |
 | --- | --- |
-| `config/policy.yaml` | Deterministic policy rules |
-| `config/switchboard.json` | Principals, whitelist, credibility, routes |
-| `examples/*.json` | Intent fixtures |
-| `var/*.jsonl` | Runtime audit logs (gitignored) |
-| `schemas/tlpx-0.1/*.json` | Record schemas |
+| `implementations/javascript/config/policy.yaml` | Deterministic policy rules (JS reference) |
+| `implementations/javascript/config/switchboard.json` | Principals, whitelist, credibility, routes |
+| `implementations/javascript/examples/*.json` | Intent fixtures |
+| `var/*.jsonl` | Runtime audit logs at monorepo root (gitignored) |
+| `schemas/tlpx-0.1/*.json` | Record schemas (shared) |
 
 ---
 
-## Policy (`config/policy.yaml`)
+## Policy (`implementations/javascript/config/policy.yaml`)
 
 ### Format
 
@@ -65,7 +65,7 @@ Put **specific** rules before **broad** catch-alls. Example: `transfer_funds` be
 
 ---
 
-## Switchboard (`config/switchboard.json`)
+## Switchboard (`implementations/javascript/config/switchboard.json`)
 
 ### Top-level
 
@@ -128,16 +128,16 @@ No required environment variables for the reference gate.
 
 | Optional practice | Suggestion |
 | --- | --- |
-| Audit path | Always set explicitly (`var/tech-test-audit.jsonl`) |
-| File mode | `chmod 600` on audit files |
-| Node | `>= 18` |
+| Audit path | Monorepo `var/tech-test-audit.jsonl` (+ companion `.seal` key file) |
+| File mode | `chmod 600` on audit + seal files |
+| Node | `>= 18` (JS reference) |
 
 ---
 
 ## Changing configuration safely
 
-1. Edit policy or Switchboard in a branch/copy.  
-2. Run `npm test` and `npm run conformance`.  
+1. Edit policy or Switchboard under `implementations/javascript/config/`.  
+2. From that package: `npm test` and `npm run conformance`.  
 3. Run `node scripts/tech-test.mjs` or targeted CLI evaluates.  
 4. Confirm `policy_id` / Switchboard flags match expectations.  
 

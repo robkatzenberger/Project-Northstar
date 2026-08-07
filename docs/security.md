@@ -47,7 +47,7 @@ This document is **engineering guidance**, not a formal certification or legal o
 | Risk | Severity | Mitigation |
 | --- | --- | --- |
 | **Process never calls the gate** | Critical if assumed universal | OS/runtime mediation; admission controller pattern |
-| **Anyone who can write the audit can forge ALLOW** | High | File ACLs; dedicated gate user; future hash/HMAC chain |
+| **Anyone who can write the audit can forge ALLOW** | Mitigated | Hash-chain + HMAC seal (A9); still protect seal key + OS ACLs |
 | **Operator id is free string (no authN)** | High in multi-user | Bind operators to SSO/mTLS/local allowlist + secrets |
 | **Declared intent can lie** | Medium–High | By design metadata trust; pair with scope limits + monitoring |
 | **Policy expression engine** | Medium | Trusted policy authors only; future pure DSL |
@@ -56,16 +56,17 @@ This document is **engineering guidance**, not a formal certification or legal o
 
 ## Red team summary (post-hardening)
 
-In-scope API/audit-chain attacks (forged memory status, double-resolve, pending execute, stub operator) **held**.
+In-scope API/audit-chain attacks (forged memory status, double-resolve, pending execute, stub operator) **held**.  
+Raw unsealed audit forgery (A9) is rejected by integrity verify + HMAC seal.
 
-Residual **WARN/FAIL** class items: audit file write (A9), bypass outside library (A16), operator spoof (A18), semantic under-declaration (A12).
+Residual **WARN** class items: bypass outside library (A16), operator spoof (A18), semantic under-declaration (A12), policy `new Function` (A7).
 
-See `scripts/adversarial-redteam.mjs`.
+See `implementations/javascript/scripts/adversarial-redteam.mjs`.
 
 ## Air-gap recommendations
 
 1. Run gate + executor as a **dedicated local process** or library call from a single mediation layer.  
-2. Audit file writable **only** by that process user.  
+2. Audit file **and seal key** writable **only** by that process user (protect `var/.*.seal`).  
 3. Policy and Switchboard owned by operators; not agent-writable.  
 4. Prefer `executeAuthorized` over raw side effects.  
 5. Separate interactive vs automation Switchboard principals and credibility.  
@@ -82,7 +83,7 @@ Optional later: harness `PreToolUse` hooks as an adapter — not a substitute fo
 ## Incident response
 
 1. Locate `receipt_id` from application logs.  
-2. `node bin/glass.mjs chain <receipt_id> --log <audit>`  
+2. From `implementations/javascript/`: `node bin/glass.mjs verify --log <audit>` then `chain`  
 3. `node bin/glass.mjs incident ...` or `analyzeAccountability`  
 4. Review Switchboard principal and credibility; adjust policy if needed.  
 5. Rotate secrets if audit may contain them.  

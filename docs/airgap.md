@@ -23,6 +23,7 @@ Client declares intent
 | Rule | Behavior |
 | --- | --- |
 | **Mandatory audit** | `evaluateIntent`, `resolveEscalation`, `recordExecution` require `auditPath` (unless `allowEphemeral: true` for pure unit tests) |
+| **Sealed audit** | Each line has `prev_hash` + `audit_hash` + HMAC `seal`; `readAudit` verifies fail-closed |
 | **Single operator outcome** | Second approve/reject on same receipt throws |
 | **Chain-verified execute** | Ignores caller-supplied `authorization_status` / stub operator objects |
 | **Fail-closed executor** | `executeAuthorized` never runs `sideEffect` unless audit says AUTHORIZED |
@@ -38,7 +39,7 @@ import {
   resolveAuthorizationFromAudit
 } from "./src/index.mjs";
 
-const auditPath = "var/tech-test-audit.jsonl"; // canonical local technical-test log
+const auditPath = "../../var/tech-test-audit.jsonl"; // monorepo root (from implementations/javascript)
 
 const decision = evaluateIntent(intent, policy, { auditPath, switchboard });
 

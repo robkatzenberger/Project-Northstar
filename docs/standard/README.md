@@ -25,7 +25,7 @@ Enterprise product features (Glass full suite: signed tokens, multi-tenant ops, 
 4. Run:
 
 ```bash
-cd ../..
+cd ../../implementations/javascript
 npm run conformance
 npm test
 npm run demo

@@ -14,6 +14,7 @@ import {
   readPolicyFile,
   readAudit,
   appendAudit,
+  verifyAudit,
   resolveAuthorizationFromAudit,
   executeAuthorized
 } from "../src/index.mjs";
@@ -122,8 +123,7 @@ console.log("Air-gap hardening tests\n");
   fs.unlinkSync(log);
 }
 
-// H5: raw audit forgery of EXECUTED does not make resolveAuth AUTHORIZED without real chain
-// (forgery can still pollute log — auth for EXECUTED path uses decision+operator only)
+// H5: sealed append of fake EXECUTED does not make auth AUTHORIZED (still pending)
 {
   console.log("H5 auth from chain not forged execution");
   const log = tmp();
@@ -137,6 +137,34 @@ console.log("Air-gap hardening tests\n");
   });
   const auth = resolveAuthorizationFromAudit(log, d.receipt_id);
   assert(auth.authorization_status === "PENDING_HUMAN_APPROVAL", "forged execution does not authorize");
+  const v = verifyAudit(log);
+  assert(v.ok === true, "sealed chain still verifies");
+  fs.unlinkSync(log);
+}
+
+// H5b: raw unsealed forge breaks integrity (A9)
+{
+  console.log("H5b raw forge breaks verify");
+  const log = tmp();
+  evaluateIntent(intent("intent-safe.json"), policy, { auditPath: log });
+  fs.appendFileSync(
+    log,
+    JSON.stringify({
+      record_type: "tlpx.decision",
+      receipt_id: "rcpt_raw_forge",
+      decision: "ALLOW",
+      authorization_status: "AUTHORIZED"
+    }) + "\n"
+  );
+  const v = verifyAudit(log);
+  assert(v.ok === false, "verify fails on unsealed line");
+  let threw = false;
+  try {
+    readAudit(log);
+  } catch {
+    threw = true;
+  }
+  assert(threw, "readAudit fail-closed on broken chain");
   fs.unlinkSync(log);
 }
 

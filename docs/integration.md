@@ -33,7 +33,7 @@ import {
 
 const policy = readPolicyFile("./config/policy.yaml");
 const switchboard = loadSwitchboard("./config/switchboard.json");
-const auditPath = process.env.TLPX_AUDIT || "./var/tech-test-audit.jsonl";
+const auditPath = process.env.TLPX_AUDIT || "../../var/tech-test-audit.jsonl";
 
 export async function gatedAction({ agent, summary, action, target, risk, data_classes, run }) {
   const intent = toEvaluationIntent(
@@ -81,6 +81,8 @@ Register each agent id in Switchboard with credibility and `allowed_actions`.
 Best for: shell automation, polyglot services.
 
 ```bash
+cd implementations/javascript
+AUDIT=../../var/tech-test-audit.jsonl
 node bin/glass.mjs evaluate intent.json config/policy.yaml --log "$AUDIT"
 # parse decision JSON
 # if REQUIRE_APPROVAL → wait for human CLI/API

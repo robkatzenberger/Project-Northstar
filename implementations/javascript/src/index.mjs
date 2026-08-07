@@ -10,7 +10,17 @@ export {
   STANDARD_ID,
   STANDARD_VERSION
 } from "./glass.mjs";
-export { appendAudit, readAudit, chainForReceipt } from "./audit.mjs";
+export {
+  appendAudit,
+  readAudit,
+  chainForReceipt,
+  verifyAudit,
+  sealRecord,
+  canonicalJson,
+  GENESIS_HASH,
+  sealKeyPathForLog,
+  resolveSealKey
+} from "./audit.mjs";
 export {
   buildChain,
   analyzeAccountability,

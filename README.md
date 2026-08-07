@@ -73,7 +73,10 @@ You do **not** need every language for the open standard — one solid reference
 - [x] TL-PX 0.1 + JS reference + air-gap hardening  
 - [x] Technical test #1 PASS (JS)  
 - [x] Multi-language folder layout  
-- [ ] Go / Java / Rust / Python ports  
+- [x] Audit hash-chain + HMAC seal (`glass verify`)  
+- [x] Go / Java evaluate skeletons  
+- [ ] Rust / Python ports  
+- [ ] Full Switchboard/audit parity outside JS  
 - [ ] Enterprise Switchboard service (likely Go or JVM later)  
 
 ---

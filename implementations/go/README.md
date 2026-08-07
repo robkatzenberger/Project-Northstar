@@ -1,29 +1,47 @@
-# Go implementation
+# Go implementation (skeleton)
 
-**Status:** Placeholder — not started  
+**Status:** Early skeleton — policy evaluate only  
+**Module:** `github.com/Trust-Layer-AI/Project-Northstar/implementations/go`
 
-Intended use: enterprise **Trust Layer control plane** (Switchboard + gate API) as a single static binary.
+## What works
 
-## Planned shape (draft)
+- Load the shared JS reference `policy.yaml` (flat rule format)
+- Evaluate intents → `ALLOW` | `REQUIRE_APPROVAL` with TL-PX-shaped decision JSON
+- Unit tests against `../javascript/examples` policy rules
+
+## Not yet
+
+- Switchboard
+- Sealed audit JSONL
+- Operator resolve / executeAuthorized
+- HTTP service
+
+## Commands
+
+```bash
+cd implementations/go
+
+go test ./...
+
+# Evaluate a JS fixture (from this directory)
+go run ./cmd/tlpx evaluate \
+  ../javascript/examples/intent-safe.json \
+  ../javascript/config/policy.yaml
+
+go run ./cmd/tlpx evaluate \
+  ../javascript/examples/intent-pii-email.json \
+  ../javascript/config/policy.yaml
+```
+
+## Layout
 
 ```text
 go/
-  cmd/tlpx/          CLI / server entry
-  internal/gate/     evaluate, chain auth
-  internal/switchboard/
-  internal/audit/
   go.mod
+  cmd/tlpx/main.go
+  internal/policy/
+  internal/gate/
+  README.md
 ```
 
-## Requirements when implemented
-
-- Conform to [TL-PX SPEC v0.1](../../docs/standard/SPEC-v0.1.md)
-- Emit the same JSON record types as the JS reference
-- Reuse fixtures under [`../javascript/examples/`](../javascript/examples/) where practical
-- Document `go test` / `go run` here
-
-## Why Go later
-
-- Easy deploy (one binary)
-- Natural fit for HTTP/gRPC services
-- Good ops story for air-gapped enterprise installs
+Target direction: enterprise control-plane service sharing `schemas/tlpx-0.1/` contracts.

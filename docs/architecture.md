@@ -46,7 +46,7 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Module map (`src/`)
+## Module map (`implementations/javascript/src/`)
 
 | Module | Responsibility |
 | --- | --- |
@@ -56,7 +56,7 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 | `glass.mjs` | evaluateIntent, resolveEscalation, recordExecution |
 | `chain.mjs` | Audit-derived authorization; single-outcome guards |
 | `executor.mjs` | Fail-closed `executeAuthorized` |
-| `audit.mjs` | Append/read JSONL; chain filter |
+| `audit.mjs` | Sealed JSONL append/read/verify; chain filter |
 | `accountability.mjs` | Findings / dual human-machine report |
 | `validate.mjs` | Structural validators for TL-PX records |
 | `standard.mjs` | Standard id/version/record type constants |
@@ -65,17 +65,18 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 
 ## CLI
 
-`bin/glass.mjs` — operator and automation entrypoint. See [CLI Reference](./cli-reference.md).
+`implementations/javascript/bin/glass.mjs` — operator and automation entrypoint. See [CLI Reference](./cli-reference.md).
 
 ## Configuration surface
 
 | Artifact | Role |
 | --- | --- |
-| `config/policy.yaml` | Deterministic rules |
-| `config/switchboard.json` | Identity router |
-| `examples/*` | Fixtures |
-| `schemas/tlpx-0.1/*` | JSON Schema documents |
-| `var/*.jsonl` | Runtime audits (gitignored) |
+| `implementations/javascript/config/policy.yaml` | Deterministic rules (JS ref) |
+| `implementations/javascript/config/switchboard.json` | Identity router |
+| `implementations/javascript/examples/*` | Fixtures |
+| `implementations/{go,java,…}/` | Language ports |
+| `schemas/tlpx-0.1/*` | JSON Schema documents (shared) |
+| `var/*.jsonl` | Runtime audits at monorepo root (gitignored) |
 
 ## Data flow (sequence)
 

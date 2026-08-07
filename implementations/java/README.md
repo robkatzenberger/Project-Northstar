@@ -1,24 +1,39 @@
-# Java implementation
+# Java implementation (skeleton)
 
-**Status:** Placeholder — not started  
+**Status:** Early skeleton — policy evaluate only  
+**Build:** Maven, Java 17+
 
-Intended use: JVM shops (banks, large internal platforms) that standardize on Java/Kotlin services.
+## What works
 
-## Planned shape (draft)
+- Load shared JS reference `policy.yaml`
+- Evaluate intents → `ALLOW` | `REQUIRE_APPROVAL` (TL-PX-shaped decision map)
+- JUnit tests for safe allow + PII email rule
+
+## Not yet
+
+- Switchboard
+- Sealed audit JSONL
+- Operator / executeAuthorized
+- Spring/HTTP service
+
+## Commands
+
+```bash
+cd implementations/java
+
+mvn test
+
+mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-safe.json ../javascript/config/policy.yaml"
+
+mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-pii-email.json ../javascript/config/policy.yaml"
+```
+
+## Layout
 
 ```text
 java/
-  pom.xml or build.gradle.kts
-  src/main/java/.../tlpx/
+  pom.xml
+  src/main/java/ai/trustlayer/tlpx/{policy,gate,cli}/
   src/test/java/...
+  README.md
 ```
-
-## Requirements when implemented
-
-- Conform to [TL-PX SPEC v0.1](../../docs/standard/SPEC-v0.1.md)
-- Same decision / receipt / execution semantics as the JS reference
-- Prefer Kotlin only if the team standard is Kotlin; either is fine if records match schemas
-
-## Note
-
-Java is **optional** for enterprise adoption of the *standard*. Many enterprises can consume a **Go or Node service** via HTTP. A Java port is for native JVM embedding or mandatory JVM stacks.

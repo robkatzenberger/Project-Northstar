@@ -28,7 +28,7 @@ All tests use local Node; no network required.
 | `scripts/test-switchboard.mjs` | Whitelist, credibility, DENY paths | temp files |
 | `scripts/test-airgap.mjs` | Chain auth, state machine, anti-forgery, executor | temp files |
 | `scripts/conformance.mjs` | Spec conformance (deterministic decisions, parties, chain) | temp files |
-| `scripts/tech-test.mjs` | **Formal E2E technical test #1** | `var/tech-test-audit.jsonl` |
+| `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |
 | `scripts/no-bs.mjs` | Earlier theory scoreboard | temp files |
 | `scripts/demo.mjs` | Narrative demo | `var/demo-audit.jsonl` |
@@ -39,7 +39,7 @@ All tests use local Node; no network required.
 ## Technical test #1 (passed)
 
 **Command:** `node scripts/tech-test.mjs`  
-**Log:** `var/tech-test-audit.jsonl`
+**Log:** monorepo `var/tech-test-audit.jsonl` (from package: `../../var/…`)
 
 | ID | Scenario | Expectation |
 | --- | --- | --- |
@@ -109,6 +109,7 @@ Do not treat red team PASS as “no residual risk.”
 No CI pipeline is configured in-repo by default (local project). Suggested job:
 
 ```bash
+cd implementations/javascript
 node --version
 npm test
 npm run conformance

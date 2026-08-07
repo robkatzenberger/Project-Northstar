@@ -56,14 +56,18 @@ That’s the switchboard answering: *if a human must approve, who is on the wire
 ## CLI
 
 ```bash
+cd implementations/javascript
+
 # Lookup
 node bin/glass.mjs switchboard agent.finance.ops
 
 # Evaluate with switchboard (default config/switchboard.json if present)
-node bin/glass.mjs evaluate examples/intent-funds.json config/policy.yaml --log var/audit.jsonl
+node bin/glass.mjs evaluate examples/intent-funds.json config/policy.yaml \
+  --log ../../var/tech-test-audit.jsonl
 
 # Evaluate without switchboard
-node bin/glass.mjs evaluate examples/intent-safe.json config/policy.yaml --no-switchboard
+node bin/glass.mjs evaluate examples/intent-safe.json config/policy.yaml \
+  --log ../../var/tech-test-audit.jsonl --no-switchboard
 ```
 
 ## Tests

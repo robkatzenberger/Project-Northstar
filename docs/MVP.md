@@ -75,21 +75,22 @@ Every step can name **who** (id) and **what kind of party** (human vs machine).
 ## Quick start
 
 ```bash
-cd ~/projects/northstar
+cd ~/projects/northstar/implementations/javascript
 
 # tests
 npm test
 
-# narrative demo (writes var/demo-audit.jsonl)
+# narrative demo (writes monorepo ../../var/demo-audit.jsonl)
 npm run demo
 
 # manual CLI
-node bin/glass.mjs evaluate examples/intent-pii-email.json config/policy.yaml --log var/audit.jsonl
+node bin/glass.mjs evaluate examples/intent-pii-email.json config/policy.yaml \
+  --log ../../var/tech-test-audit.jsonl
 # copy receipt_id from output, then:
-node bin/glass.mjs approve <receipt_id> --operator human.ops.alex --log var/audit.jsonl
-node bin/glass.mjs execute <receipt_id> --executor runtime.mailer --status EXECUTED --log var/audit.jsonl
-node bin/glass.mjs incident <receipt_id> --log var/audit.jsonl --why "Wrong file attached"
-node bin/glass.mjs chain <receipt_id> --log var/audit.jsonl
+node bin/glass.mjs approve <receipt_id> --operator human.ops.alex --log ../../var/tech-test-audit.jsonl
+node bin/glass.mjs execute <receipt_id> --executor runtime.mailer --status EXECUTED --log ../../var/tech-test-audit.jsonl
+node bin/glass.mjs incident <receipt_id> --log ../../var/tech-test-audit.jsonl --why "Wrong file attached"
+node bin/glass.mjs chain <receipt_id> --log ../../var/tech-test-audit.jsonl
 ```
 
 ---

@@ -24,6 +24,8 @@ var/
 audit.jsonl
 tmp/
 .cache/
+**/.*.seal
+*.seal
 
 # OS / editor
 .DS_Store

@@ -125,7 +125,8 @@ import {
 
 const policy = readPolicyFile("./config/policy.yaml");
 const switchboard = loadSwitchboard("./config/switchboard.json");
-const auditPath = "./var/tech-test-audit.jsonl";
+// monorepo root audit path (from implementations/javascript)
+const auditPath = "../../var/tech-test-audit.jsonl";
 
 const intent = toEvaluationIntent(
   createPrismSignal({

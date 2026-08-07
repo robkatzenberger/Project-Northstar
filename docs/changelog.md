@@ -46,10 +46,23 @@ Format: newest first.
 
 ---
 
-## Unreleased (planned)
+## Unreleased
+
+### Added
+
+- Multi-language monorepo under `implementations/` (JS active; Go/Java skeletons; Rust/Python placeholders)
+- Audit **hash-chain + HMAC seal** (`prev_hash`, `audit_hash`, `seal`) with `glass verify`
+- Go skeleton: policy evaluate + CLI + tests  
+- Java skeleton: policy evaluate + Maven + tests  
+
+### Docs
+
+- Path sweep for monorepo (`cd implementations/javascript`, `../../var/…`)
+
+### Still planned
 
 - Optional HTTP / Unix socket profile  
 - Operator allowlist / authN binding  
-- Audit integrity (HMAC or hash chain)  
 - Hardened policy DSL (no `Function` constructor)  
-- Public remote release when owner approves  
+- Full Switchboard/audit parity in Go/Java  
+
