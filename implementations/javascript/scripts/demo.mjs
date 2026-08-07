@@ -1,6 +1,6 @@
 /**
  * End-to-end demo of Glass MVP dual accountability.
- * Writes a fresh audit log under var/demo-audit.jsonl
+ * Writes a fresh audit log under <monorepo>/var/demo-audit.jsonl
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -17,8 +17,9 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
+const monorepoRoot = path.resolve(root, "../..");
 const policy = readPolicyFile(path.join(root, "config", "policy.yaml"));
-const logPath = path.join(root, "var", "demo-audit.jsonl");
+const logPath = path.join(monorepoRoot, "var", "demo-audit.jsonl");
 
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 if (fs.existsSync(logPath)) fs.unlinkSync(logPath);

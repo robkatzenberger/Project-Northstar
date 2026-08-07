@@ -13,9 +13,10 @@ import {
 import fs from "node:fs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const monorepoRoot = path.resolve(root, "../..");
 const policy = readPolicyFile(path.join(root, "config", "policy.yaml"));
 const sb = loadSwitchboard(path.join(root, "config", "switchboard.json"));
-const logPath = path.join(root, "var", "demo-switchboard-audit.jsonl");
+const logPath = path.join(monorepoRoot, "var", "demo-switchboard-audit.jsonl");
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
 

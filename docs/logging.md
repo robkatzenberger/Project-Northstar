@@ -14,9 +14,13 @@ Absolute:
 /Users/home/projects/northstar/var/tech-test-audit.jsonl
 ```
 
+Audit logs live at the **monorepo root** `var/` (shared across language ports).  
+JavaScript code lives under `implementations/javascript/`.
+
 The `var/` directory is gitignored. Create or clear the log with:
 
 ```bash
+cd ~/projects/northstar
 mkdir -p var
 : > var/tech-test-audit.jsonl
 chmod 600 var/tech-test-audit.jsonl   # optional: owner read/write only
@@ -24,11 +28,11 @@ chmod 600 var/tech-test-audit.jsonl   # optional: owner read/write only
 
 ## CLI
 
-Always pass `--log`:
+From `implementations/javascript/`, always pass `--log`:
 
 ```bash
 node bin/glass.mjs evaluate <intent.json> config/policy.yaml \
-  --log var/tech-test-audit.jsonl \
+  --log ../../var/tech-test-audit.jsonl \
   [--switchboard config/switchboard.json]
 ```
 

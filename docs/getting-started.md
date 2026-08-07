@@ -11,16 +11,18 @@ This guide gets you from a clean checkout to a verified evaluate → (optional a
 ## Project location
 
 ```text
-~/projects/northstar
-# absolute: /Users/home/projects/northstar
+~/projects/northstar                 # monorepo root (docs, schemas)
+~/projects/northstar/implementations/javascript   # active Node code
 ```
 
-## 1. Enter the project
+## 1. Enter the JavaScript implementation
 
 ```bash
-cd ~/projects/northstar
+cd ~/projects/northstar/implementations/javascript
 node --version   # >= 18
 ```
+
+Docs and shared schemas stay at the monorepo root (`../../docs`, `../../schemas`).
 
 ## 2. Run the test suite (sanity)
 
@@ -34,23 +36,23 @@ Expected: all suites pass / CONFORMING.
 ## 3. Run the narrative demos
 
 ```bash
-npm run demo               # dual accountability story → var/demo-audit.jsonl
-npm run demo:switchboard   # identity + credibility → var/demo-switchboard-audit.jsonl
+npm run demo               # → ../../var/demo-audit.jsonl
+npm run demo:switchboard   # → ../../var/demo-switchboard-audit.jsonl
 ```
 
 ## 4. First CLI evaluate (with audit log)
 
-Air-gapped mode **requires** an audit file:
+Air-gapped mode **requires** an audit file (monorepo `var/`):
 
 ```bash
-mkdir -p var
-: > var/tech-test-audit.jsonl
-chmod 600 var/tech-test-audit.jsonl
+mkdir -p ../../var
+: > ../../var/tech-test-audit.jsonl
+chmod 600 ../../var/tech-test-audit.jsonl
 
 node bin/glass.mjs evaluate \
   examples/intent-safe.json \
   config/policy.yaml \
-  --log var/tech-test-audit.jsonl
+  --log ../../var/tech-test-audit.jsonl
 ```
 
 With Switchboard (default if `config/switchboard.json` exists):
@@ -59,7 +61,7 @@ With Switchboard (default if `config/switchboard.json` exists):
 node bin/glass.mjs evaluate \
   examples/intent-pii-email.json \
   config/policy.yaml \
-  --log var/tech-test-audit.jsonl
+  --log ../../var/tech-test-audit.jsonl
 ```
 
 Copy the `receipt_id` from the JSON output.
@@ -69,14 +71,14 @@ Copy the `receipt_id` from the JSON output.
 ```bash
 node bin/glass.mjs approve <receipt_id> \
   --operator human.ops.alex \
-  --log var/tech-test-audit.jsonl \
+  --log ../../var/tech-test-audit.jsonl \
   --note "Approved for test"
 ```
 
 ### Check authorization from the audit chain
 
 ```bash
-node bin/glass.mjs auth <receipt_id> --log var/tech-test-audit.jsonl
+node bin/glass.mjs auth <receipt_id> --log ../../var/tech-test-audit.jsonl
 ```
 
 ### Record execution (chain-verified)
@@ -85,13 +87,13 @@ node bin/glass.mjs auth <receipt_id> --log var/tech-test-audit.jsonl
 node bin/glass.mjs execute <receipt_id> \
   --executor runtime.demo \
   --status EXECUTED \
-  --log var/tech-test-audit.jsonl
+  --log ../../var/tech-test-audit.jsonl
 ```
 
 ### Inspect the chain
 
 ```bash
-node bin/glass.mjs chain <receipt_id> --log var/tech-test-audit.jsonl
+node bin/glass.mjs chain <receipt_id> --log ../../var/tech-test-audit.jsonl
 ```
 
 ## 5. Formal technical test #1
@@ -103,7 +105,7 @@ node scripts/tech-test.mjs
 This resets and writes:
 
 ```text
-var/tech-test-audit.jsonl
+../../var/tech-test-audit.jsonl   # monorepo root var/
 ```
 
 Covers: safe allow, Switchboard DENY (unknown / not whitelisted), escalate→approve→execute, reject→block, audit chain.

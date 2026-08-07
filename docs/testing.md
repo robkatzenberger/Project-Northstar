@@ -3,7 +3,7 @@
 ## Quick commands
 
 ```bash
-cd ~/projects/northstar
+cd ~/projects/northstar/implementations/javascript
 
 npm test                      # unit + switchboard + air-gap
 npm run test:unit

@@ -1,6 +1,6 @@
 /**
  * Formal air-gapped technical test #1
- * Log: var/tech-test-audit.jsonl
+ * Log: <monorepo>/var/tech-test-audit.jsonl
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +19,8 @@ import {
 } from "../src/index.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const auditPath = path.join(root, "var", "tech-test-audit.jsonl");
+const monorepoRoot = path.resolve(root, "../..");
+const auditPath = path.join(monorepoRoot, "var", "tech-test-audit.jsonl");
 const policy = readPolicyFile(path.join(root, "config", "policy.yaml"));
 const sb = loadSwitchboard(path.join(root, "config", "switchboard.json"));
 

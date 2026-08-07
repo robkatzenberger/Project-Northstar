@@ -1,122 +1,80 @@
-# Northstar — Trust Layer Pre-Execution (TL-PX)
+# Northstar — Trust Layer (multi-language monorepo)
 
 **Codename:** Northstar  
-**What this is:** An **open minimum standard** + **air-gapped reference implementation** for human + machine trust checkpoints *before* execution.
+**What this is:** Trust Layer pre-execution checkpoint — **TL-PX** minimum standard, docs, schemas, and language implementations.
 
-> Intent is declared before action.  
-> Switchboard identifies who may act.  
-> Glass decides. Humans escalate when needed.  
-> Side effects run only when the audit chain says AUTHORIZED.
+> Intent before action. Switchboard first. Gate second. Execute only if authorized.
 
-**Local only for now** — no GitHub remote until you choose.  
 **License:** Apache-2.0  
-
----
-
-## Documentation suite
-
-**Start here → [`docs/README.md`](docs/README.md)**  
-
-**Shareable plain-language overview → [`docs/SHARE.md`](docs/SHARE.md)** (diagrams included)
-
-| Guide | Description |
-| --- | --- |
-| [**SHARE.md** — simple overview](docs/SHARE.md) | Human-readable story + Mermaid diagrams |
-| [Getting Started](docs/getting-started.md) | Install, first evaluate, demos |
-| [Concepts](docs/concepts.md) | Mental model |
-| [Architecture](docs/architecture.md) | Layers and modules |
-| [API Reference](docs/api-reference.md) | JavaScript library |
-| [CLI Reference](docs/cli-reference.md) | `bin/glass.mjs` |
-| [Configuration](docs/configuration.md) | Policy + Switchboard |
-| [Switchboard](docs/switchboard.md) | Identity, whitelist, credibility |
-| [Air-Gapped Operation](docs/airgap.md) | Chain auth, fail-closed executor |
-| [Security Model](docs/security.md) | Threats and residual risks |
-| [Testing](docs/testing.md) | Conformance, tech test, red team |
-| [Integration](docs/integration.md) | Wire real runtimes |
-| [TL-PX Spec v0.1](docs/standard/SPEC-v0.1.md) | Normative minimum standard |
-| [Glossary](docs/glossary.md) | Terms |
-| [Changelog](docs/changelog.md) | History |
-
----
-
-## Quick start
-
-```bash
-cd ~/projects/northstar
-
-npm test                    # unit + switchboard + air-gap
-npm run conformance         # TL-PX 0.1
-node scripts/tech-test.mjs  # formal technical test #1 (PASS)
-npm run demo
-npm run demo:switchboard
-```
-
-```bash
-# Air-gapped CLI (audit required)
-node bin/glass.mjs evaluate examples/intent-safe.json config/policy.yaml \
-  --log var/tech-test-audit.jsonl
-
-node bin/glass.mjs auth  <receipt_id> --log var/tech-test-audit.jsonl
-node bin/glass.mjs chain <receipt_id> --log var/tech-test-audit.jsonl
-```
-
-Zero runtime npm dependencies. **Node 18+**.
-
-Canonical audit path: **`var/tech-test-audit.jsonl`**
-
----
-
-## One-screen flow
-
-```text
-Agent/Machine
-  → Switchboard (whitelist + credibility 0–0.99 + approval route)
-  → Policy gate (ALLOW | REQUIRE_APPROVAL)
-  → Human APPROVE/REJECT if escalated
-  → executeAuthorized (fail-closed)
-  → Append-only JSONL audit + accountability
-```
-
-Switchboard **DENY** is automatic and happens **before** policy rules.
-
----
-
-## Open-source layers
-
-| Layer | Open? | Role |
-| --- | --- | --- |
-| **Prism** | Yes | Metadata-only intent signal |
-| **TL-PX Minimum** | Yes (this) | Spec + schemas + conformance + reference |
-| **APEX-Lite** | Yes | Early concept playground |
-| **Glass enterprise** | Your call | Tokens, multi-tenant, ops UI — *extends* TL-PX |
+**Primary implementation today:** JavaScript (Node 18+)
 
 ---
 
 ## Repository layout
 
 ```text
-docs/                 Full documentation suite
-docs/standard/        TL-PX normative spec
-schemas/tlpx-0.1/     JSON schemas
-src/                  Reference implementation
-bin/glass.mjs         CLI
-config/               policy.yaml + switchboard.json
-examples/             Intent fixtures
-scripts/              tests, demos, tech-test, red-team
-var/                  Local audit logs (gitignored)
+northstar/
+  docs/                      Language-agnostic documentation
+  schemas/tlpx-0.1/          Shared JSON schemas (the contract)
+  LICENSE
+  implementations/
+    javascript/              Active Node reference (CLI, tests, tech test)
+    go/                      Placeholder
+    java/                    Placeholder
+    rust/                    Placeholder
+    python/                  Placeholder
+  var/                       Local audit logs (gitignored)
 ```
+
+| Path | Role |
+| --- | --- |
+| [`docs/README.md`](docs/README.md) | Full docs hub |
+| [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
+| [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Normative TL-PX spec |
+| [`implementations/README.md`](implementations/README.md) | Multi-language guide |
+| [`implementations/javascript/`](implementations/javascript/) | **Run code / tests here** |
+
+---
+
+## Quick start (JavaScript reference)
+
+```bash
+cd implementations/javascript
+
+npm test
+npm run conformance
+npm run tech-test
+
+node bin/glass.mjs evaluate examples/intent-safe.json config/policy.yaml \
+  --log ../../var/tech-test-audit.jsonl
+```
+
+Canonical audit log (monorepo root):
+
+```text
+var/tech-test-audit.jsonl
+```
+
+---
+
+## Adding another language
+
+1. Use the placeholder under `implementations/<lang>/` (or create one).  
+2. Implement against [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) and `schemas/`.  
+3. Keep records interoperable with the JS reference.  
+4. Update [`implementations/README.md`](implementations/README.md).
+
+You do **not** need every language for the open standard — one solid reference + schemas is enough. Extra languages are ports for specific environments (JVM, Go services, Rust PEPs, etc.).
 
 ---
 
 ## Status
 
-- [x] TL-PX 0.1 draft + schemas  
-- [x] Switchboard + air-gap hardening  
-- [x] Conformance suite  
-- [x] Technical test #1 **PASS** (29/29)  
-- [x] Documentation suite  
-- [ ] Public remote release (when you choose)  
-- [ ] HTTP profile / signed receipts / operator authN  
+- [x] TL-PX 0.1 + JS reference + air-gap hardening  
+- [x] Technical test #1 PASS (JS)  
+- [x] Multi-language folder layout  
+- [ ] Go / Java / Rust / Python ports  
+- [ ] Enterprise Switchboard service (likely Go or JVM later)  
 
 ---
 
@@ -125,6 +83,3 @@ var/                  Local audit logs (gitignored)
 - [Trust Layer AI site](https://trust-layer-ai.github.io/Trust-Layer-AI/)  
 - [Prism](https://github.com/Trust-Layer-AI/prism-protocol)  
 - [Trust-Engine](https://github.com/Trust-Layer-AI/Trust-Engine)  
-- Local early ref: `~/APEX-Lite`  
-
-For agents working in this repo, see [`AGENTS.md`](AGENTS.md).

@@ -108,7 +108,7 @@ Agent / human / script
 ## Quick commands
 
 ```bash
-cd ~/projects/northstar
+cd ~/projects/northstar/implementations/javascript
 
 npm test                    # unit + switchboard + air-gap
 npm run conformance         # TL-PX 0.1 suite
@@ -119,11 +119,14 @@ npm run demo:switchboard
 node bin/glass.mjs help
 ```
 
-Canonical technical-test audit log:
+Canonical technical-test audit log (monorepo root):
 
 ```text
-var/tech-test-audit.jsonl
+../../var/tech-test-audit.jsonl
+# absolute: ~/projects/northstar/var/tech-test-audit.jsonl
 ```
+
+Multi-language layout: [`../implementations/README.md`](../implementations/README.md)
 
 ---
 
