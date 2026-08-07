@@ -67,6 +67,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [testing.md](./testing.md) | Unit, conformance, red-team, technical test #1 |
 | [MVP.md](./MVP.md) | Historical MVP handoff brief |
 | [changelog.md](./changelog.md) | Project changelog |
+| [**roadmap/**](./roadmap/README.md) | **Ideas & next phases (H-M/M-M, PEP, tokens, handoff)** |
 
 ---
 
