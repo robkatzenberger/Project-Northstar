@@ -15,14 +15,14 @@
 ```text
 northstar/
   docs/                      Language-agnostic documentation
+  docs/roadmap/              Product ideas & phased plan (H-M/M-M, PEP, tokens)
   schemas/tlpx-0.1/          Shared JSON schemas (the contract)
   LICENSE
   implementations/
-    javascript/              Active Node reference (CLI, tests, tech test)
-    go/                      Placeholder
-    java/                    Placeholder
-    rust/                    Placeholder
-    python/                  Placeholder
+    javascript/              Full Node reference
+    go/                      Switchboard + sealed audit + HTTP control plane
+    java/                    Policy + Switchboard evaluate
+    rust/ python/            Placeholders
   var/                       Local audit logs (gitignored)
 ```
 
@@ -30,9 +30,10 @@ northstar/
 | --- | --- |
 | [`docs/README.md`](docs/README.md) | Full docs hub |
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
+| [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Normative TL-PX spec |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
-| [`implementations/javascript/`](implementations/javascript/) | **Run code / tests here** |
+| [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
 ---
 
