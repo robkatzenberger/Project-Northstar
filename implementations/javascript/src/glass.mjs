@@ -24,6 +24,7 @@ import {
   findDecisionInRecords,
   resolveAuthorizationFromAudit
 } from "./chain.mjs";
+import { assertOperatorAllowed } from "./operators.mjs";
 
 export const GLASS_VERSION = "0.1.0";
 export { CONTROL_MODE, STANDARD_ID, STANDARD_VERSION, resolveAuthorizationFromAudit };
@@ -207,6 +208,7 @@ export function resolveEscalation(input, action = {}, opts = {}) {
     );
   }
 
+  assertOperatorAllowed(operator_id, decision, opts);
   assertNotAlreadyResolved(opts.auditPath, receiptId);
 
   const record = {

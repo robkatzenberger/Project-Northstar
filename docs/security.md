@@ -48,9 +48,9 @@ This document is **engineering guidance**, not a formal certification or legal o
 | --- | --- | --- |
 | **Process never calls the gate** | Critical if assumed universal | OS/runtime mediation; admission controller pattern |
 | **Anyone who can write the audit can forge ALLOW** | Mitigated | Hash-chain + HMAC seal (A9); still protect seal key + OS ACLs |
-| **Operator id is free string (no authN)** | High in multi-user | Bind operators to SSO/mTLS/local allowlist + secrets |
+| **Operator id free string** | Medium | Approval-route + allowlist enforced; still no SSO/mTLS crypto identity |
 | **Declared intent can lie** | Medium–High | By design metadata trust; pair with scope limits + monitoring |
-| **Policy expression engine** | Medium | Trusted policy authors only; future pure DSL |
+| **Policy expression engine** | Low (mitigated) | Safe AST parser (no `new Function`); still only load trusted policy files |
 | **`allowEphemeral`** | Medium if misused | Never enable in production adapters |
 | **Secrets in audit JSONL** | High if leaked | Redact; restrict file perms (`chmod 600`); no commit |
 
@@ -59,7 +59,7 @@ This document is **engineering guidance**, not a formal certification or legal o
 In-scope API/audit-chain attacks (forged memory status, double-resolve, pending execute, stub operator) **held**.  
 Raw unsealed audit forgery (A9) is rejected by integrity verify + HMAC seal.
 
-Residual **WARN** class items: bypass outside library (A16), operator spoof (A18), semantic under-declaration (A12), policy `new Function` (A7).
+Residual **WARN** class items: bypass outside library (A16), semantic under-declaration (A12), `allowEphemeral` misuse (A17).
 
 See `implementations/javascript/scripts/adversarial-redteam.mjs`.
 

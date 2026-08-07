@@ -1,5 +1,14 @@
 export { createPrismSignal, toEvaluationIntent, PRISM_VERSION } from "./prism.mjs";
-export { readPolicyFile, parsePolicyText, evaluateRules } from "./policy.mjs";
+export {
+  readPolicyFile,
+  parsePolicyText,
+  evaluateRules,
+  evaluateCondition,
+  tokenize,
+  parseExpr,
+  evalAst
+} from "./policy.mjs";
+export { assertOperatorAllowed, loadOperatorsFile } from "./operators.mjs";
 export {
   evaluateIntent,
   resolveEscalation,

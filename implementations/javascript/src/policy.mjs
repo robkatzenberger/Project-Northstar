@@ -1,6 +1,12 @@
 /**
- * Minimal deterministic policy loader + evaluator.
+ * Minimal deterministic policy loader + safe expression evaluator.
  * Compatible with APEX-Lite style rules YAML used in ~/APEX-Lite.
+ *
+ * Expression language (no eval / new Function):
+ *   field == "string" | field != "string" | field == true|false|number
+ *   "item" in field
+ *   and / or  (and binds tighter than or)
+ *   parentheses
  */
 
 import fs from "node:fs";
@@ -49,52 +55,192 @@ export function parsePolicyText(text) {
   };
 }
 
+// ─── Safe expression evaluator ─────────────────────────────────────────
+
 /**
- * Evaluate a tiny policy expression against intent fields.
- * Avoids `with` so missing fields are undefined (not ReferenceError).
- * Supports: ==, !=, &&, ||, "X" in fieldName, bare field identifiers.
+ * Tokenize policy expressions. Throws on illegal characters.
  */
-function evaluateCondition(expression, intent) {
-  let expr = expression
-    .replace(/\band\b/g, "&&")
-    .replace(/\bor\b/g, "||");
-
-  // "PII" in data_classes → __includes(__intent["data_classes"], "PII")
-  expr = expr.replace(
-    /"([^"]+)"\s+in\s+([A-Za-z_][A-Za-z0-9_]*)/g,
-    '__includes(__intent["$2"], "$1")'
-  );
-
-  // Replace bare field identifiers without touching string literals.
-  // Split on "..." segments; only rewrite odd/even outside quotes.
-  const parts = expr.split(/("(?:\\.|[^"\\])*")/);
-  expr = parts
-    .map((part, i) => {
-      // Even indices are outside quotes (split keeps delimiters on odd indices)
-      if (i % 2 === 1) return part;
-      return part.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (id) => {
-        if (
-          id === "true" ||
-          id === "false" ||
-          id === "__intent" ||
-          id === "__includes"
-        ) {
-          return id;
+export function tokenize(expr) {
+  const tokens = [];
+  let i = 0;
+  const s = expr;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (c === "(" || c === ")") {
+      tokens.push({ type: c });
+      i++;
+      continue;
+    }
+    if (s.startsWith("==", i)) {
+      tokens.push({ type: "EQ" });
+      i += 2;
+      continue;
+    }
+    if (s.startsWith("!=", i)) {
+      tokens.push({ type: "NE" });
+      i += 2;
+      continue;
+    }
+    if (c === '"') {
+      let j = i + 1;
+      let out = "";
+      while (j < s.length && s[j] !== '"') {
+        if (s[j] === "\\" && j + 1 < s.length) {
+          out += s[j + 1];
+          j += 2;
+          continue;
         }
-        return `__intent[${JSON.stringify(id)}]`;
-      });
-    })
-    .join("");
+        out += s[j];
+        j++;
+      }
+      if (j >= s.length) throw new Error("policy expr: unterminated string");
+      tokens.push({ type: "STRING", value: out });
+      i = j + 1;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[A-Za-z0-9_]/.test(s[j])) j++;
+      const word = s.slice(i, j);
+      if (word === "and") tokens.push({ type: "AND" });
+      else if (word === "or") tokens.push({ type: "OR" });
+      else if (word === "in") tokens.push({ type: "IN" });
+      else if (word === "true") tokens.push({ type: "BOOL", value: true });
+      else if (word === "false") tokens.push({ type: "BOOL", value: false });
+      else tokens.push({ type: "IDENT", value: word });
+      i = j;
+      continue;
+    }
+    if (/[0-9-]/.test(c)) {
+      let j = i + 1;
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+      const num = Number(s.slice(i, j));
+      if (Number.isNaN(num)) throw new Error(`policy expr: bad number near ${s.slice(i)}`);
+      tokens.push({ type: "NUMBER", value: num });
+      i = j;
+      continue;
+    }
+    throw new Error(`policy expr: illegal character '${c}' at ${i}`);
+  }
+  return tokens;
+}
 
-  const evaluator = new Function(
-    "__intent",
-    "__includes",
-    `return (${expr});`
-  );
+/**
+ * Parse tokens into AST.
+ * or-expr := and-expr (OR and-expr)*
+ * and-expr := cmp (AND cmp)*
+ * cmp := STRING IN IDENT | IDENT EQ|NE value | ( or-expr )
+ * value := STRING | NUMBER | BOOL
+ */
+export function parseExpr(tokens) {
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const take = (type) => {
+    const t = tokens[pos];
+    if (!t || (type && t.type !== type)) {
+      throw new Error(`policy expr: expected ${type || "token"}, got ${t?.type || "EOF"}`);
+    }
+    pos++;
+    return t;
+  };
 
-  return Boolean(
-    evaluator(intent, (value, item) => Array.isArray(value) && value.includes(item))
-  );
+  function parseOr() {
+    let left = parseAnd();
+    while (peek()?.type === "OR") {
+      take("OR");
+      left = { type: "or", left, right: parseAnd() };
+    }
+    return left;
+  }
+
+  function parseAnd() {
+    let left = parseCmp();
+    while (peek()?.type === "AND") {
+      take("AND");
+      left = { type: "and", left, right: parseCmp() };
+    }
+    return left;
+  }
+
+  function parseCmp() {
+    if (peek()?.type === "(") {
+      take("(");
+      const inner = parseOr();
+      take(")");
+      return inner;
+    }
+    // "x" in field
+    if (peek()?.type === "STRING" && tokens[pos + 1]?.type === "IN") {
+      const str = take("STRING").value;
+      take("IN");
+      const field = take("IDENT").value;
+      return { type: "in", item: str, field };
+    }
+    // field == / != value
+    if (peek()?.type === "IDENT") {
+      const field = take("IDENT").value;
+      const op = peek()?.type;
+      if (op !== "EQ" && op !== "NE") {
+        throw new Error(`policy expr: expected == or != after ${field}`);
+      }
+      take(op);
+      const v = peek();
+      if (!v || !["STRING", "NUMBER", "BOOL"].includes(v.type)) {
+        throw new Error(`policy expr: expected value after ${field}`);
+      }
+      pos++;
+      return {
+        type: op === "EQ" ? "eq" : "ne",
+        field,
+        value: v.value
+      };
+    }
+    throw new Error(`policy expr: unexpected token ${peek()?.type || "EOF"}`);
+  }
+
+  const ast = parseOr();
+  if (pos < tokens.length) {
+    throw new Error(`policy expr: trailing token ${tokens[pos].type}`);
+  }
+  return ast;
+}
+
+export function evalAst(ast, intent) {
+  switch (ast.type) {
+    case "or":
+      return evalAst(ast.left, intent) || evalAst(ast.right, intent);
+    case "and":
+      return evalAst(ast.left, intent) && evalAst(ast.right, intent);
+    case "eq":
+      return intent[ast.field] === ast.value;
+    case "ne":
+      return intent[ast.field] !== ast.value;
+    case "in": {
+      const arr = intent[ast.field];
+      return Array.isArray(arr) && arr.includes(ast.item);
+    }
+    default:
+      throw new Error(`policy expr: unknown node ${ast.type}`);
+  }
+}
+
+/**
+ * Evaluate a tiny policy expression against intent fields (safe, no Function).
+ */
+export function evaluateCondition(expression, intent) {
+  if (!expression || typeof expression !== "string") return false;
+  try {
+    const tokens = tokenize(expression);
+    const ast = parseExpr(tokens);
+    return Boolean(evalAst(ast, intent));
+  } catch {
+    // Malformed rule does not match (fail closed for that rule)
+    return false;
+  }
 }
 
 /**
@@ -110,7 +256,9 @@ export function evaluateRules(intent, policy) {
     if (rule.deny === true || rule.require) {
       return {
         decision: "REQUIRE_APPROVAL",
-        reason: rule.description || (rule.require ? `Policy requires ${rule.require}` : "Policy requires approval"),
+        reason:
+          rule.description ||
+          (rule.require ? `Policy requires ${rule.require}` : "Policy requires approval"),
         policy_id: rule.id
       };
     }

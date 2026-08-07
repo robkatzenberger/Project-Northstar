@@ -10,6 +10,17 @@
   "defaults": {
     "approval_route": ["human.ops.alex"]
   },
+  "operators": {
+    "enforce": true,
+    "allowlist": [
+      "human.ops.alex",
+      "human.support.lead",
+      "human.finance.sam",
+      "human.finance.lead",
+      "human.ops.lead",
+      "human.ops.jordan"
+    ]
+  },
   "principals": [
     {
       "id": "agent.docs.summarizer",

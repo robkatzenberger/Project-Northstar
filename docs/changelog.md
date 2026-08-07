@@ -52,7 +52,9 @@ Format: newest first.
 
 - Multi-language monorepo under `implementations/` (JS active; Go/Java skeletons; Rust/Python placeholders)
 - Audit **hash-chain + HMAC seal** (`prev_hash`, `audit_hash`, `seal`) with `glass verify`
-- Go skeleton: policy evaluate + CLI + tests  
+- **Safe policy expression parser** (no `new Function`) — A7
+- **Operator allowlist + approval_route enforcement** — A18 partial
+- Go: policy evaluate + **Switchboard-first** routing + CLI + tests  
 - Java skeleton: policy evaluate + Maven + tests  
 
 ### Docs
@@ -62,7 +64,7 @@ Format: newest first.
 ### Still planned
 
 - Optional HTTP / Unix socket profile  
-- Operator allowlist / authN binding  
-- Hardened policy DSL (no `Function` constructor)  
-- Full Switchboard/audit parity in Go/Java  
+- Cryptographic operator identity (beyond allowlist)  
+- Full sealed-audit parity in Go/Java  
+
 

@@ -54,6 +54,15 @@ export function normalizeConfig(raw) {
   const principals = raw.principals.map((p) => validatePrincipal(p, maxCred));
   const byId = new Map(principals.map((p) => [p.id, p]));
 
+  const operators = raw.operators
+    ? {
+        enforce: raw.operators.enforce !== false,
+        allowlist: Array.isArray(raw.operators.allowlist)
+          ? raw.operators.allowlist.map(String)
+          : []
+      }
+    : null;
+
   return {
     switchboard_id: raw.switchboard_id || "switchboard",
     unknown_agent_policy: raw.unknown_agent_policy === "REQUIRE_APPROVAL" ? "REQUIRE_APPROVAL" : "DENY",
@@ -67,6 +76,7 @@ export function normalizeConfig(raw) {
         ? raw.defaults.approval_route
         : []
     },
+    operators,
     principals,
     byId
   };

@@ -57,7 +57,7 @@ Fields often available after Switchboard enrichment:
 - `whitelisted`, `credibility`, `credibility_band`
 - `low_credibility`, `high_trust` (booleans)
 
-**Security:** treat policy files as **trusted admin input**. Expression evaluation uses a constrained rewrite + `Function` constructor — not multi-tenant safe for untrusted rule authors.
+**Security:** expression evaluation uses a **safe AST parser** (no `new Function`). Still load only operator-owned policy files.
 
 ### Ordering
 

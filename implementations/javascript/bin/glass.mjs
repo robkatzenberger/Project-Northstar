@@ -204,6 +204,7 @@ Default switchboard: config/switchboard.json (if present)
       die(`Usage: glass ${cmd} <receipt_id> --operator ID --log PATH`);
     }
     const { decision } = findDecision(path.resolve(args.log), receiptId);
+    const switchboard = resolveSwitchboard(args);
     const action = resolveEscalation(
       decision,
       {
@@ -211,7 +212,11 @@ Default switchboard: config/switchboard.json (if present)
         outcome: cmd === "approve" ? "APPROVE" : "REJECT",
         note: args.note
       },
-      { auditPath: path.resolve(args.log) }
+      {
+        auditPath: path.resolve(args.log),
+        switchboard,
+        operators: switchboard?.operators
+      }
     );
     print(action);
     return;
