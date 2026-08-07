@@ -1,20 +1,21 @@
-# Java implementation (skeleton)
+# Java implementation
 
-**Status:** Early skeleton — policy evaluate only  
+**Status:** Policy evaluate + **Switchboard-first** routing  
 **Build:** Maven, Java 17+
 
 ## What works
 
-- Load shared JS reference `policy.yaml`
-- Evaluate intents → `ALLOW` | `REQUIRE_APPROVAL` (TL-PX-shaped decision map)
-- JUnit tests for safe allow + PII email rule
+- Shared JS `policy.yaml` + `switchboard.json`
+- Switchboard hard DENY (unknown / not whitelisted / action denied)
+- Credibility flags for policy
+- TL-PX-shaped decision JSON
+- JUnit tests
 
 ## Not yet
 
-- Switchboard
 - Sealed audit JSONL
-- Operator / executeAuthorized
-- Spring/HTTP service
+- Operator resolve / executeAuthorized
+- HTTP service (use Go `tlpxd` for control plane)
 
 ## Commands
 
@@ -23,17 +24,7 @@ cd implementations/java
 
 mvn test
 
-mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-safe.json ../javascript/config/policy.yaml"
+mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-safe.json ../javascript/config/policy.yaml ../javascript/config/switchboard.json"
 
-mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-pii-email.json ../javascript/config/policy.yaml"
-```
-
-## Layout
-
-```text
-java/
-  pom.xml
-  src/main/java/ai/trustlayer/tlpx/{policy,gate,cli}/
-  src/test/java/...
-  README.md
+mvn -q exec:java -Dexec.args="evaluate ../javascript/examples/intent-unknown-agent.json ../javascript/config/policy.yaml ../javascript/config/switchboard.json"
 ```

@@ -74,10 +74,11 @@ You do **not** need every language for the open standard — one solid reference
 - [x] Technical test #1 PASS (JS)  
 - [x] Multi-language folder layout  
 - [x] Audit hash-chain + HMAC seal (`glass verify`)  
-- [x] Go / Java evaluate skeletons  
+- [x] Go: Switchboard + sealed audit + CLI + HTTP `tlpxd`  
+- [x] Java: Switchboard + evaluate  
 - [ ] Rust / Python ports  
-- [ ] Full Switchboard/audit parity outside JS  
-- [ ] Enterprise Switchboard service (likely Go or JVM later)  
+- [ ] Java sealed audit / full ops parity  
+- [ ] Production HA multi-tenant control plane
 
 ---
 

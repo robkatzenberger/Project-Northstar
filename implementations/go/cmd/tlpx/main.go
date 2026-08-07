@@ -1,4 +1,4 @@
-// tlpx — Go skeleton for TL-PX evaluate (+ optional Switchboard).
+// tlpx — Go reference CLI: evaluate, approve, execute, verify (+ optional Switchboard / sealed audit).
 package main
 
 import (
@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Trust-Layer-AI/Project-Northstar/implementations/go/internal/audit"
 	"github.com/Trust-Layer-AI/Project-Northstar/implementations/go/internal/gate"
+	"github.com/Trust-Layer-AI/Project-Northstar/implementations/go/internal/ops"
 	"github.com/Trust-Layer-AI/Project-Northstar/implementations/go/internal/policy"
 	"github.com/Trust-Layer-AI/Project-Northstar/implementations/go/internal/switchboard"
 )
@@ -16,21 +18,20 @@ func main() {
 		usage()
 		os.Exit(1)
 	}
+	var err error
 	switch os.Args[1] {
 	case "evaluate":
-		// tlpx evaluate <intent.json> <policy.yaml> [switchboard.json]
-		if len(os.Args) < 4 || len(os.Args) > 5 {
-			fmt.Fprintln(os.Stderr, "usage: tlpx evaluate <intent.json> <policy.yaml> [switchboard.json]")
-			os.Exit(1)
-		}
-		var sbPath string
-		if len(os.Args) == 5 {
-			sbPath = os.Args[4]
-		}
-		if err := cmdEvaluate(os.Args[2], os.Args[3], sbPath); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+		err = cmdEvaluate(os.Args[2:])
+	case "approve":
+		err = cmdResolve(os.Args[2:], "APPROVE")
+	case "reject":
+		err = cmdResolve(os.Args[2:], "REJECT")
+	case "execute":
+		err = cmdExecute(os.Args[2:])
+	case "auth":
+		err = cmdAuth(os.Args[2:])
+	case "verify":
+		err = cmdVerify(os.Args[2:])
 	case "help", "--help", "-h":
 		usage()
 	default:
@@ -38,47 +39,189 @@ func main() {
 		usage()
 		os.Exit(1)
 	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func usage() {
-	fmt.Println(`tlpx (Go skeleton)
+	fmt.Println(`tlpx (Go)
 
-  evaluate <intent.json> <policy.yaml> [switchboard.json]
+  evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--log PATH]
+  approve  <receipt_id> --operator ID --log PATH [--switchboard PATH]
+  reject   <receipt_id> --operator ID --log PATH [--switchboard PATH]
+  execute  <receipt_id> --executor ID --status STATUS --log PATH
+  auth     <receipt_id> --log PATH
+  verify   --log PATH
 
-Switchboard-first DENY when switchboard.json is provided.
-Shared fixtures: ../javascript/examples/
+When --log is set, decisions/actions are sealed into the audit JSONL.
 `)
 }
 
-func cmdEvaluate(intentPath, policyPath, sbPath string) error {
-	raw, err := os.ReadFile(intentPath)
+func cmdEvaluate(args []string) error {
+	f := parseFlags(args)
+	if len(f.pos) < 2 {
+		return fmt.Errorf("usage: tlpx evaluate <intent.json> <policy.yaml> [--switchboard PATH] [--log PATH]")
+	}
+	intent, err := loadIntent(f.pos[0])
 	if err != nil {
 		return err
 	}
-	var flat map[string]any
-	if err := json.Unmarshal(raw, &flat); err != nil {
-		return err
-	}
-	intent := normalizeIntent(flat)
-	p, err := policy.LoadFile(policyPath)
+	p, err := policy.LoadFile(f.pos[1])
 	if err != nil {
 		return err
 	}
-	opts := gate.EvaluateOptions{}
-	if sbPath != "" {
-		sb, err := switchboard.LoadFile(sbPath)
+	var sb *switchboard.Config
+	if f.switchboard != "" {
+		sb, err = switchboard.LoadFile(f.switchboard)
 		if err != nil {
 			return err
 		}
-		opts.Switchboard = sb
 	}
-	d, err := gate.EvaluateIntent(intent, p, opts)
+	if f.log != "" {
+		d, err := ops.EvaluateAndAppend(intent, p, sb, f.log)
+		if err != nil {
+			return err
+		}
+		return printJSON(d)
+	}
+	d, err := gate.EvaluateIntent(intent, p, gate.EvaluateOptions{Switchboard: sb})
 	if err != nil {
 		return err
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(d)
+	return printJSON(d)
+}
+
+func cmdResolve(args []string, outcome string) error {
+	f := parseFlags(args)
+	if len(f.pos) < 1 || f.operator == "" || f.log == "" {
+		return fmt.Errorf("usage: tlpx approve|reject <receipt_id> --operator ID --log PATH")
+	}
+	var sb *switchboard.Config
+	var err error
+	if f.switchboard != "" {
+		sb, err = switchboard.LoadFile(f.switchboard)
+		if err != nil {
+			return err
+		}
+	}
+	rec, err := ops.ResolveEscalation(f.log, f.pos[0], f.operator, outcome, f.note, sb)
+	if err != nil {
+		return err
+	}
+	return printJSON(rec)
+}
+
+func cmdExecute(args []string) error {
+	f := parseFlags(args)
+	if len(f.pos) < 1 || f.executor == "" || f.status == "" || f.log == "" {
+		return fmt.Errorf("usage: tlpx execute <receipt_id> --executor ID --status STATUS --log PATH")
+	}
+	rec, err := ops.RecordExecution(f.log, f.pos[0], f.executor, f.status, f.summary)
+	if err != nil {
+		return err
+	}
+	return printJSON(rec)
+}
+
+func cmdAuth(args []string) error {
+	f := parseFlags(args)
+	if len(f.pos) < 1 || f.log == "" {
+		return fmt.Errorf("usage: tlpx auth <receipt_id> --log PATH")
+	}
+	auth, err := audit.ResolveAuth(f.log, f.pos[0])
+	if err != nil {
+		return err
+	}
+	return printJSON(auth)
+}
+
+func cmdVerify(args []string) error {
+	f := parseFlags(args)
+	if f.log == "" {
+		return fmt.Errorf("usage: tlpx verify --log PATH")
+	}
+	v := audit.Verify(f.log)
+	if err := printJSON(v); err != nil {
+		return err
+	}
+	if !v.OK {
+		os.Exit(2)
+	}
+	return nil
+}
+
+type flags struct {
+	pos         []string
+	log         string
+	switchboard string
+	operator    string
+	executor    string
+	status      string
+	note        string
+	summary     string
+}
+
+func parseFlags(args []string) flags {
+	var f flags
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch a {
+		case "--log":
+			i++
+			if i < len(args) {
+				f.log = args[i]
+			}
+		case "--switchboard":
+			i++
+			if i < len(args) {
+				f.switchboard = args[i]
+			}
+		case "--operator":
+			i++
+			if i < len(args) {
+				f.operator = args[i]
+			}
+		case "--executor":
+			i++
+			if i < len(args) {
+				f.executor = args[i]
+			}
+		case "--status":
+			i++
+			if i < len(args) {
+				f.status = args[i]
+			}
+		case "--note":
+			i++
+			if i < len(args) {
+				f.note = args[i]
+			}
+		case "--summary":
+			i++
+			if i < len(args) {
+				f.summary = args[i]
+			}
+		default:
+			if len(a) > 0 && a[0] != '-' {
+				f.pos = append(f.pos, a)
+			}
+		}
+	}
+	return f
+}
+
+func loadIntent(path string) (policy.Intent, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var flat map[string]any
+	if err := json.Unmarshal(raw, &flat); err != nil {
+		return nil, err
+	}
+	return normalizeIntent(flat), nil
 }
 
 func normalizeIntent(flat map[string]any) policy.Intent {
@@ -128,4 +271,10 @@ func normalizeIntent(flat map[string]any) policy.Intent {
 		intent["risk"] = "low"
 	}
 	return intent
+}
+
+func printJSON(v any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
 }

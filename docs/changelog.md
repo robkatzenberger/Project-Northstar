@@ -61,10 +61,15 @@ Format: newest first.
 
 - Path sweep for monorepo (`cd implementations/javascript`, `../../var/…`)
 
+### Also in this stream
+
+- Go sealed audit + operator/execute + **`tlpxd` HTTP control plane**
+- Java Switchboard-first evaluate
+
 ### Still planned
 
-- Optional HTTP / Unix socket profile  
 - Cryptographic operator identity (beyond allowlist)  
-- Full sealed-audit parity in Go/Java  
+- Java sealed audit parity  
+- Production HA / multi-tenant control plane
 
 

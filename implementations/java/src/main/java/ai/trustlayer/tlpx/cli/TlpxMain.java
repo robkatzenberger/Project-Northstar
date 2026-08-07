@@ -3,6 +3,7 @@ package ai.trustlayer.tlpx.cli;
 import ai.trustlayer.tlpx.gate.Gate;
 import ai.trustlayer.tlpx.policy.PolicyEngine;
 import ai.trustlayer.tlpx.policy.PolicyEngine.Policy;
+import ai.trustlayer.tlpx.switchboard.Switchboard;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
@@ -18,23 +19,27 @@ public final class TlpxMain {
   public static void main(String[] args) throws Exception {
     if (args.length == 0 || args[0].equals("help") || args[0].equals("--help")) {
       System.out.println("""
-          tlpx (Java skeleton)
+          tlpx (Java)
 
-            evaluate <intent.json> <policy.yaml>
+            evaluate <intent.json> <policy.yaml> [switchboard.json]
 
-          Minimal TL-PX-shaped evaluate. No Switchboard, no sealed audit yet.
+          Switchboard-first DENY when switchboard.json is provided.
           """);
       return;
     }
-    if (!args[0].equals("evaluate") || args.length != 3) {
-      System.err.println("usage: tlpx evaluate <intent.json> <policy.yaml>");
+    if (!args[0].equals("evaluate") || args.length < 3 || args.length > 4) {
+      System.err.println("usage: tlpx evaluate <intent.json> <policy.yaml> [switchboard.json]");
       System.exit(1);
     }
     @SuppressWarnings("unchecked")
     Map<String, Object> raw = M.readValue(Path.of(args[1]).toFile(), Map.class);
     Map<String, Object> intent = normalize(raw);
     Policy policy = PolicyEngine.load(Path.of(args[2]));
-    Map<String, Object> decision = Gate.evaluateIntent(intent, policy);
+    Switchboard sb = null;
+    if (args.length == 4) {
+      sb = Switchboard.load(Path.of(args[3]));
+    }
+    Map<String, Object> decision = Gate.evaluateIntent(intent, policy, sb);
     M.writeValue(System.out, decision);
     System.out.println();
   }
