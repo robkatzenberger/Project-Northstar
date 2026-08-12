@@ -1,0 +1,19 @@
+# Northstar test evidence
+
+This directory keeps durable reports from independent or adversarial test runs so future modifications can reference a known baseline.
+
+## Current baseline
+
+- [`reports/northstar-two-agent-test-proof.md`](./reports/northstar-two-agent-test-proof.md) — two-agent requester/execution-gate test of commit `ca05f6996534471e817d11f3c668e38411797fb8`.
+
+## Referencing this baseline
+
+For changes to policy evaluation, Switchboard decisions, audit integrity, approvals, execution enforcement, schemas, or conformance:
+
+1. Run `npm test`, `npm run conformance`, `npm run tech-test`, and `npm run redteam` from `implementations/javascript/`.
+2. Re-run the relevant two-party scenario from the report.
+3. Record the tested commit SHA, runtime versions, exit codes, receipt outcomes, audit verification, and any changed findings in a new dated report under `tests/reports/`.
+4. Do not overwrite historical reports; they are point-in-time evidence.
+
+The reports demonstrate observed behavior, not certification. In particular, mediated execution and unavoidable enforcement are different security claims.
+
