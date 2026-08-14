@@ -59,5 +59,12 @@ export function validateV02(kind, value) {
       }
     }
   }
+  if (
+    kind === "authorization-claim" &&
+    value.action_binding_hash !== value.executed_action_hash
+  ) {
+    result.ok = false;
+    result.errors.push("ACTION_MISMATCH: presented binding != stored action_binding_hash");
+  }
   return result;
 }

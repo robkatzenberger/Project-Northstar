@@ -191,6 +191,55 @@ fn contract_types_use_binding_not_full_hash_equality() {
     assert!(bindings_match(&authorized, &executed).unwrap());
 }
 
+fn assert_binding_false(authorized: &AuthorizedAction, executed: ExecutedAction, name: &str) {
+    assert!(
+        !bindings_match(authorized, &executed).unwrap(),
+        "{name} must participate in the Action Binding"
+    );
+}
+
+#[test]
+fn binding_mutations_mismatch() {
+    let (_, authorized, executed) = sample_actions();
+    assert!(bindings_match(&authorized, &executed).unwrap());
+
+    let mut e = executed.clone();
+    e.executing_principal = "agent.b".into();
+    assert_binding_false(&authorized, e, "executor");
+
+    let mut e = executed.clone();
+    e.action = "send_sms".into();
+    assert_binding_false(&authorized, e, "action");
+
+    let mut e = executed.clone();
+    e.target = "customer:999".into();
+    assert_binding_false(&authorized, e, "target");
+
+    let mut e = executed.clone();
+    e.arguments = Value::Object(vec![("template".into(), Value::String("other".into()))]);
+    assert_binding_false(&authorized, e, "arguments");
+
+    let mut e = executed.clone();
+    e.environment = "staging".into();
+    assert_binding_false(&authorized, e, "environment");
+
+    let mut e = executed.clone();
+    e.tenant = "tenant_other".into();
+    assert_binding_false(&authorized, e, "tenant");
+
+    let mut e = executed.clone();
+    e.payload_hash = Some(format!("sha256:{}", "c".repeat(64)));
+    assert_binding_false(&authorized, e, "payload_hash");
+
+    let mut e = executed.clone();
+    e.artifact_hash = Some(format!("sha256:{}", "d".repeat(64)));
+    assert_binding_false(&authorized, e, "artifact_hash");
+
+    let mut e = executed.clone();
+    e.adapter.id = "adapter.other".into();
+    assert_binding_false(&authorized, e, "adapter");
+}
+
 #[test]
 fn programmatic_value_cannot_bypass_jcs() {
     assert!(canonicalize(&Value::Int(i64::MAX)).is_err());

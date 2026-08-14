@@ -65,6 +65,7 @@ Format: newest first.
 - **TL-PX 0.2 slice 2.3:** schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS validators, distinct `npm run conformance:0.2`. Gate still emits 0.1.
 - **Rust skeleton:** `implementations/rust` crate `tlpx` — 0.2 contract types and JCS/hash oracle. `cargo test` matches `golden.json`. No evaluate/claim/PEP.
 - Action Binding: PEP compares the shared projection under `executed-action`. Full `authorized_action_hash` is not compared to `executed_action_hash`. Rust canonicalize/hash is fallible; types validate first. Schema requires `risk_reasons` and `risk_source`.
+- Authorization stores `action_binding_hash`; claim SQL compares the presented binding to that value. `capability`/`resource_scope` are PEP constraints, not binding fields.
 
 ### Added
 

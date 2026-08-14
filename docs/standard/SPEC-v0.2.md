@@ -144,7 +144,9 @@ JCS(action_binding(Authorized Action))
   == JCS(action_binding(Executed Action))
 ```
 
-Equivalently, both sides hashed under `northstar:executed-action:v1` MUST be equal. That common digest is `executed_action_hash`. A mismatch MUST block and MUST record `ACTION_MISMATCH`.
+Equivalently, both sides hashed under `northstar:executed-action:v1` MUST be equal. That common digest is `action_binding_hash` when computed by the authority at issuance, and `executed_action_hash` when computed by the PEP over the presented Executed Action. The authorization record MUST store `action_binding_hash`. Atomic claim MUST compare the presented binding digest to that stored value. A mismatch MUST block and MUST record `ACTION_MISMATCH`.
+
+`capability` and `resource_scope` are **not** part of the Action Binding. They are policy-derived authorization constraints. The PEP MUST enforce them independently against the adapter operation (the presented action/target/arguments must fall within the authorized capability and resource scope). They MUST NOT be omitted from enforcement merely because they are absent from the binding.
 
 ### 4.1 Submitted Intent
 
@@ -419,6 +421,7 @@ executing_principal
 action
 target
 authorized_action_hash
+action_binding_hash            # authority-computed; claim compares this
 intent_hash
 environment
 tenant
@@ -441,7 +444,7 @@ A later portable **authorization claim ticket** or **capability proof** MAY exis
 Every such ticket MUST:
 
 - bind one authenticated executor;
-- bind one `authorized_action_hash`;
+- bind one `authorized_action_hash` and one `action_binding_hash`;
 - bind one adapter identity and version, environment, and tenant;
 - bind one short claim window (`claim_expires_at`);
 - identify issuer, ticket type and version, signing algorithm, key id, trust domain, and signature;
@@ -455,7 +458,7 @@ The ticket MUST NOT be a bearer `AUTHORIZED` snapshot. Slice 2.1 forbids impleme
 
 Atomic consumption MUST be represented by a dedicated `tlpx.authorization_claim` record. Implementations MUST NOT invent a private consumption log and MUST NOT treat an intermediate `tlpx.execution` as the claim.
 
-A claim record MUST include at least: `record_type` = `tlpx.authorization_claim`, `standard`, `standard_version`, `claim_id` (authority-generated), `authorization_id`, linked decision `receipt_id`, authenticated `executing_principal`, `authorized_action_hash`, `executed_action_hash` presented at claim, adapter identity and version, `claimed_at`, `lease_expires_at`, `sequence`, and `state` = `CLAIMED`.
+A claim record MUST include at least: `record_type` = `tlpx.authorization_claim`, `standard`, `standard_version`, `claim_id` (authority-generated), `authorization_id`, linked decision `receipt_id`, authenticated `executing_principal`, `authorized_action_hash`, `action_binding_hash` as stored, `executed_action_hash` presented at claim, adapter identity and version, `claimed_at`, `lease_expires_at`, `sequence`, and `state` = `CLAIMED`. A successful claim requires `action_binding_hash == executed_action_hash`.
 
 Zero updated authoritative rows MUST produce a blocking reason from §9.3 and MUST NOT emit a successful claim record. A successful claim record MUST exist before `tlpx.execution` may record a side effect.
 
@@ -500,7 +503,7 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `AUTHORIZATION_EXPIRED` | Claim window passed |
 | `ALREADY_CLAIMED` | Consumed by a prior claim |
 | `EXECUTOR_MISMATCH` | Authenticated executor is not the named executor |
-| `ACTION_MISMATCH` | Executed Action hash ≠ Authorized Action hash |
+| `ACTION_MISMATCH` | Presented Action Binding digest ≠ stored `action_binding_hash` |
 | `AUTHORIZATION_DENIED` | No authorization exists because evaluation was `DENIED` |
 | `AUTHORIZATION_TERMINAL` | State is already terminal |
 | `AUTHORIZATION_REVOKED` | Revoked before or at claim |
@@ -617,3 +620,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.2b | Key sort is RFC 8785 UTF-16 code units. Lone surrogates rejected. Fixtures include astral/BMP order and raw `digest_hex`. |
 | 0.2.0-draft.2.3 | Record/object schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS `validate-v02`, distinct `conformance:0.2` suite. |
 | 0.2.0-draft.2.3b | PEP compares Action Binding under `executed-action` domain. `authorized_action_hash` is not compared to `executed_action_hash`. Authorized Action requires `risk_reasons` and `risk_source`. |
+| 0.2.0-draft.2.3c | Authorization stores `action_binding_hash`. Claim compares presented binding to that value. `capability`/`resource_scope` stay PEP constraints, not binding fields. |

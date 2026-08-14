@@ -195,6 +195,7 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     action: "send_email",
     target: "customer:123",
     authorized_action_hash: H,
+    action_binding_hash: H2,
     intent_hash: H,
     environment: "production",
     tenant: "tenant_abc",
@@ -216,7 +217,8 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     receipt_id: "rcpt_1",
     executing_principal: "agent.a",
     authorized_action_hash: H,
-    executed_action_hash: H,
+    action_binding_hash: H2,
+    executed_action_hash: H2,
     adapter,
     claimed_at: T,
     lease_expires_at: T,
@@ -224,6 +226,10 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     state: "CLAIMED"
   };
   check("authorization_claim", validateV02("authorization-claim", claim).ok);
+  check(
+    "claim ACTION_MISMATCH when presented binding differs",
+    !validateV02("authorization-claim", { ...claim, executed_action_hash: H }).ok
+  );
   const execOk = {
     record_type: "tlpx.execution",
     standard: "TL-PX",

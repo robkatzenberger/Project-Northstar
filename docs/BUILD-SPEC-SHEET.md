@@ -332,7 +332,7 @@ The short claim timer begins when authorization is issued, not while a human is 
 
 ## 10. Atomic claim
 
-Expiration alone does not prevent two executors from using the same permission during the valid window. Claiming must therefore be transactional and compare the authenticated executor and actual action hash.
+Expiration alone does not prevent two executors from using the same permission during the valid window. Claiming must therefore be transactional and compare the authenticated executor and the **Action Binding** digest. The authorization row MUST store an authority-computed `action_binding_hash` at issuance. It MUST NOT compare `authorized_action_hash` to `executed_action_hash`.
 
 Conceptual operation:
 
@@ -345,7 +345,7 @@ SET
   lease_expires_at = :lease_expiration
 WHERE authorization_id = :authorization_id
   AND executing_principal = :authenticated_executor
-  AND authorized_action_hash = :executed_action_hash
+  AND action_binding_hash = :presented_binding_hash
   AND state = 'AUTHORIZED_UNCLAIMED'
   AND claim_expires_at > :now
   AND revoked_at IS NULL
@@ -354,6 +354,8 @@ WHERE authorization_id = :authorization_id
   AND signing_key_status = 'ACTIVE'
   AND environment_status = 'ACTIVE';
 ```
+
+`:presented_binding_hash` is the PEP-computed digest of the Executed Action / Action Binding under `northstar:executed-action:v1`. It MUST equal the stored `action_binding_hash`.
 
 Exactly one updated row means the claim succeeded. Zero updated rows must produce a blocking reason such as:
 
