@@ -5,6 +5,7 @@
 
 pub mod authority;
 pub mod error;
+pub mod evidence;
 pub mod hash;
 pub mod jcs;
 pub mod policy;
@@ -15,6 +16,7 @@ pub use authority::{
     IssuedAuthorization, Retryability,
 };
 pub use error::{Error, Result};
+pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};
 pub use hash::{
     approval_context_hash, assert_hash_string, authorized_action_hash, digest_hex,
     executed_action_hash, hash_canonical, hash_json_text, hash_value, intent_hash,

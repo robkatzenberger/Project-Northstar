@@ -9,7 +9,9 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../docs/`](../docs/) | Documentation suite |
 | [`../schemas/tlpx-0.1/`](../schemas/tlpx-0.1/) | Frozen 0.1 JSON schemas |
 | [`../tests/fixtures/tlpx-0.2/jcs/`](../tests/fixtures/tlpx-0.2/jcs/) | Accepted 0.2 JCS / hash golden fixtures |
-| [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Proposed hardened baseline for a separately versioned TL-PX 0.2 |
+| [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Current hardened baseline for a separately versioned TL-PX 0.2 |
+| [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and explicit limits |
+| [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder evidence for the uncommitted Rust schema-evidence/outbox delta |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -23,7 +25,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 schema/hash oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority MVP** | 0.2 types/JCS plus deterministic evaluation, SQLite authorization, revocation, idempotency, and atomic one-time claim. No authenticated transport, execution receipt, or PEP yet. |
+| [`rust/`](./rust/) | **Local authority MVP** | Commit `aed80e2` independently accepted; current uncommitted delta adds builder-verified bounded schema evidence and a sealed outbox. No authenticated transport, execution receipt, or PEP yet. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

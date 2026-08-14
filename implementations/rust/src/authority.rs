@@ -6,6 +6,10 @@
 //! principal strings still come from a trusted embedding boundary.
 
 use crate::error::{Error, Result};
+use crate::evidence::{
+    self, DecisionEvidenceInput, ErrorEvidenceInput, EvidenceConfig, EvidenceReconciliation,
+    SealedEvidence,
+};
 use crate::hash::assert_hash_string;
 use crate::policy::{CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, Switchboard};
 use crate::types::{ActionBinding, AuthorizedAction, ExecutedAction, SubmittedIntent};
@@ -23,7 +27,7 @@ pub enum AuthzState {
 }
 
 impl AuthzState {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::AuthorizedUnclaimed => "AUTHORIZED_UNCLAIMED",
             Self::Claimed => "CLAIMED",
@@ -53,7 +57,7 @@ pub enum Retryability {
 }
 
 impl Retryability {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Never => "NEVER",
             Self::AfterCondition => "AFTER_CONDITION",
@@ -76,6 +80,7 @@ pub struct AuthorityConfig {
     pub policy: PolicyBundle,
     pub switchboard: Switchboard,
     pub capabilities: CapabilityRegistry,
+    pub evidence: EvidenceConfig,
     pub claim_window_ms: i64,
     pub execution_lease_ms: i64,
 }
@@ -83,6 +88,7 @@ pub struct AuthorityConfig {
 impl AuthorityConfig {
     fn validate(&self) -> Result<()> {
         self.policy.validate()?;
+        self.evidence.validate()?;
         for template in self.policy.authorization_templates() {
             if !self.capabilities.contains(&template.capability) {
                 return Err(Error::policy_compile(format!(
@@ -94,6 +100,11 @@ impl AuthorityConfig {
         if self.claim_window_ms <= 0 || self.execution_lease_ms <= 0 {
             return Err(Error::policy_compile(
                 "claim and execution windows must be positive",
+            ));
+        }
+        if self.execution_lease_ms % 1_000 != 0 {
+            return Err(Error::policy_compile(
+                "execution lease must be a whole number of seconds",
             ));
         }
         Ok(())
@@ -108,6 +119,7 @@ pub struct IssuedAuthorization {
     pub executing_principal: String,
     pub request_id: String,
     pub action: String,
+    pub target: String,
     pub intent_hash: String,
     pub authorized_action_hash: String,
     pub action_binding_hash: String,
@@ -134,6 +146,7 @@ pub struct EvaluationOutcome {
     pub retry_of_receipt_id: Option<String>,
     pub decision: Decision,
     pub reason_code: String,
+    pub policy_id: Option<String>,
     pub intent_hash: String,
     pub policy_bundle_hash: String,
     pub authorization: Option<IssuedAuthorization>,
@@ -149,6 +162,8 @@ pub struct ClaimRecord {
     pub authorized_action_hash: String,
     pub action_binding_hash: String,
     pub executed_action_hash: String,
+    pub adapter_id: String,
+    pub adapter_version: String,
     pub claimed_at_ms: i64,
     pub lease_expires_at_ms: i64,
 }
@@ -175,6 +190,7 @@ impl Authority {
         connection
             .busy_timeout(Duration::from_secs(5))
             .map_err(db_error)?;
+        verify_existing_schema_compatibility(&connection)?;
         connection
             .execute_batch(
                 "PRAGMA foreign_keys = ON;
@@ -194,6 +210,7 @@ impl Authority {
                    retry_of_receipt_id TEXT REFERENCES tlpx_evaluations(receipt_id),
                    outcome_kind TEXT NOT NULL CHECK(outcome_kind IN ('DECISION','EVALUATION_ERROR')),
                    decision TEXT CHECK(decision IN ('ALLOW','REQUIRE_APPROVAL','DENY')),
+                   policy_id TEXT,
                    stage TEXT,
                    reason_code TEXT NOT NULL,
                    reason TEXT NOT NULL,
@@ -226,6 +243,7 @@ impl Authority {
                    executing_principal TEXT NOT NULL,
                    request_id TEXT NOT NULL,
                    action TEXT NOT NULL,
+                   target TEXT NOT NULL,
                    intent_hash TEXT NOT NULL,
                    authorized_action_hash TEXT NOT NULL,
                    action_binding_hash TEXT NOT NULL,
@@ -261,12 +279,35 @@ impl Authority {
                    authorized_action_hash TEXT NOT NULL,
                    action_binding_hash TEXT NOT NULL,
                    executed_action_hash TEXT NOT NULL,
+                   adapter_id TEXT NOT NULL,
+                   adapter_version TEXT NOT NULL,
                    claimed_at_ms INTEGER NOT NULL,
                    lease_expires_at_ms INTEGER NOT NULL,
                    CHECK(action_binding_hash = executed_action_hash)
+                 );
+                 CREATE TABLE IF NOT EXISTS tlpx_evidence_outbox (
+                   outbox_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   authority_sequence INTEGER NOT NULL CHECK(authority_sequence >= 1),
+                   ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
+                   record_type TEXT NOT NULL CHECK(record_type IN (
+                     'tlpx.decision', 'tlpx.evaluation_error',
+                     'tlpx.authorization', 'tlpx.authorization_claim'
+                   )),
+                   source_id TEXT NOT NULL,
+                   record_json TEXT NOT NULL,
+                   record_hash TEXT NOT NULL,
+                   previous_chain_hash TEXT,
+                   chain_hash TEXT NOT NULL UNIQUE,
+                   seal_algorithm TEXT NOT NULL CHECK(seal_algorithm = 'HMAC-SHA256'),
+                   seal_key_id TEXT NOT NULL,
+                   seal TEXT NOT NULL,
+                   exported_at_ms INTEGER,
+                   UNIQUE(authority_sequence, ordinal),
+                   UNIQUE(record_type, source_id)
                  );",
             )
             .map_err(db_error)?;
+        verify_existing_schema_compatibility(&connection)?;
         Ok(Self {
             db: Mutex::new(connection),
             config,
@@ -297,6 +338,7 @@ impl Authority {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
 
         if let (Some(principal), Some(request_id)) = (scoped_principal, scoped_request_id) {
             if let Some(existing) = load_idempotent(&transaction, principal, request_id)? {
@@ -321,7 +363,7 @@ impl Authority {
                             evaluated_at_ms,
                             occupies_slot: false,
                         },
-                        &self.config.policy.hash,
+                        &self.config,
                     );
                 }
                 let result = existing.into_result(&transaction);
@@ -346,7 +388,7 @@ impl Authority {
                     evaluated_at_ms,
                     occupies_slot: false,
                 },
-                &self.config.policy.hash,
+                &self.config,
             );
         }
         let authenticated_requester = scoped_principal.expect("checked above");
@@ -370,7 +412,7 @@ impl Authority {
                     evaluated_at_ms,
                     occupies_slot: scoped,
                 },
-                &self.config.policy.hash,
+                &self.config,
             );
         }
 
@@ -391,7 +433,7 @@ impl Authority {
                     evaluated_at_ms,
                     occupies_slot: scoped,
                 },
-                &self.config.policy.hash,
+                &self.config,
             );
         }
         let intent_hash = current_intent_hash
@@ -415,7 +457,7 @@ impl Authority {
                         evaluated_at_ms,
                         occupies_slot: true,
                     },
-                    &self.config.policy.hash,
+                    &self.config,
                 );
             }
         }
@@ -441,7 +483,9 @@ impl Authority {
                 .capabilities
                 .covers(&template.capability, &intent.adapter.id)
             {
+                let policy_id = effect.policy_id.clone();
                 effect = PolicyEffect::deny("POLICY_CAPABILITY_MISMATCH");
+                effect.policy_id = policy_id;
             }
         }
         commit_decision(
@@ -491,6 +535,7 @@ impl Authority {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
         let stored = load_authorization_row(&transaction, authorization_id)?
             .ok_or_else(|| Error::claim("AUTHORIZATION_DENIED"))?;
 
@@ -581,6 +626,8 @@ impl Authority {
             authorized_action_hash: stored.authorized_action_hash,
             action_binding_hash: stored.action_binding_hash,
             executed_action_hash: presented_binding_hash,
+            adapter_id: stored.adapter_id,
+            adapter_version: stored.adapter_version,
             claimed_at_ms,
             lease_expires_at_ms,
         };
@@ -589,8 +636,8 @@ impl Authority {
                 "INSERT INTO tlpx_claims (
                    claim_id, authorization_id, receipt_id, sequence, executing_principal,
                    authorized_action_hash, action_binding_hash, executed_action_hash,
-                   claimed_at_ms, lease_expires_at_ms
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                   adapter_id, adapter_version, claimed_at_ms, lease_expires_at_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     claim.claim_id,
                     claim.authorization_id,
@@ -600,11 +647,23 @@ impl Authority {
                     claim.authorized_action_hash,
                     claim.action_binding_hash,
                     claim.executed_action_hash,
+                    claim.adapter_id,
+                    claim.adapter_version,
                     claim.claimed_at_ms,
                     claim.lease_expires_at_ms,
                 ],
             )
             .map_err(db_error)?;
+        let claim_evidence = evidence::claim_record(&claim)?;
+        evidence::enqueue(
+            &transaction,
+            &self.config.evidence,
+            claim.sequence,
+            0,
+            "tlpx.authorization_claim",
+            &claim.claim_id,
+            &claim_evidence,
+        )?;
         transaction.commit().map_err(db_error)?;
         Ok(claim)
     }
@@ -654,6 +713,47 @@ impl Authority {
                 row.get(0)
             })
             .map_err(db_error)
+    }
+
+    /// Returns sealed, canonical records that have not yet been acknowledged by an exporter.
+    pub fn pending_evidence(&self, limit: usize) -> Result<Vec<SealedEvidence>> {
+        let connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        evidence::reconcile(&connection, &self.config.evidence)?;
+        evidence::pending(&connection, limit)
+    }
+
+    /// Acknowledges one exported row by id and chain hash. Repeating the same
+    /// acknowledgement is safe and returns `false`.
+    pub fn mark_evidence_exported_at(
+        &self,
+        outbox_id: i64,
+        expected_chain_hash: &str,
+        exported_at_ms: i64,
+    ) -> Result<bool> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        evidence::mark_exported(
+            &mut connection,
+            &self.config.evidence,
+            outbox_id,
+            expected_chain_hash,
+            exported_at_ms,
+        )
+    }
+
+    /// Verifies canonical payloads, record/chain hashes, HMAC seals, source
+    /// rows, and complete authority-to-outbox coverage.
+    pub fn reconcile_evidence(&self) -> Result<EvidenceReconciliation> {
+        let connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        evidence::reconcile(&connection, &self.config.evidence)
     }
 }
 
@@ -707,7 +807,7 @@ fn commit_decision(
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
                 },
-                &config.policy.hash,
+                config,
             );
         }
     };
@@ -733,7 +833,7 @@ fn commit_decision(
                         evaluated_at_ms: input.evaluated_at_ms,
                         occupies_slot: true,
                     },
-                    &config.policy.hash,
+                    config,
                 );
             }
         };
@@ -764,7 +864,7 @@ fn commit_decision(
                         evaluated_at_ms: input.evaluated_at_ms,
                         occupies_slot: true,
                     },
-                    &config.policy.hash,
+                    config,
                 );
             }
         };
@@ -779,11 +879,11 @@ fn commit_decision(
         .execute(
             "INSERT INTO tlpx_evaluations (
                sequence, receipt_id, authenticated_principal, request_id, intent_hash,
-               retry_of_receipt_id, outcome_kind, decision, reason_code, reason,
+               retry_of_receipt_id, outcome_kind, decision, policy_id, reason_code, reason,
                retryability, required_condition, policy_bundle_hash, evaluated_at_ms,
                authorization_id, occupies_slot
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'DECISION', ?7, ?8, ?9,
-                       NULL, NULL, ?10, ?11, ?12, 1)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'DECISION', ?7, ?8, ?9, ?10,
+                       NULL, NULL, ?11, ?12, ?13, 1)",
             params![
                 sequence,
                 receipt_id,
@@ -792,6 +892,7 @@ fn commit_decision(
                 input.intent_hash,
                 input.intent.retry_of_receipt_id,
                 input.effect.decision.as_str(),
+                input.effect.policy_id,
                 input.effect.reason_code,
                 input.effect.reason_code,
                 config.policy.hash,
@@ -819,7 +920,7 @@ fn commit_decision(
                 evaluated_at_ms: input.evaluated_at_ms,
                 occupies_slot: true,
             },
-            &config.policy.hash,
+            config,
         );
     }
     if let Some(ref issued) = authorization {
@@ -829,10 +930,59 @@ fn commit_decision(
                 &receipt_id,
                 sequence,
                 &issued.authorization_id,
-                "authorization_persistence",
-                "authorization could not be persisted",
+                ErrorInput {
+                    authenticated_principal: Some(input.authenticated_requester),
+                    request_id: Some(&input.intent.request_id),
+                    intent_hash: Some(input.intent_hash),
+                    retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
+                    stage: "authorization_persistence",
+                    code: "AUTHORITY_INTERNAL_ERROR",
+                    message: "authorization could not be persisted",
+                    retryability: Retryability::Never,
+                    required_condition: None,
+                    evaluated_at_ms: input.evaluated_at_ms,
+                    occupies_slot: true,
+                },
+                config,
             );
         }
+    }
+    let decision_evidence = evidence::decision_record(DecisionEvidenceInput {
+        receipt_id: &receipt_id,
+        request_id: &input.intent.request_id,
+        retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
+        evaluated_at_ms: input.evaluated_at_ms,
+        decision: input.effect.decision,
+        reason_code: &input.effect.reason_code,
+        policy_id: input.effect.policy_id.as_deref(),
+        policy_bundle_id: &config.policy.id,
+        policy_bundle_version: &config.policy.version,
+        policy_bundle_hash: &config.policy.hash,
+        intent_hash: input.intent_hash,
+        authenticated_requester: input.authenticated_requester,
+        sequence,
+        config: &config.evidence,
+    })?;
+    evidence::enqueue(
+        &transaction,
+        &config.evidence,
+        sequence,
+        0,
+        "tlpx.decision",
+        &receipt_id,
+        &decision_evidence,
+    )?;
+    if let Some(ref issued) = authorization {
+        let authorization_evidence = evidence::authorization_record(issued)?;
+        evidence::enqueue(
+            &transaction,
+            &config.evidence,
+            sequence,
+            1,
+            "tlpx.authorization",
+            &issued.authorization_id,
+            &authorization_evidence,
+        )?;
     }
     transaction.commit().map_err(db_error)?;
 
@@ -844,6 +994,7 @@ fn commit_decision(
         retry_of_receipt_id: input.intent.retry_of_receipt_id.clone(),
         decision: input.effect.decision,
         reason_code: input.effect.reason_code,
+        policy_id: input.effect.policy_id,
         intent_hash: input.intent_hash.to_string(),
         policy_bundle_hash: config.policy.hash.clone(),
         authorization,
@@ -855,8 +1006,8 @@ fn replace_decision_with_error<T>(
     receipt_id: &str,
     sequence: i64,
     authorization_id: &str,
-    stage: &str,
-    message: &str,
+    input: ErrorInput<'_>,
+    config: &AuthorityConfig,
 ) -> Result<T> {
     transaction
         .execute(
@@ -869,10 +1020,10 @@ fn replace_decision_with_error<T>(
         .execute(
             "UPDATE tlpx_evaluations
              SET outcome_kind = 'EVALUATION_ERROR', decision = NULL, stage = ?1,
-                 reason_code = 'AUTHORITY_INTERNAL_ERROR', reason = ?2,
+                 policy_id = NULL, reason_code = 'AUTHORITY_INTERNAL_ERROR', reason = ?2,
                  retryability = 'NEVER', required_condition = NULL, authorization_id = NULL
              WHERE sequence = ?3 AND receipt_id = ?4 AND outcome_kind = 'DECISION'",
-            params![stage, message, sequence, receipt_id],
+            params![input.stage, input.message, sequence, receipt_id],
         )
         .map_err(db_error)?;
     if updated != 1 {
@@ -880,8 +1031,32 @@ fn replace_decision_with_error<T>(
             "failed authorization could not be converted to durable evaluation error",
         ));
     }
+    let record = evidence::evaluation_error_record(ErrorEvidenceInput {
+        receipt_id,
+        occurred_at_ms: input.evaluated_at_ms,
+        stage: input.stage,
+        error_code: input.code,
+        retryability: input.retryability,
+        reason: input.message,
+        sequence,
+        authenticated_requester: input.authenticated_principal,
+        request_id: input.request_id,
+        intent_hash: input.intent_hash,
+        retry_of_receipt_id: input.retry_of_receipt_id,
+        required_condition: input.required_condition,
+        policy_bundle_id: &config.policy.id,
+    })?;
+    evidence::enqueue(
+        &transaction,
+        &config.evidence,
+        sequence,
+        0,
+        "tlpx.evaluation_error",
+        receipt_id,
+        &record,
+    )?;
     transaction.commit().map_err(db_error)?;
-    Err(Error::coded("AUTHORITY_INTERNAL_ERROR", message).with_evidence(receipt_id, sequence))
+    Err(Error::coded(input.code, input.message).with_evidence(receipt_id, sequence))
 }
 
 fn issue_authorization(
@@ -903,6 +1078,7 @@ fn issue_authorization(
         executing_principal: action.executing_principal.clone(),
         request_id: intent.request_id.clone(),
         action: action.action.clone(),
+        target: action.target.clone(),
         intent_hash: intent_hash.to_string(),
         authorized_action_hash: action.authorized_action_hash()?,
         action_binding_hash: action.binding_hash()?,
@@ -938,17 +1114,11 @@ struct ErrorInput<'a> {
 fn commit_evaluation_error<T>(
     transaction: Transaction<'_>,
     input: ErrorInput<'_>,
-    policy_bundle_hash: &str,
+    config: &AuthorityConfig,
 ) -> Result<T> {
     let sequence = next_sequence(&transaction)?;
     let receipt_id = random_id("rcpt").unwrap_or_else(|_| fallback_receipt_id(sequence));
-    commit_preallocated_error(
-        transaction,
-        &receipt_id,
-        sequence,
-        input,
-        policy_bundle_hash,
-    )
+    commit_preallocated_error(transaction, &receipt_id, sequence, input, config)
 }
 
 fn commit_preallocated_error<T>(
@@ -956,7 +1126,7 @@ fn commit_preallocated_error<T>(
     receipt_id: &str,
     sequence: i64,
     input: ErrorInput<'_>,
-    policy_bundle_hash: &str,
+    config: &AuthorityConfig,
 ) -> Result<T> {
     transaction
         .execute(
@@ -979,12 +1149,36 @@ fn commit_preallocated_error<T>(
                 input.message,
                 input.retryability.as_str(),
                 input.required_condition,
-                policy_bundle_hash,
+                config.policy.hash,
                 input.evaluated_at_ms,
                 i64::from(input.occupies_slot),
             ],
         )
         .map_err(db_error)?;
+    let record = evidence::evaluation_error_record(ErrorEvidenceInput {
+        receipt_id,
+        occurred_at_ms: input.evaluated_at_ms,
+        stage: input.stage,
+        error_code: input.code,
+        retryability: input.retryability,
+        reason: input.message,
+        sequence,
+        authenticated_requester: input.authenticated_principal,
+        request_id: input.request_id,
+        intent_hash: input.intent_hash,
+        retry_of_receipt_id: input.retry_of_receipt_id,
+        required_condition: input.required_condition,
+        policy_bundle_id: &config.policy.id,
+    })?;
+    evidence::enqueue(
+        &transaction,
+        &config.evidence,
+        sequence,
+        0,
+        "tlpx.evaluation_error",
+        receipt_id,
+        &record,
+    )?;
     transaction.commit().map_err(db_error)?;
     Err(Error::coded(input.code, input.message).with_evidence(receipt_id, sequence))
 }
@@ -1049,12 +1243,12 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
         .execute(
             "INSERT INTO tlpx_authorizations (
                authorization_id, receipt_id, requesting_principal, executing_principal,
-               request_id, action, intent_hash, authorized_action_hash, action_binding_hash,
+               request_id, action, target, intent_hash, authorized_action_hash, action_binding_hash,
                capability, policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
                authorization_nonce, issued_at_ms, claim_expires_at_ms,
                execution_lease_ms, state
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 issued.authorization_id,
                 issued.receipt_id,
@@ -1062,6 +1256,7 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
                 issued.executing_principal,
                 issued.request_id,
                 issued.action,
+                issued.target,
                 issued.intent_hash,
                 issued.authorized_action_hash,
                 issued.action_binding_hash,
@@ -1102,6 +1297,7 @@ struct StoredEvaluation {
     retry_of_receipt_id: Option<String>,
     outcome_kind: String,
     decision: Option<String>,
+    policy_id: Option<String>,
     reason_code: String,
     reason: String,
     policy_bundle_hash: String,
@@ -1135,6 +1331,7 @@ impl StoredEvaluation {
             retry_of_receipt_id: self.retry_of_receipt_id,
             decision: parse_decision(decision)?,
             reason_code: self.reason_code,
+            policy_id: self.policy_id,
             intent_hash,
             policy_bundle_hash: self.policy_bundle_hash,
             authorization,
@@ -1150,7 +1347,7 @@ fn load_idempotent(
     transaction
         .query_row(
             "SELECT receipt_id, sequence, authenticated_principal, request_id, intent_hash,
-                    retry_of_receipt_id, outcome_kind, decision, reason_code, reason,
+                    retry_of_receipt_id, outcome_kind, decision, policy_id, reason_code, reason,
                     policy_bundle_hash, authorization_id
              FROM tlpx_evaluations
              WHERE authenticated_principal = ?1 AND request_id = ?2 AND occupies_slot = 1",
@@ -1165,10 +1362,11 @@ fn load_idempotent(
                     retry_of_receipt_id: row.get(5)?,
                     outcome_kind: row.get(6)?,
                     decision: row.get(7)?,
-                    reason_code: row.get(8)?,
-                    reason: row.get(9)?,
-                    policy_bundle_hash: row.get(10)?,
-                    authorization_id: row.get(11)?,
+                    policy_id: row.get(8)?,
+                    reason_code: row.get(9)?,
+                    reason: row.get(10)?,
+                    policy_bundle_hash: row.get(11)?,
+                    authorization_id: row.get(12)?,
                 })
             },
         )
@@ -1189,6 +1387,7 @@ fn load_issued(
             executing_principal: stored.executing_principal,
             request_id: stored.request_id,
             action: stored.action,
+            target: stored.target,
             intent_hash: stored.intent_hash,
             authorized_action_hash: stored.authorized_action_hash,
             action_binding_hash: stored.action_binding_hash,
@@ -1215,6 +1414,7 @@ struct StoredAuthorization {
     executing_principal: String,
     request_id: String,
     action: String,
+    target: String,
     intent_hash: String,
     authorized_action_hash: String,
     action_binding_hash: String,
@@ -1240,7 +1440,7 @@ fn load_authorization_row(
     let base = transaction
         .query_row(
             "SELECT receipt_id, requesting_principal, executing_principal, request_id, action,
-                    intent_hash, authorized_action_hash, action_binding_hash, capability,
+                    target, intent_hash, authorized_action_hash, action_binding_hash, capability,
                     policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
                     authorization_nonce, issued_at_ms, claim_expires_at_ms,
                     execution_lease_ms, state, revoked_at_ms
@@ -1263,11 +1463,12 @@ fn load_authorization_row(
                     row.get::<_, String>(12)?,
                     row.get::<_, String>(13)?,
                     row.get::<_, String>(14)?,
-                    row.get::<_, i64>(15)?,
+                    row.get::<_, String>(15)?,
                     row.get::<_, i64>(16)?,
                     row.get::<_, i64>(17)?,
-                    row.get::<_, String>(18)?,
-                    row.get::<_, Option<i64>>(19)?,
+                    row.get::<_, i64>(18)?,
+                    row.get::<_, String>(19)?,
+                    row.get::<_, Option<i64>>(20)?,
                 ))
             },
         )
@@ -1293,22 +1494,23 @@ fn load_authorization_row(
         executing_principal: base.2,
         request_id: base.3,
         action: base.4,
-        intent_hash: base.5,
-        authorized_action_hash: base.6,
-        action_binding_hash: base.7,
-        capability: base.8,
-        policy_bundle_hash: base.9,
+        target: base.5,
+        intent_hash: base.6,
+        authorized_action_hash: base.7,
+        action_binding_hash: base.8,
+        capability: base.9,
+        policy_bundle_hash: base.10,
         resource_scope,
-        adapter_id: base.10,
-        adapter_version: base.11,
-        environment: base.12,
-        tenant: base.13,
-        authorization_nonce: base.14,
-        issued_at_ms: base.15,
-        claim_expires_at_ms: base.16,
-        execution_lease_ms: base.17,
-        state: AuthzState::parse(&base.18)?,
-        revoked_at_ms: base.19,
+        adapter_id: base.11,
+        adapter_version: base.12,
+        environment: base.13,
+        tenant: base.14,
+        authorization_nonce: base.15,
+        issued_at_ms: base.16,
+        claim_expires_at_ms: base.17,
+        execution_lease_ms: base.18,
+        state: AuthzState::parse(&base.19)?,
+        revoked_at_ms: base.20,
     }))
 }
 
@@ -1352,4 +1554,58 @@ fn now_ms() -> Result<i64> {
 
 fn db_error(error: rusqlite::Error) -> Error {
     Error::authority(format!("database: {error}"))
+}
+
+fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
+    for (table, required_columns) in [
+        ("tlpx_evaluations", &["policy_id"] as &[&str]),
+        ("tlpx_authorizations", &["target"] as &[&str]),
+        ("tlpx_claims", &["adapter_id", "adapter_version"] as &[&str]),
+        (
+            "tlpx_evidence_outbox",
+            &[
+                "authority_sequence",
+                "ordinal",
+                "record_type",
+                "source_id",
+                "record_json",
+                "record_hash",
+                "previous_chain_hash",
+                "chain_hash",
+                "seal_algorithm",
+                "seal_key_id",
+                "seal",
+                "exported_at_ms",
+            ] as &[&str],
+        ),
+    ] {
+        let exists = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                [table],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(db_error)?;
+        if !exists {
+            continue;
+        }
+
+        let mut statement = connection
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .map_err(db_error)?;
+        let columns = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(db_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(db_error)?;
+        if let Some(missing) = required_columns
+            .iter()
+            .find(|column| !columns.iter().any(|existing| existing == **column))
+        {
+            return Err(Error::authority(format!(
+                "incompatible pre-release authority database: {table}.{missing} is missing; use a fresh database"
+            )));
+        }
+    }
+    Ok(())
 }

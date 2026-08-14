@@ -37,6 +37,7 @@ pub struct PolicyEffect {
     pub decision: Decision,
     pub reason_code: String,
     pub authorization: Option<AuthorizationTemplate>,
+    pub policy_id: Option<String>,
 }
 
 impl PolicyEffect {
@@ -45,6 +46,7 @@ impl PolicyEffect {
             decision: Decision::Allow,
             reason_code: reason_code.into(),
             authorization: Some(authorization),
+            policy_id: None,
         }
     }
 
@@ -53,6 +55,7 @@ impl PolicyEffect {
             decision: Decision::Deny,
             reason_code: reason_code.into(),
             authorization: None,
+            policy_id: None,
         }
     }
 
@@ -61,6 +64,7 @@ impl PolicyEffect {
             decision: Decision::RequireApproval,
             reason_code: reason_code.into(),
             authorization: None,
+            policy_id: None,
         }
     }
 
@@ -156,25 +160,29 @@ impl PolicyBundle {
     }
 
     pub fn evaluate(&self, intent: &SubmittedIntent) -> PolicyEffect {
-        let effect = self
-            .rules
-            .iter()
-            .find(|rule| rule.action == intent.action)
-            .map_or(&self.default, |rule| &rule.effect);
+        let matched = self.rules.iter().find(|rule| rule.action == intent.action);
+        let mut effect = matched.map_or_else(|| self.default.clone(), |rule| rule.effect.clone());
+        effect.policy_id = matched.map(|rule| rule.id.clone());
         let Some(template) = effect.authorization.as_ref() else {
-            return effect.clone();
+            return effect;
         };
         if intent.requested_capability != template.capability {
-            return PolicyEffect::deny("POLICY_CAPABILITY_MISMATCH");
+            effect.decision = Decision::Deny;
+            effect.reason_code = "POLICY_CAPABILITY_MISMATCH".into();
+            effect.authorization = None;
+            return effect;
         }
         if !template
             .resource_scope
             .iter()
             .any(|scope| scope == &intent.target)
         {
-            return PolicyEffect::deny("POLICY_TARGET_OUT_OF_SCOPE");
+            effect.decision = Decision::Deny;
+            effect.reason_code = "POLICY_TARGET_OUT_OF_SCOPE".into();
+            effect.authorization = None;
+            return effect;
         }
-        effect.clone()
+        effect
     }
 
     pub fn authorization_templates(&self) -> impl Iterator<Item = &AuthorizationTemplate> {

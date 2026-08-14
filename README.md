@@ -6,7 +6,9 @@
 > Intent before action. Switchboard first. Gate second. Execute only if authorized.
 
 **License:** Apache-2.0  
-**Primary implementation today:** JavaScript (Node 18+)
+**Running reference:** JavaScript TL-PX 0.1
+
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence working-tree delta (not a PEP)
 
 **Who should read what**
 
@@ -42,11 +44,13 @@ northstar/
 | --- | --- |
 | [`docs/README.md`](docs/README.md) | Full docs hub |
 | [`NORTHSTAR-SESSION-START.md`](NORTHSTAR-SESSION-START.md) | Fresh-context instructions and required reading order |
-| [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) | Proposed hardened build baseline targeting TL-PX 0.2 |
+| [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) | Current hardened build baseline targeting TL-PX 0.2 |
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 spec |
-| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.3 |
+| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract; accepted 2.3 core and accepted 2.3d local-authority scope |
+| [`tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and limits |
+| [`tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification for the uncommitted Rust schema-evidence/outbox delta |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -90,7 +94,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Slices 1.1–2.3 are accepted. Rust now has a local evaluate → authorize → SQLite atomic-claim MVP, but it does not yet emit the full 0.2 evidence contract or mediate a protected capability. The running gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. The current uncommitted working tree adds builder-verified canonical records and a sealed durable outbox for the accepted record core, but it still does not mediate a protected capability. The running gate is still TL-PX 0.1.
 
 ---
 
@@ -102,7 +106,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Audit hash-chain + HMAC seal (`glass verify`)  
 - [x] Go: Switchboard + sealed audit + CLI + HTTP `tlpxd`  
 - [x] Java: Switchboard + evaluate  
-- [x] Rust 0.2 types, canonical hashes, and local authority MVP
+- [x] Rust 0.2 types, canonical hashes, local authority MVP, and builder-verified bounded evidence outbox
 - [ ] Rust authenticated transport / execution PEP; Python adapter
 - [ ] Java sealed audit / full ops parity  
 - [ ] Production HA multi-tenant control plane

@@ -11,6 +11,7 @@ npm run test:unit
 npm run test:switchboard
 npm run test:airgap
 npm run conformance           # TL-PX 0.1 Minimum Profile
+npm run test:rust-evidence    # validate Rust-emitted 0.2 records with the JS oracle
 node scripts/tech-test.mjs    # formal technical test #1
 node scripts/adversarial-redteam.mjs
 npm run demo
@@ -21,7 +22,7 @@ Rust local authority MVP (separate toolchain):
 
 ```bash
 cd ~/projects/northstar/implementations/rust
-cargo test                              # JCS/types + authority/race/restart tests
+cargo test --all-targets --offline      # JCS/types + authority + evidence/outbox tests
 cargo clippy --all-targets -- -D warnings
 cargo run --example local_authority -- /tmp/northstar-authority.sqlite request-1
 ```
@@ -42,6 +43,7 @@ The example performs evaluation, issuance, and one durable SQLite claim. It deli
 | `scripts/test-jcs.mjs` | TL-PX 0.2 JCS / domain-hash golden fixtures (UTF-16 key sort, lone-surrogate reject, `digest_hex`) | `tests/fixtures/tlpx-0.2/jcs/` |
 | `scripts/conformance.mjs` | Frozen TL-PX 0.1 spec conformance (47 fixtures) | temp files |
 | `scripts/conformance-v02.mjs` | Distinct TL-PX 0.2 schema/validator suite | none |
+| `scripts/validate-rust-evidence.mjs` | Rust-emitted canonical decision/error/authorization/claim records against the JS 0.2 oracle | temporary in-memory SQLite |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |
 | `scripts/no-bs.mjs` | Earlier theory scoreboard | temp files |
@@ -72,7 +74,9 @@ The example performs evaluation, issuance, and one durable SQLite claim. It deli
 
 `npm test` also runs `test-jcs.mjs` and `conformance-v02.mjs`. Those are 0.2 oracles. They do not make the gate 0.2-conforming. `npm run conformance` remains the frozen 47.
 
-The Rust suite independently consumes the same JCS golden fixtures (8 tests) and adds 23 authority tests for activation failure, durable `DENY`/`EVALUATION_ERROR`, post-decision SQL failure recovery, immutable idempotency, same-principal retry linkage, anti-poisoning, authority-wide sequence order, replay, executor/action/scope mismatch, expiry, revocation, restart persistence, shared idempotent evaluation, and one-winner claim races across threads and separate SQLite connections. Passing these tests does not establish schema-serialized sealed runtime evidence, authenticated transport, or forced mediation.
+The Rust suite independently consumes the same JCS golden fixtures (8 tests), adds 23 authority tests for activation failure, durable `DENY`/`EVALUATION_ERROR`, immutable idempotency, replay, restart, and one-winner claim races, and adds 11 evidence/outbox tests for atomic coupling, explicit party type, sealing configuration, ordering, restart persistence, payload/envelope tamper detection, compatibility rejection, and reconciliation. The JS crosscheck validates four Rust-emitted canonical record types. These tests do not establish execution/revocation evidence, authenticated transport, or forced mediation.
+
+Named-commit results for `aed80e2` and its independent acceptance are recorded in [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) and [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The uncommitted evidence/outbox delta has builder evidence in [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) and still requires a named-commit independent review.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 

@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — slices 2.1–2.3 accepted; implementation-driven 2.3d idempotency/evidence hardening is pending independent verification.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-14  
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -13,9 +13,11 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | Later slice | Still required |
 | --- | --- |
 | 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
-| 2.3 | Done: `schemas/tlpx-0.2/`, `validate-v02.mjs`, `npm run conformance:0.2`. Not a 0.2 runtime. |
-| 2.3d | Draft in this working tree: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, and authority-wide sequence. Pending named-commit crosscheck. |
+| 2.3 | Accepted core: object schemas plus decision, evaluation-error, operator-action, authorization, and authorization-claim schemas in `schemas/tlpx-0.2/`, `validate-v02.mjs`, and `npm run conformance:0.2`. The execution schema is provisional; cancellation/reconciliation and revocation evidence are deferred. Not a 0.2 runtime. |
+| 2.3d | Independently accepted at exact commit `aed80e2`: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, authority-wide sequence, and the bounded Rust local evaluate/issue/claim path. |
 | 2.4 | Policy precedence, provenance, trusted ordering, requirements-maturity labels |
+
+**2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
 **Not legal advice. Not a patent claim set.** Product and protocol language only.
 
@@ -209,7 +211,7 @@ Every successful claim MUST reach one durable terminal Execution Receipt. Slice 
 - start and terminal timestamps;
 - terminal state;
 - bounded result summary or digest;
-- audit integrity metadata.
+- audit integrity metadata, supplied by the evidence envelope/storage contract once that contract is defined and accepted rather than by an implementation-private receipt field.
 
 Receipts prove what the trusted path observed. They do not prove hidden intent or unobserved external effects.
 
@@ -361,7 +363,7 @@ While `PENDING_APPROVAL`, cancellation MAY be initiated only by:
 
 Cancellation and approval race atomically; exactly one transition wins. Unauthenticated cancellation MUST be rejected.
 
-After claim, cancellation is a request to stop work, not proof that an external effect was reversed. Execution evidence MUST distinguish `CANCELLED_BEFORE_SIDE_EFFECT`, `CANCELLATION_REQUESTED`, `CANCELLED_DURING_EXECUTION`, `CANCELLATION_UNSUPPORTED`, and `COMPLETED_BEFORE_CANCELLATION` once those fields are schemed in slice 2.3.
+After claim, cancellation is a request to stop work, not proof that an external effect was reversed. Execution evidence MUST eventually distinguish `CANCELLED_BEFORE_SIDE_EFFECT`, `CANCELLATION_REQUESTED`, `CANCELLED_DURING_EXECUTION`, `CANCELLATION_UNSUPPORTED`, and `COMPLETED_BEFORE_CANCELLATION`. Those distinctions were not schemed by the accepted 2.3 core and remain part of deferred execution-side schema closure.
 
 ### 7.5 Timing
 
@@ -397,6 +399,8 @@ If the PEP may have performed the side effect but no durable completion receipt 
 | `tlpx.execution` | Observed execution result after a successful claim |
 
 `glass.*` aliases are **not** part of 0.2 Minimum. Product aliases MAY exist as extensions; 0.2 conformance uses `tlpx.*` only.
+
+The `tlpx.execution` row above names the planned record family, but its current schema is provisional and is not established as complete by accepted 2.3 conformance. The lifecycle's `RECONCILIATION_REQUIRED` value is intentionally unresolved here: a later contract delta MUST decide whether it is an emitted receipt state or authority-process state before scheming it. Implementations MUST NOT privately add fields or states and call them 0.2 Minimum.
 
 ### 8.1 Decision record (normative fields)
 
@@ -493,6 +497,17 @@ MUST include authenticated operator subject, `outcome` (`APPROVE` \| `REJECT` \|
 
 `APPROVE` MUST produce a new `tlpx.authorization` in `AUTHORIZED_UNCLAIMED`. It MUST NOT mutate a previous authorization in place.
 
+### 8.5 Deferred execution and revocation evidence
+
+The accepted 2.3 core does not yet define complete execution, cancellation/reconciliation, or revocation evidence. In particular:
+
+- the provisional execution schema does not yet close the bounded-result and audit-integrity requirements from §4.3;
+- cancellation distinctions from §7.4 are not yet represented;
+- `RECONCILIATION_REQUIRED` has not yet been classified as an emitted receipt state or authority-process state;
+- there is no accepted `tlpx.revocation` record or immutable successor-evidence shape.
+
+Sealing is an evidence envelope/storage property unless a later explicit contract revision says otherwise. Implementations MUST NOT bolt a private seal hash onto `tlpx.execution` or mutate an issuance record into revocation evidence and claim Minimum conformance. These contracts should close with their emitter/state implementation and dedicated conformance cases.
+
 ---
 
 ## 9. Core reason codes
@@ -585,9 +600,9 @@ Durable 0.2 records MUST attribute at least:
 
 ## 13. Claims discipline
 
-Until 0.2 schemas, conformance, and an independent review exist, implementations of this contract MUST be described as a draft specification or experimental preview — not as production-safe 0.2.
+The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. It does not implement atomic claim, PEP enforcement, or Rust. The 0.2 schema validators and JCS/hash helpers are contract oracles, not a 0.2 decision engine.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema validators and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit still has no authenticated transport, schema-valid sealed runtime evidence, execution receipt, or PEP. A later builder-verified working-tree delta emits the bounded evaluation/authorization record core into a sealed outbox, but it is not part of the accepted named-commit baseline yet.
 
 ---
 
@@ -655,4 +670,5 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.3 | Record/object schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS `validate-v02`, distinct `conformance:0.2` suite. |
 | 0.2.0-draft.2.3b | PEP compares Action Binding under `executed-action` domain. `authorized_action_hash` is not compared to `executed_action_hash`. Authorized Action requires `risk_reasons` and `risk_source`. |
 | 0.2.0-draft.2.3c | Authorization stores `action_binding_hash`. Claim compares presented binding to that value. `capability`/`resource_scope` stay PEP constraints, not binding fields. |
-| 0.2.0-draft.2.3d | Authenticated idempotency slots are immutable; retries use successor ids and same-principal evidence links; request refusals are distinguished from activation/runtime errors; operator context is conditional; committed decisions, errors, and claims share one authority sequence. Pending independent verification. |
+| 0.2.0-draft.2.3d | Authenticated idempotency slots are immutable; retries use successor ids and same-principal evidence links; request refusals are distinguished from activation/runtime errors; operator context is conditional; committed decisions, errors, and claims share one authority sequence. Independently accepted at exact commit `aed80e2`. |
+| 0.2.0-draft.2.3e | Records the accepted 2.3 evaluation/authorization schema scope, defers execution/cancellation/reconciliation/revocation evidence closure, and requires human authorizers for `APPROVE`/`REJECT`. |

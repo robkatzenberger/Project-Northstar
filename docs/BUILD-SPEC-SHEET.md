@@ -1,14 +1,20 @@
 # Northstar Build Specification Sheet
 
 **Status:** Current hardened build baseline  
-**Date:** 2026-08-11; disposition recorded 2026-08-13  
+**Date:** 2026-08-11; disposition recorded 2026-08-13; named-commit evidence recorded 2026-08-14
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Live implementation scope:** accepted slices 1.1–2.3 plus a pending 2.3d contract/schema delta and Rust local-authority MVP: types/hashes, exact-match policy, SQLite decisions/errors/issuance/idempotency/revocation, authority-wide sequence, and atomic claim. This is implementation evidence toward 3.1–3.6, not acceptance of those slices: named-commit crosscheck, authenticated transport/operator identity, schema-valid sealed runtime evidence, approval lifecycle, transactional global revocation state, execution receipts, and the PEP remain open. No snapshot token.
+**Current builder-verified implementation commit:** `aed80e2527f05a3730b1057f2d90c55a6c3eb646`
+**Live implementation scope:** accepted slices 1.1–2.3 plus independently accepted 2.3d/Rust local-authority commit `aed80e2`: types/hashes, exact-match policy, SQLite decisions/errors/issuance/idempotency/revocation, authority-wide sequence, and atomic claim. The current uncommitted working tree additionally emits the bounded decision/error/authorization/claim record core into a canonical, hash-chained, HMAC-sealed durable outbox; it is builder-verified, not independently accepted. This is implementation evidence toward 3.1–3.6, not acceptance of those slices: authenticated transport/operator identity, approval lifecycle, transactional global revocation evidence, execution receipts, and the PEP remain open. No snapshot token.
+
+**Current evidence-increment gate:** builder verification is recorded in `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`. A named commit and independent exact-commit review are still required. Do not broaden that gate into authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, or a PEP.
+
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 
 **Document role:** delivery sequence, acceptance criteria, and maturity labels. Normative protocol semantics live in [`standard/SPEC-v0.2.md`](./standard/SPEC-v0.2.md). Do not expand architecture here unless a delivery slice or implementation evidence requires it.
+
+**2.3 acceptance clarification (2026-08-14):** accepted 2.3 coverage is the object schemas plus decision, evaluation-error, operator-action, authorization, and authorization-claim records, validators, and reason-code catalog. The existing execution-receipt schema is provisional. Execution receipt, cancellation/reconciliation, and revocation evidence schema closure was not exercised by the 2.3 conformance suite and remains deferred. This clarification records the gap; it does not rewrite the earlier evidence or block the accepted 2.3d Rust evaluate/claim path.
 
 ## 1. Purpose
 
@@ -798,7 +804,7 @@ parse → validate → compile → evaluate
 
 Align the v0.2 specification, schemas, validators, error records, reason codes, corrected reference implementation, planned Rust authority, and new conformance suite around `ALLOW`, `REQUIRE_APPROVAL`, and `DENY` plus the authorization lifecycle in this document.
 
-Every emitted record, including Switchboard `DENY`, authorization claim, revocation, and execution receipt, must validate against the canonical schemas. This phase also fixes canonical hashing, trusted ordering, policy provenance, and requirements-maturity labels.
+Every emitted record, including Switchboard `DENY`, authorization claim, revocation, and execution receipt, must eventually validate against the canonical schemas. Accepted 2.3 conformance currently establishes this for the object and evaluation/authorization record core, not for the provisional execution receipt or as-yet-unspecified revocation evidence. No revocation or execution emitter may claim 0.2 conformance until that contract closes. This phase also fixes canonical hashing, trusted ordering, policy provenance, and requirements-maturity labels.
 
 ### Phase 3: authenticated transactional authority and one-time execution
 
@@ -905,7 +911,7 @@ Major phases add dated evidence under `tests/reports/` without overwriting histo
 | 1.2 | Negative policy suite and startup validation | 1.1 |
 | 2.1 | Freeze v0.1 and draft normative TL-PX 0.2 decision/error/state contract | 1.1 |
 | 2.2 | JCS profile, hash representation, domain separation, and golden fixtures | 2.1 |
-| 2.3 | v0.2 schemas, receipts, validators, reason codes, and conformance suite | 2.2 |
+| 2.3 | v0.2 object and evaluation/authorization record schema core, validators, reason codes, and conformance suite; execution-side evidence closure deferred by the 2026-08-14 clarification | 2.2 |
 | 2.4 | Policy precedence, provenance, trusted ordering, and maturity labels | 2.3 |
 | 3.1 | Rust authority skeleton and shared contract types | 2.4 |
 | 3.2 | Submitted Intent, Authorized Action, and Executed Action types plus distinct canonical hashing | 3.1 |
@@ -961,6 +967,8 @@ The hardened core is complete when:
 
 - [`../tests/README.md`](../tests/README.md)
 - [`../tests/reports/northstar-two-agent-test-proof.md`](../tests/reports/northstar-two-agent-test-proof.md)
+- [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md)
+- [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md)
 - [`reviews/build-spec-review-2026-08-11-model-2.md`](./reviews/build-spec-review-2026-08-11-model-2.md)
 - [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 - [`standard/SPEC-v0.1.md`](./standard/SPEC-v0.1.md)

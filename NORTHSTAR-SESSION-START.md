@@ -98,9 +98,11 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 ## 5. Current status
 
-**Accepted contract line:** slices 1.1–2.3. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 schema/JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
+**Accepted contract line:** slices 1.1–2.3, with the 2.3 acceptance scoped to the object plus decision/evaluation-error/operator-action/authorization/claim schema core. The existing execution-receipt schema is provisional; cancellation, reconciliation, and revocation evidence closure is deferred and is not evidenced by 2.3 conformance. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 schema/JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
 
-**2.3** schemas + `conformance:0.2` exist. An implementation-driven 2.3d working-tree delta pins immutable authenticated idempotency, retry linkage, failure attribution, conditional operator evidence, and authority-wide sequence semantics; it awaits a named commit and independent crosscheck. Rust crate `tlpx` matches the JCS golden fixtures and now has a durable local authority MVP: exact-match policy, Switchboard checks, authority-generated IDs/nonces, SQLite decisions/errors/idempotency/revocation, and atomic exact-action claim. It does not yet serialize or seal the full 0.2 evidence contract.
+**2.3d accepted at the exact named commit:** `aed80e2527f05a3730b1057f2d90c55a6c3eb646` pins immutable authenticated idempotency, retry linkage, failure attribution, conditional operator evidence, and authority-wide sequence semantics. Rust `tlpx` matches the JCS golden fixtures and has a durable local authority MVP: exact-match policy, Switchboard checks, authority-generated IDs/nonces, SQLite decisions/errors/idempotency/revocation, and atomic exact-action claim. Builder evidence is in `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`; independent acceptance is in `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`.
+
+**Current working-tree increment:** schema-valid canonical `tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, and `tlpx.authorization_claim` records now commit atomically with authority state into a separate hash-chained, HMAC-sealed SQLite outbox. Pending reads, ordered/idempotent export acknowledgement, restart persistence, and reconciliation are builder-verified in `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`. This delta is uncommitted and has not had an independent exact-commit review.
 
 **3.9** remains the system-level claim. The Rust library trusts authenticated-context strings supplied by its embedding and performs no side effect; there is no authenticated transport or OS-protected PEP. The authority MVP is real implementation progress, not forced mediation.
 
@@ -108,9 +110,11 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
+**Immediate next gate:** create a deliberate named commit only when Robert asks, then independently inspect and rerun that exact evidence/outbox commit. Do not infer acceptance from the builder run. Authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, and the OS-enforced PEP remain outside this increment.
+
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/` (immutable). Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, and `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

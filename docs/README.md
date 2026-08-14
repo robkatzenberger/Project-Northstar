@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 draft through slice 2.3. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -46,7 +46,10 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 | Document | Description |
 | --- | --- |
-| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; slices 1.1–2.3 accepted; 2.3d + Rust authority hardening pending named-commit crosscheck |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; 2.3d/Rust authority at `aed80e2` independently accepted |
+| [../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit builder evidence, environment, passing matrix, and explicit limits |
+| [../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md) | Independent exact-commit review, rerun, scope, and acceptance disposition |
+| [../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification and limits for the uncommitted Rust schema-evidence/sealed-outbox delta |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |

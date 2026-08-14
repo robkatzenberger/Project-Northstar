@@ -16,13 +16,13 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 Normative 0.1: `docs/standard/SPEC-v0.1.md` (frozen)  
-Draft 0.2: `docs/standard/SPEC-v0.2.md` (through slice 2.3)
+Draft 0.2: `docs/standard/SPEC-v0.2.md` (accepted evaluation/authorization schema core through 2.3; accepted Rust 2.3d at `aed80e2`)
 Full documentation hub: `docs/README.md`
 
 ## Non-negotiables
 
 1. **Pre-execution only for decisions that matter.** Glass authorizes *before* action hits real systems.
-2. **Deterministic policy outcomes.** Do not route core ALLOW / REQUIRE_APPROVAL (or future DENY) through LLM judgment.
+2. **Deterministic policy outcomes.** Do not route core ALLOW / REQUIRE_APPROVAL / DENY through LLM judgment.
 3. **Prism stays metadata-only.** No prompts, chain-of-thought, or private reasoning in the signal.
 4. **Receipts and audit are first-class.** Every evaluation should be inspectable and replayable.
 5. **Transparency over gaming.** Honest declaration is rewarded; the boundary is not a cat-and-mouse filter on hidden intent.

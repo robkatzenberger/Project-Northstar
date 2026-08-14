@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** Local reference implementation; technical test #1 passed. Designed to work air-gapped (on your machines, without requiring the cloud).
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; a newer builder-verified working-tree delta adds sealed evidence for its four evaluation/authorization record types. Neither implementation is yet an unavoidable protected-execution boundary.
 
 ---
 
@@ -104,6 +104,8 @@ flowchart TB
 | **Human approval** | The supervisor | For higher risk: a person must approve before go. |
 | **Executor** | The last lock | Will **not** run the real action unless the gate (and audit) say authorized. |
 | **Audit log** | The black box recorder | Append-only history: who declared, who decided, who approved, what ran. |
+
+Today, the JavaScript executor is cooperative: it blocks mediated calls, but a process retaining direct access can bypass it. The Rust authority adds durable one-time claim state and, in the current uncommitted delta, a sealed evidence outbox—but it still performs no side effect. Forced mediation remains a later PEP/deployment property.
 
 ### How they fit together
 
@@ -252,11 +254,13 @@ flowchart TB
 
 | Item | Status |
 | --- | --- |
-| Idea & architecture | Written and implemented in a local reference repo (**Northstar**) |
-| Switchboard (identity + credibility) | Working |
-| Air-gapped audit + fail-closed execute | Working |
-| Automated tests + conformance | Passing |
-| Formal technical test #1 | **Passed (29/29)** |
+| Idea & architecture | Written in the local **Northstar** repository |
+| JavaScript TL-PX 0.1 Switchboard and cooperative gate | Working for mediated calls |
+| JavaScript audit + fail-closed cooperative executor | Working; direct bypass remains possible |
+| Rust local evaluate/issue/atomic-claim authority | Independently accepted at `aed80e2`; no side effect or PEP |
+| Automated tests + 0.1 and schema-only 0.2 conformance | Passing |
+| Formal technical test #1 | **Passed (29/29)** for the JavaScript cooperative reference |
+| Forced mediation / protected-execution PEP | Not implemented |
 | Public GitHub for *this* repo | Not required / not pushed by default (local until you choose) |
 | Related public pieces | Prism / APEX-Lite / Trust Layer site under Trust-Layer-AI |
 

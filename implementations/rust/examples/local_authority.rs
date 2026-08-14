@@ -1,18 +1,28 @@
 //! Runnable authority-only MVP. It deliberately performs no external side effect.
 
 use tlpx::{
-    Adapter, Authority, AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, PolicyBundle,
-    PolicyEffect, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    Adapter, Authority, AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, EvidenceConfig,
+    PartyType, PolicyBundle, PolicyEffect, PolicyRule, Principal, Risk, SubmittedIntent,
+    Switchboard, Value,
 };
 
 fn main() -> tlpx::Result<()> {
     let mut args = std::env::args().skip(1);
     let database = args.next().ok_or_else(|| {
-        tlpx::Error::authority("usage: cargo run --example local_authority -- DATABASE REQUEST_ID")
+        tlpx::Error::authority(
+            "usage: cargo run --example local_authority -- DATABASE REQUEST_ID [--evidence-jsonl]",
+        )
     })?;
     let request_id = args.next().ok_or_else(|| {
-        tlpx::Error::authority("usage: cargo run --example local_authority -- DATABASE REQUEST_ID")
+        tlpx::Error::authority(
+            "usage: cargo run --example local_authority -- DATABASE REQUEST_ID [--evidence-jsonl]",
+        )
     })?;
+    let evidence_jsonl = match args.next().as_deref() {
+        None => false,
+        Some("--evidence-jsonl") => true,
+        Some(_) => return Err(tlpx::Error::authority("unexpected extra argument")),
+    };
     if args.next().is_some() {
         return Err(tlpx::Error::authority("unexpected extra argument"));
     }
@@ -20,18 +30,22 @@ fn main() -> tlpx::Result<()> {
     let authority = Authority::open(database, pilot_config()?)?;
     let intent = pilot_intent(request_id);
     let outcome = authority.evaluate_and_issue("agent.requester", &intent)?;
-    println!(
-        "decision={} receipt={}",
-        outcome.decision.as_str(),
-        outcome.receipt_id
-    );
+    if !evidence_jsonl {
+        println!(
+            "decision={} receipt={}",
+            outcome.decision.as_str(),
+            outcome.receipt_id
+        );
+    }
     let issued = outcome
         .authorization
         .ok_or_else(|| tlpx::Error::authority("pilot request was not authorized"))?;
-    println!(
-        "authorization={} binding={} expires_ms={}",
-        issued.authorization_id, issued.action_binding_hash, issued.claim_expires_at_ms
-    );
+    if !evidence_jsonl {
+        println!(
+            "authorization={} binding={} expires_ms={}",
+            issued.authorization_id, issued.action_binding_hash, issued.claim_expires_at_ms
+        );
+    }
 
     let executed = tlpx::ExecutedAction {
         executing_principal: intent.executing_principal,
@@ -45,10 +59,24 @@ fn main() -> tlpx::Result<()> {
         adapter: intent.adapter,
     };
     let claim = authority.claim(&issued.authorization_id, "runtime.mailer", &executed)?;
-    println!(
-        "claim={} state=CLAIMED executed_action_hash={}",
-        claim.claim_id, claim.executed_action_hash
-    );
+    if evidence_jsonl {
+        let mut invalid = pilot_intent(format!("{}-error", issued.request_id));
+        invalid.requesting_principal = "agent.untrusted-body".into();
+        let error = authority
+            .evaluate_and_issue("agent.requester", &invalid)
+            .expect_err("authentication mismatch must fail");
+        if error.code() != "AUTHENTICATION_FAILED" {
+            return Err(error);
+        }
+        for row in authority.pending_evidence(100)? {
+            println!("{}", row.record_json);
+        }
+    } else {
+        println!(
+            "claim={} state=CLAIMED executed_action_hash={}",
+            claim.claim_id, claim.executed_action_hash
+        );
+    }
     Ok(())
 }
 
@@ -90,6 +118,14 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             "mailer.send".into(),
             vec!["adapter.mailer".into()],
         )])?,
+        evidence: EvidenceConfig {
+            evaluator_id: "authority.local".into(),
+            router_id: "switchboard.local".into(),
+            requester_type: PartyType::Machine,
+            // Deliberately public and insecure: local demonstration/schema checks only.
+            seal_key_id: "insecure-example-only".into(),
+            seal_key: vec![0x42; 32],
+        },
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     })

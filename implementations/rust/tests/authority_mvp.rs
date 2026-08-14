@@ -5,8 +5,8 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
     Adapter, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState, CapabilityRegistry,
-    Decision, ExecutedAction, PolicyBundle, PolicyEffect, PolicyRule, Principal, Risk,
-    SubmittedIntent, Switchboard, Value,
+    Decision, EvidenceConfig, ExecutedAction, PartyType, PolicyBundle, PolicyEffect, PolicyRule,
+    Principal, Risk, SubmittedIntent, Switchboard, Value,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -62,6 +62,13 @@ fn config() -> AuthorityConfig {
             vec!["adapter.mailer".into()],
         )])
         .unwrap(),
+        evidence: EvidenceConfig {
+            evaluator_id: "authority.local".into(),
+            router_id: "switchboard.local".into(),
+            requester_type: PartyType::Machine,
+            seal_key_id: "audit-test-v1".into(),
+            seal_key: vec![0x5a; 32],
+        },
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     }

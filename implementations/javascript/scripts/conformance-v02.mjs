@@ -280,6 +280,21 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     sequence: 6
   };
   check("APPROVE carries rendered action context", validateV02("operator-action", operator).ok);
+  check(
+    "APPROVE requires a human authorizer",
+    !validateV02("operator-action", {
+      ...operator,
+      operator: { id: "agent.approver", type: "machine" }
+    }).ok
+  );
+  check(
+    "REJECT requires a human authorizer",
+    !validateV02("operator-action", {
+      ...operator,
+      outcome: "REJECT",
+      operator: { id: "agent.rejector", type: "machine" }
+    }).ok
+  );
   for (const field of [
     "authorized_action_hash",
     "approval_route",

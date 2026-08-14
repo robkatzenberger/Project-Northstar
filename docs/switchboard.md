@@ -21,7 +21,7 @@ Agent/Machine
 | `allowed_actions` | Optional action allow-list for that principal |
 | `approval_route` | Ordered human (or role) ids for escalation |
 
-Config: [`config/switchboard.json`](../config/switchboard.json)
+Reference config: [`implementations/javascript/config/switchboard.json`](../implementations/javascript/config/switchboard.json)
 
 ## Credibility bands (defaults)
 
