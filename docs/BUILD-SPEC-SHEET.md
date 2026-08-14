@@ -5,7 +5,7 @@
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Live implementation scope:** slice 2.2 (JCS profile, `sha256:` hashes, golden fixtures). Slice 2.3 schemas are not open.  
+**Live implementation scope:** slices 1.1–2.2 accepted. Next unopened slice is 2.3 (v0.2 schemas, validators, record conformance). No Rust, token, or PEP.  
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 
 ## 1. Purpose
@@ -195,11 +195,16 @@ Caller-declared risk is advisory only. Trusted policy derives authoritative risk
 Northstar must validate each hashable object against its schema and canonicalize it using RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoding, and the following profile:
 
 - duplicate object keys are rejected;
-- floating-point values are prohibited in security-critical envelopes;
-- integer ranges are explicitly bounded by schema;
+- floating-point values are prohibited in security-critical envelopes, including `1.0`, scientific notation, non-finite numbers, and `-0`;
+- integers are exact JSON integer tokens in the IEEE-754 safe-integer range unless a later schema tightens a field;
 - absent and `null` remain distinct;
 - array order is preserved unless a field schema explicitly defines canonical sorting;
+- object keys are sorted by **unsigned UTF-16 code units** (RFC 8785 §3.2.3), not Unicode code points and not UTF-8/UTF-32;
+- lone UTF-16 surrogates terminate canonicalization; valid pairs are allowed;
+- Unicode is not NFC/NFD-normalized;
 - no implementation may hash its language's default JSON serialization.
+
+Slice 2.2 implemented this profile in the JS oracle (`implementations/javascript/src/jcs.mjs`, `hash.mjs`) and `tests/fixtures/tlpx-0.2/jcs/golden.json`. That oracle is not a 0.2 decision engine. The 0.1 audit helper `canonicalJson` remains the 0.1 seal hasher.
 
 Hashes use domain-separated, versioned preimages:
 
@@ -216,7 +221,7 @@ executed_action_hash =
 
 The normative string form is ASCII `sha256:` followed by exactly 64 lowercase hexadecimal characters, with no whitespace, truncation, uppercase, base64 alternative, or `0x` prefix. Schema pattern: `^sha256:[0-9a-f]{64}$`. Implementations validate this representation before embedding a hash string in another canonical structure.
 
-Conformance must include cross-language golden fixtures for canonical bytes, raw 32-byte digests, exact hash strings, Unicode, escaping, nested objects, empty values, absent versus `null`, integer boundaries, key order, and rejected duplicate keys/floats.
+Conformance must include cross-language golden fixtures for canonical bytes, raw 32-byte digests (`digest_hex`), exact `sha256:` strings, Unicode, escaping, nested objects, empty values, absent versus `null`, integer boundaries, UTF-16 key order (including astral vs BMP), lone-surrogate rejection, and rejected duplicate keys/floats. Those fixtures exist under `tests/fixtures/tlpx-0.2/jcs/`.
 
 Changing any material submitted-intent field—including requester, proposed executor, action, intent class, target, arguments, environment, tenant, declared risk, data classes, capability, resource scope, payload/artifact digest, or adapter identity—requires a new evaluation and authorization. Every newly issued authorization independently receives a new authority-generated nonce.
 

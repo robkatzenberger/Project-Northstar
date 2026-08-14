@@ -2,7 +2,7 @@
 
 **Status:** Planned authoritative core — not started
 
-Intended use: small security-critical TL-PX 0.2 authority and **policy enforcement point** (PEP) that must fail closed. Implementation begins only after the v0.2 contract, canonicalization profile, schemas, and golden conformance fixtures are accepted.
+Intended use: small security-critical TL-PX 0.2 authority and **policy enforcement point** (PEP) that must fail closed. The 0.2 decision contract and JCS/hash fixtures are accepted. Implementation still waits for slice 2.3 schemas and a distinct 0.2 record conformance suite.
 
 ## Planned shape (draft)
 

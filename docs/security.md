@@ -51,6 +51,7 @@ This document is **engineering guidance**, not a formal certification or legal o
 | **Operator id free string** | Medium | Approval-route + allowlist enforced; still no SSO/mTLS crypto identity |
 | **Declared intent can lie** | Medium–High | By design metadata trust; pair with scope limits + monitoring |
 | **Policy expression engine** | Low (mitigated) | Safe AST parser (no `new Function`); entire pack compiled before any decision; malformed policy fails load and issues no authorization |
+| **0.2 hash canonicalization** | Implemented as oracle | RFC 8785 JCS + UTF-16 key sort; lone surrogates fail closed. Not used by the 0.1 audit seal path. |
 | **`allowEphemeral`** | Medium if misused | Never enable in production adapters |
 | **Secrets in audit JSONL** | High if leaked | Redact; restrict file perms (`chmod 600`); no commit |
 

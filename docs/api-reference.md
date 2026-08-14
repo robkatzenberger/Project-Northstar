@@ -22,8 +22,9 @@ Use `{ allowEphemeral: true }` **only** in pure unit tests (skips audit persiste
 | Export | Value / meaning |
 | --- | --- |
 | `STANDARD_ID` | `"TL-PX"` |
-| `STANDARD_VERSION` | `"0.1.0"` |
+| `STANDARD_VERSION` | `"0.1.0"` (runtime records; 0.2 hashes are a separate oracle) |
 | `CONTROL_MODE` | `"ALLOW_OR_ESCALATE"` |
+| `HASH_PATTERN` | `/^sha256:[0-9a-f]{64}$/` |
 | `GLASS_VERSION` | Reference impl version string |
 | `PRISM_VERSION` | `"prism_v0.1"` |
 | `CRED_MIN` / `CRED_MAX` | `0` / `0.99` |
@@ -66,18 +67,22 @@ Flattens Prism + `glass` into an evaluation request used by the gate.
 
 ### `readPolicyFile(path) → policy`
 
-Load APEX-Lite-compatible YAML-like rules file.
+Load and **compile** the restricted YAML pack. Invalid packs throw.
 
 ### `parsePolicyText(text) → policy`
 
-Parse policy from string.
+Parse policy text. `compilePolicy` / `readPolicyFile` reject unknown structure.
+
+### `compilePolicy(policy) → policy`
+
+Validate the entire pack. Compile identity is a module-private `WeakSet`; caller markers cannot skip validation.
 
 ### `evaluateRules(intent, policy) → { decision, reason, policy_id }`
 
-Pure rule evaluation (no Switchboard, no audit).  
+Compiles first, then evaluates. Invalid packs throw and do not `ALLOW`.  
 `decision`: `ALLOW` | `REQUIRE_APPROVAL`.
 
-Expression subset: `==`, `!=`, `and` / `or`, `"X" in fieldName`, bare field identifiers.
+Expression subset: `==`, `!=`, `and` / `or`, `"X" in fieldName`, closed field list.
 
 ---
 
@@ -195,6 +200,18 @@ Authorization is **always re-derived from audit**. Forged in-memory status is ig
 ```
 
 `sideEffect` is **never** invoked unless `authorization_status === "AUTHORIZED"`.
+
+---
+
+## 0.2 JCS / hash oracle
+
+Not used by 0.1 evaluate/audit. Other languages match `tests/fixtures/tlpx-0.2/jcs/golden.json`.
+
+| Export | Role |
+| --- | --- |
+| `canonicalize(value)` / `canonicalizeJsonText(text)` | Northstar RFC 8785 JCS (UTF-16 key sort; reject floats and lone surrogates) |
+| `intentHash` / `authorizedActionHash` / `executedActionHash` / `approvalContextHash` | Domain-separated `sha256:` strings |
+| `assertHashString(value)` | Require `sha256:` + 64 lowercase hex |
 
 ---
 

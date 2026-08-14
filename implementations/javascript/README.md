@@ -4,13 +4,13 @@
 **Runtime:** Node.js 18+ (ES modules, `.mjs`)  
 **Package name:** `tlpx-reference`
 
-This is the current full reference for TL-PX + Switchboard + air-gapped executor.
+This is the current full **TL-PX 0.1** reference for Switchboard + air-gapped executor, plus the **0.2 JCS/hash oracle**. Runtime records still use `standard_version: "0.1.0"`.
 
 ## Layout
 
 ```text
 javascript/
-  src/           Library (glass, switchboard, chain, executor, …)
+  src/           Library (glass, switchboard, chain, executor, jcs, hash, …)
   bin/glass.mjs  CLI
   config/        policy.yaml, switchboard.json
   examples/      Intent fixtures
@@ -19,7 +19,8 @@ javascript/
   AGENTS.md      Conventions for coding agents in this tree
 ```
 
-Shared schemas live at repo root: `../../schemas/tlpx-0.1/`.  
+Shared 0.1 schemas live at repo root: `../../schemas/tlpx-0.1/`.  
+0.2 JCS fixtures: `../../tests/fixtures/tlpx-0.2/jcs/`.  
 Docs live at repo root: `../../docs/`.
 
 ## Commands
@@ -28,6 +29,7 @@ Docs live at repo root: `../../docs/`.
 cd implementations/javascript
 
 npm test
+npm run test:jcs
 npm run conformance
 npm run tech-test
 npm run demo

@@ -7,13 +7,14 @@
 - **Current reference code** — `implementations/javascript/` (Node ES modules).
 - **Planned authoritative core** — Rust, after the TL-PX 0.2 contract and fixtures are defined.
 
-Before substantive work, read `NORTHSTAR-SESSION-START.md`, `docs/BUILD-SPEC-SHEET.md`, and `docs/reviews/build-plan-review-disposition-2026-08-13.md`. Live scope is slice 2.2: Northstar JCS profile and golden hash fixtures. Do not start 2.3 schemas/validators or Rust. Correct remaining v0.1 reference defects under `implementations/javascript/` without expanding JS into the planned production authority. The August 7 `AUTHORIZED` snapshot token is abandoned.
+Before substantive work, read `NORTHSTAR-SESSION-START.md`, `docs/BUILD-SPEC-SHEET.md`, and `docs/reviews/build-plan-review-disposition-2026-08-13.md`. Slices 1.1–2.2 are accepted. Do not start slice 2.3 schemas/validators, Rust, tokens, or PEP unless Robert opens that work. The JS gate remains a TL-PX 0.1 reference plus Phase 1 compile and a 0.2 JCS/hash oracle. Do not expand JS into the planned production authority. The August 7 `AUTHORIZED` snapshot token is abandoned.
 
 ## Commands (JS)
 
 ```bash
 cd implementations/javascript
 npm test
+npm run test:jcs
 npm run conformance
 npm run tech-test
 ```

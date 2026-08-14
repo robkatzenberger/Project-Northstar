@@ -16,7 +16,9 @@
 northstar/
   docs/                      Language-agnostic documentation
   docs/roadmap/              Product ideas & phased plan (H-M/M-M, PEP, tokens)
-  schemas/tlpx-0.1/          Shared JSON schemas (the contract)
+  schemas/tlpx-0.1/          Frozen TL-PX 0.1 JSON schemas
+  schemas/tlpx-0.2/          Reserved for slice 2.3
+  tests/fixtures/tlpx-0.2/   0.2 JCS / hash golden fixtures
   LICENSE
   implementations/
     javascript/              Full Node reference
@@ -33,7 +35,8 @@ northstar/
 | [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) | Proposed hardened build baseline targeting TL-PX 0.2 |
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
-| [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Normative TL-PX spec |
+| [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 spec |
+| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.2 |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -63,8 +66,8 @@ var/tech-test-audit.jsonl
 ## Adding another language
 
 1. Use the placeholder under `implementations/<lang>/` (or create one).  
-2. Implement against [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) and `schemas/`.  
-3. Keep records interoperable with the JS reference.  
+2. Implement 0.1 against [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) and `schemas/tlpx-0.1/`. Match 0.2 hashes against `tests/fixtures/tlpx-0.2/jcs/`.  
+3. Keep 0.1 records interoperable with the JS reference. Do not silently emit 0.2 shapes as 0.1.  
 4. Update [`implementations/README.md`](implementations/README.md).
 
 You do **not** need every language for the open standard — one solid reference + schemas is enough. Extra languages are ports for specific environments (JVM, Go services, Rust PEPs, etc.).
@@ -77,7 +80,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Planned behavior is not current implementation status.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Slices 1.1–2.2 are accepted. Planned 2.3+ behavior is not current implementation status. The running gate is still TL-PX 0.1.
 
 ---
 

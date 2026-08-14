@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — slices 2.1–2.2 (decision / error / state / compatibility / JCS hashes)  
+**Status:** Draft contract — slices 2.1–2.2 accepted (decision / error / state / compatibility / JCS hashes). Slice 2.3 not started.  
 **Profile:** Minimum  
 **Date:** 2026-08-14  
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)

@@ -57,7 +57,7 @@ Closed field list (after Switchboard enrichment):
 - `whitelisted`, `credibility`, `credibility_band`
 - `low_credibility`, `high_trust` (booleans)
 
-`in` is valid only for `data_classes`. The entire pack is compiled before any decision. A malformed pack fails load or `evaluateIntent` and issues no authorization. Valid packs still use the frozen v0.1 rule: no matching escalation rule implies `ALLOW`.
+`in` is valid only for `data_classes`. The entire pack is compiled before any decision. A malformed pack fails load or `evaluateIntent` and issues no authorization. Valid packs still use the frozen v0.1 rule: no matching escalation rule implies `ALLOW`. Caller-supplied compile markers cannot skip validation.
 
 **Security:** expression evaluation uses a **safe AST parser** (no `new Function`). Compile errors are not treated as a non-match. Still load only operator-owned policy files.
 

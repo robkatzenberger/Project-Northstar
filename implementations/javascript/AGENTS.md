@@ -15,7 +15,8 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
-Normative doc: `docs/standard/SPEC-v0.1.md`  
+Normative 0.1: `docs/standard/SPEC-v0.1.md` (frozen)  
+Draft 0.2: `docs/standard/SPEC-v0.2.md` (through slice 2.2)  
 Full documentation hub: `docs/README.md`
 
 ## Non-negotiables
@@ -47,8 +48,9 @@ Full documentation hub: `docs/README.md`
 ```bash
 cd implementations/javascript   # from monorepo root
 # or: cd ~/projects/northstar/implementations/javascript
-npm run conformance   # TL-PX 0.1 pass/fail (required for standard changes)
-npm test              # extra suite
+npm run conformance   # frozen TL-PX 0.1 pass/fail
+npm test              # unit + compile + 0.2 JCS
+npm run test:jcs      # 0.2 hash oracle only
 npm run demo          # 3 scenarios + accountability report
 node bin/glass.mjs help
 ```

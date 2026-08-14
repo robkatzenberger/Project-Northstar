@@ -2,7 +2,7 @@
 
 ## Overview
 
-Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions:
+Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions and a **0.2 JCS/hash oracle**. Runtime decisions remain 0.1:
 
 - **Switchboard** — identity / whitelist / credibility / approval routing  
 - **Air-gapped audit chain** — authorization derived only from append-only JSONL  
@@ -52,13 +52,14 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 | --- | --- |
 | `prism.mjs` | Create Prism-compatible signals; map to evaluation intent |
 | `switchboard.mjs` | Principal registry, routing, hard gates, credibility helpers |
-| `policy.mjs` | Load/parse policy; evaluate conditions/rules |
+| `policy.mjs` | Strict compile then evaluate; invalid pack never authorizes |
+| `jcs.mjs` / `hash.mjs` | 0.2 JCS oracle and domain-separated `sha256:` (not the 0.1 audit hasher) |
 | `glass.mjs` | evaluateIntent, resolveEscalation, recordExecution |
 | `chain.mjs` | Audit-derived authorization; single-outcome guards |
 | `executor.mjs` | Fail-closed `executeAuthorized` |
 | `audit.mjs` | Sealed JSONL append/read/verify; chain filter |
 | `accountability.mjs` | Findings / dual human-machine report |
-| `validate.mjs` | Structural validators for TL-PX records |
+| `validate.mjs` | Structural validators for TL-PX **0.1** records |
 | `standard.mjs` | Standard id/version/record type constants |
 | `ids.mjs` | UUID, receipt id (time + entropy) |
 | `index.mjs` | Public exports |

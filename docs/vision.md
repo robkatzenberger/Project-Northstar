@@ -74,15 +74,15 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 
 ## Status snapshot
 
-- Spec draft v0.1  
-- Reference implementation with Switchboard + air-gap hardening  
+- TL-PX 0.1 frozen; 0.2 draft contract through accepted slice 2.2 (JCS hashes)  
+- Reference implementation: Switchboard + air-gap + fail-closed policy compile (still emits 0.1)  
 - Conformance + formal technical test #1 **passed**  
 - Local-only until public release is intentionally chosen  
 
 ## Open product questions
 
 1. Receipt naming long-term: `tlpx.*` only vs dual Glass aliases  
-2. When to introduce hard policy `DENY` beyond Switchboard  
+2. When to introduce hard policy `DENY` beyond Switchboard — **0.2 contract: first-class `DENY`; 0.1 runtime/schema mismatch remains**  
 3. Operator authentication standard  
 4. Signed authorization tokens profile  
 5. Governance split: standards nonprofit vs commercial Glass ops  

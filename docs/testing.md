@@ -5,7 +5,8 @@
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                      # unit + switchboard + air-gap + policy + compile
+npm test                      # unit + switchboard + air-gap + policy compile + 0.2 JCS
+npm run test:jcs              # TL-PX 0.2 JCS / hash fixtures only
 npm run test:unit
 npm run test:switchboard
 npm run test:airgap
@@ -29,8 +30,8 @@ All tests use local Node; no network required.
 | `scripts/test-airgap.mjs` | Chain auth, state machine, anti-forgery, executor | temp files |
 | `scripts/test-policy-ops.mjs` | Safe expressions + operator allowlist | temp files |
 | `scripts/test-policy-compile.mjs` | Phase 1 negative compile / fail-closed load | temp files |
-| `scripts/test-jcs.mjs` | TL-PX 0.2 JCS / domain-hash golden fixtures | `tests/fixtures/tlpx-0.2/jcs/` |
-| `scripts/conformance.mjs` | Spec conformance (deterministic decisions, parties, chain) | temp files |
+| `scripts/test-jcs.mjs` | TL-PX 0.2 JCS / domain-hash golden fixtures (UTF-16 key sort, lone-surrogate reject, `digest_hex`) | `tests/fixtures/tlpx-0.2/jcs/` |
+| `scripts/conformance.mjs` | Frozen TL-PX 0.1 spec conformance (47 fixtures) | temp files |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |
 | `scripts/no-bs.mjs` | Earlier theory scoreboard | temp files |
@@ -58,6 +59,8 @@ All tests use local Node; no network required.
 ---
 
 ## Conformance
+
+`npm test` also runs `test-jcs.mjs` against `tests/fixtures/tlpx-0.2/jcs/golden.json`. That is the 0.2 hash oracle. It is not 0.1 conformance and does not make the gate 0.2-conforming.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 

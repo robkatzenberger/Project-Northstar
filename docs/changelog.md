@@ -59,7 +59,8 @@ Format: newest first.
 - **TL-PX 0.2 draft contract** (`docs/standard/SPEC-v0.2.md`, slice 2.1): first-class `DENY`, distinct `tlpx.evaluation_error`, authorization lifecycle including `AUTHORIZED_UNCLAIMED` / claim / unknown-outcome, and explicit 0.1 compatibility rules. Schemas, JCS fixtures, and 0.2 conformance are not in this slice.
 - Crosscheck follow-up: dedicated `tlpx.authorization_claim`; claim tickets must bind adapter and still consume online; sealing is an evidence-chain property.
 - **TL-PX 0.2 slice 2.2:** Northstar JCS profile, domain-separated `sha256:` hashes, and `tests/fixtures/tlpx-0.2/jcs/golden.json`. JS helpers are a fixture oracle; the gate still emits 0.1 records. 0.1 `canonicalJson` is unchanged.
-- JCS follow-up: key sort is RFC 8785 UTF-16 code units; lone surrogates fail closed; fixtures include astral/BMP order and raw `digest_hex`.
+- JCS follow-up: key sort is RFC 8785 UTF-16 code units; lone surrogates fail closed; fixtures include astral/BMP order and raw `digest_hex`. Independent recheck accepted `636637a`.
+- Docs sweep: living docs now state slices 1.1–2.2 accepted, 2.3 not started, UTF-16 JCS profile, and that the gate still emits TL-PX 0.1.
 
 ### Added
 

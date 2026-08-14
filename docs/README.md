@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** Trust Layer Pre-Execution Minimum Standard (**TL-PX**) v0.1 frozen; v0.2 draft contract in progress  
+**Standard:** TL-PX v0.1 frozen; v0.2 draft through slice 2.2 (JCS hashes accepted). Gate still emits 0.1.  
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -52,7 +52,8 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 | Document | Description |
 | --- | --- |
-| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; live scope is slice 2.2 |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; slices 1.1–2.2 accepted; 2.3 not started |
+| [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
 | [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |
@@ -124,8 +125,8 @@ Agent / human / script
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                    # unit + switchboard + air-gap
-npm run conformance         # TL-PX 0.1 suite
+npm test                    # unit + switchboard + air-gap + policy compile + 0.2 JCS
+npm run conformance         # frozen TL-PX 0.1 suite (47 fixtures)
 node scripts/tech-test.mjs  # formal technical test #1
 npm run demo
 npm run demo:switchboard

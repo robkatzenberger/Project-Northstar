@@ -7,7 +7,8 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | Path | Role |
 | --- | --- |
 | [`../docs/`](../docs/) | Documentation suite |
-| [`../schemas/tlpx-0.1/`](../schemas/tlpx-0.1/) | JSON schemas (shared contract) |
+| [`../schemas/tlpx-0.1/`](../schemas/tlpx-0.1/) | Frozen 0.1 JSON schemas |
+| [`../tests/fixtures/tlpx-0.2/jcs/`](../tests/fixtures/tlpx-0.2/jcs/) | Accepted 0.2 JCS / hash golden fixtures |
 | [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Proposed hardened baseline for a separately versioned TL-PX 0.2 |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
@@ -19,7 +20,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 
 | Folder | Status | Notes |
 | --- | --- | --- |
-| [`javascript/`](./javascript/) | **Active reference** | Node 18+ ES modules; CLI, sealed audit, tests, tech test #1 |
+| [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 hash oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
 | [`rust/`](./rust/) | **Planned authority** | Small TL-PX 0.2 authorization core + hardened PEP; not started |

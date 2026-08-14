@@ -20,7 +20,9 @@
 | **authorization_status (0.1)** | `AUTHORIZED` \| `PENDING_HUMAN_APPROVAL` \| `DENIED` |
 | **authorization_state (0.2)** | See [SPEC-v0.2.md](./standard/SPEC-v0.2.md) §7. `ALLOW` maps to `AUTHORIZED_UNCLAIMED`, not 0.1 `AUTHORIZED`. |
 | **control_mode** | 0.1 `ALLOW_OR_ESCALATE`; 0.2 `ALLOW_ESCALATE_OR_DENY` |
-| **operator outcome** | `APPROVE` \| `REJECT` |
+| **operator outcome** | 0.1 `APPROVE` \| `REJECT`; 0.2 also `CANCEL` |
+| **JCS** | RFC 8785 JSON Canonicalization Scheme. 0.2 keys sort by unsigned UTF-16 code units. Lone surrogates are rejected. Not the 0.1 `canonicalJson` audit hasher. |
+| **hash string** | Exact `sha256:` + 64 lowercase hex. Raw digest is `digest_hex`. |
 | **execution status** | `EXECUTED` \| `BLOCKED` \| `FAILED` |
 
 ### Mapping (normative for this reference)
@@ -37,8 +39,11 @@
 
 | `record_type` | Purpose |
 | --- | --- |
-| `tlpx.decision` | Gate decision receipt (`glass.decision` accepted as alias) |
+| `tlpx.decision` | Gate decision receipt (`glass.decision` is a 0.1 alias only) |
+| `tlpx.evaluation_error` | 0.2 only: evaluation could not be established; no authorization |
 | `tlpx.operator_action` | Human resolve of escalation |
+| `tlpx.authorization` | 0.2 only: claimable `AUTHORIZED_UNCLAIMED` issuance |
+| `tlpx.authorization_claim` | 0.2 only: atomic consumption (`CLAIMED`) |
 | `tlpx.execution` | Execution attempt outcome |
 | `tlpx.incident` | Optional incident note |
 | `tlpx.accountability_report` | Post-incident evidence summary |

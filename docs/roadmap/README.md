@@ -3,7 +3,7 @@
 This folder captures **historical product thinking** for Northstar / Trust Layer beyond the current reference implementation.  
 It is design and intent — not all of it is built yet.
 
-**Last updated:** 2026-08-13  
+**Last updated:** 2026-08-14  
 **Current build baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md)  
 **Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
 
@@ -43,6 +43,8 @@ It is design and intent — not all of it is built yet.
 - Hash-chain + HMAC seal; `glass verify`  
 - Fail-closed `executeAuthorized`  
 - Safe policy expression parser (no `new Function`)  
+- Phase 1 fail-closed policy compile  
+- 0.2 JCS / hash oracle + golden fixtures (UTF-16 key sort)  
 - Operator route + allowlist  
 - Conformance + tech test #1 PASS; red team 16 PASS / 0 FAIL / 4 WARN  
 
@@ -54,7 +56,8 @@ It is design and intent — not all of it is built yet.
 
 **Not built yet (historical list from 2026-08-07):**
 
-- Forced PEP / OS-enforced mediation (now destination slice 3.9, not the live slice)  
+- 0.2 schemas / record validators (slice 2.3, not started)  
+- Forced PEP / OS-enforced mediation (destination slice 3.9)  
 - Portable claim ticket with transactional consumption (the old AUTHORIZED snapshot token is abandoned)  
 - Multi-agent handoff protocol  
 - Crypto operator identity / SSO  

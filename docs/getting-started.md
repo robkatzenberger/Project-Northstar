@@ -27,7 +27,7 @@ Docs and shared schemas stay at the monorepo root (`../../docs`, `../../schemas`
 ## 2. Run the test suite (sanity)
 
 ```bash
-npm test                 # unit + switchboard + air-gap hardening
+npm test                 # unit + switchboard + air-gap + policy compile + 0.2 JCS
 npm run conformance      # TL-PX 0.1 Minimum Profile
 ```
 

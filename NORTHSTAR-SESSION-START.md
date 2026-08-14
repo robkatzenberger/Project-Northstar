@@ -137,9 +137,11 @@ Do not load every file merely to create context. Read Tier 1 first, determine th
 
 At the time this file was last updated (2026-08-14):
 
-- Phase 1 slices 1.1–1.2 are implemented in the JS reference (`31175c5`).
-- Phase 2 live scope is slice **2.2**: JCS profile and golden hash fixtures. Slice 2.3 schemas are not open.
-- JavaScript is the functioning 0.1 reference implementation.
+- Phase 1 slices 1.1–1.2 are implemented and accepted (`31175c5`, follow-up `b82ae1d`).
+- Slice 2.1 SPEC-v0.2 decision/error/state contract is accepted (`593439b`).
+- Slice 2.2 JCS/hash oracle and golden fixtures are accepted (`b4fb238`, Unicode follow-up `636637a`).
+- Next unopened slice is **2.3** (schemas, validators, 0.2 record conformance). Not started.
+- JavaScript is the functioning 0.1 reference plus a 0.2 fixture oracle. It still emits `standard_version: "0.1.0"`.
 - Go has a partial control-plane/service implementation.
 - Java has policy and Switchboard evaluation.
 - Rust and Python are placeholders.
@@ -147,7 +149,7 @@ At the time this file was last updated (2026-08-14):
 - TypeScript remains the readable reference, conformance oracle, and adversarial harness.
 - Java, Go, Python, and TypeScript should become SDKs/adapters rather than competing authorization authorities.
 
-The build sheet is local and may be uncommitted. Always inspect `git status`, current branch, remote, and recent commits before acting. Preserve unrelated local work.
+Always inspect `git status`, current branch, remote, and recent commits before acting. Preserve unrelated local work. Do not push unless Robert asks.
 
 ## 6. Verified baseline and known defects
 
@@ -171,12 +173,12 @@ Do not describe the present implementation as production-ready or an unavoidable
 
 ## 7. Agreed build order
 
-1. Strict policy parsing, validation, and compilation; invalid policy never authorizes.
-2. Freeze TL-PX 0.1 and its 47 fixtures as historical evidence.
-3. Draft TL-PX 0.2 decisions, evaluation errors, lifecycle states, receipts, reason codes, and compatibility rules.
-4. Define separate submitted-intent and authority-normalized authorized-action schemas.
-5. Define RFC 8785 canonicalization, exact lowercase `sha256:` representation, domain-separated hashes, and cross-language golden fixtures.
-6. Build TL-PX 0.2 schemas, validators, and a distinct conformance suite.
+1. Strict policy parsing, validation, and compilation; invalid policy never authorizes. **Done (1.1–1.2).**
+2. Freeze TL-PX 0.1 and its 47 fixtures as historical evidence. **Done (2.1).**
+3. Draft TL-PX 0.2 decisions, evaluation errors, lifecycle states, receipts, reason codes, and compatibility rules. **Done (2.1).**
+4. Define separate submitted-intent and authority-normalized authorized-action schemas. **Field lists in SPEC-v0.2; JSON Schemas are 2.3.**
+5. Define RFC 8785 canonicalization, exact lowercase `sha256:` representation, domain-separated hashes, and cross-language golden fixtures. **Done (2.2, UTF-16 sort).**
+6. Build TL-PX 0.2 schemas, validators, and a distinct conformance suite. **Next, not started.**
 7. Create the Rust authority skeleton and shared language-neutral contract types.
 8. Add authenticated requester, operator, executor, canceller, and adapter identities.
 9. Add approval expiry/cancellation and SQLite transactional state.
