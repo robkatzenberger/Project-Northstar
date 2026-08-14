@@ -44,7 +44,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | --- | --- |
 | [standard/README.md](./standard/README.md) | Why a minimum standard; OSS posture |
 | [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 Minimum Profile |
-| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 decision/error/state/compatibility contract (slice 2.1) |
+| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.2 (decisions, errors, states, JCS hashes) |
 | [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | Frozen 0.1 JSON Schemas |
 | [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Reserved for slice 2.3 |
 
@@ -52,7 +52,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 | Document | Description |
 | --- | --- |
-| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; live scope is slice 2.1 |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; live scope is slice 2.2 |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
 | [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |

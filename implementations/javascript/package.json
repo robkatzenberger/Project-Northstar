@@ -10,7 +10,8 @@
     "tlpx": "./bin/glass.mjs"
   },
   "scripts": {
-    "test": "node scripts/test.mjs && node scripts/test-switchboard.mjs && node scripts/test-airgap.mjs && node scripts/test-policy-ops.mjs && node scripts/test-policy-compile.mjs",
+    "test": "node scripts/test.mjs && node scripts/test-switchboard.mjs && node scripts/test-airgap.mjs && node scripts/test-policy-ops.mjs && node scripts/test-policy-compile.mjs && node scripts/test-jcs.mjs",
+    "test:jcs": "node scripts/test-jcs.mjs",
     "test:unit": "node scripts/test.mjs",
     "test:switchboard": "node scripts/test-switchboard.mjs",
     "test:airgap": "node scripts/test-airgap.mjs",

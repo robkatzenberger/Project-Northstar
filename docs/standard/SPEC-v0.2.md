@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — slice 2.1 (decision / error / state / compatibility)  
+**Status:** Draft contract — slices 2.1–2.2 (decision / error / state / compatibility / JCS hashes)  
 **Profile:** Minimum  
 **Date:** 2026-08-14  
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -10,8 +10,8 @@ This document is the normative TL-PX 0.2 **decision, evaluation-error, authoriza
 
 | Later slice | Still required |
 | --- | --- |
-| 2.2 | RFC 8785 JCS profile, exact `sha256:` representation, domain-separated hashes, cross-language golden fixtures |
-| 2.3 | JSON Schemas under `schemas/tlpx-0.2/`, receipt field schemas, validators, full reason-code catalog, distinct conformance suite |
+| 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
+| 2.3 | JSON Schemas under `schemas/tlpx-0.2/`, receipt field schemas, validators, full reason-code catalog, distinct record conformance suite |
 | 2.4 | Policy precedence, provenance, trusted ordering, requirements-maturity labels |
 
 **Not legal advice. Not a patent claim set.** Product and protocol language only.
@@ -532,13 +532,66 @@ Durable 0.2 records MUST attribute at least:
 
 Until 0.2 schemas, conformance, and an independent review exist, implementations of this contract MUST be described as a draft specification or experimental preview — not as production-safe 0.2.
 
-This document does not make the JavaScript reference a 0.2 authority. It does not implement atomic claim, PEP enforcement, or Rust.
+This document does not make the JavaScript reference a 0.2 authority. It does not implement atomic claim, PEP enforcement, or Rust. The 0.2 JCS/hash helpers are a fixture oracle, not a 0.2 decision engine.
 
 ---
 
-## 14. Change log
+## 14. Canonicalization and hashes (slice 2.2)
+
+Security-critical 0.2 envelopes MUST be hashed only after they validate against their 0.2 schema (slice 2.3) and are canonicalized with this profile. Implementations MUST NOT hash a language’s default JSON serialization.
+
+### 14.1 Northstar JCS profile
+
+Canonicalization is RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoded, with these additional MUST rules:
+
+- Duplicate object keys are rejected.
+- Floating-point values are prohibited, including `1.0`, scientific notation, non-finite numbers, and `-0`.
+- Integers MUST be exact JSON integer tokens in the IEEE-754 safe-integer range `[-9007199254740991, 9007199254740991]`. Slice 2.3 schemas MAY impose tighter per-field bounds; they MUST NOT widen this range.
+- Absent keys and `null` are distinct: a missing key is omitted; `null` is serialized as `null`.
+- Array order is preserved unless a field schema (slice 2.3) explicitly defines canonical sorting.
+- Object keys are sorted lexicographically by Unicode code points. Unicode is not NFC/NFD-normalized.
+- Strings follow RFC 8785 escaping: `"`, `\`, and `U+0000`–`U+001F` only. Other characters, including non-ASCII, appear as UTF-8.
+
+The 0.1 audit helper `canonicalJson` is **not** this profile. 0.1 seals MUST continue to use the 0.1 function. 0.2 hashes MUST use this profile.
+
+### 14.2 Domain-separated hashes
+
+```text
+intent_hash =
+  SHA-256(UTF8("northstar:intent:v1\0") || JCS(Submitted Intent))
+
+authorized_action_hash =
+  SHA-256(UTF8("northstar:authorized-action:v1\0") || JCS(Authorized Action))
+
+executed_action_hash =
+  SHA-256(UTF8("northstar:executed-action:v1\0") || JCS(Executed Action))
+
+approval_context_hash =
+  SHA-256(UTF8("northstar:approval-context:v1\0") || JCS(approval context))
+```
+
+Each prefix includes a trailing NUL (`U+0000`). Implementations MUST hash the prefix bytes and the JCS UTF-8 bytes as a single SHA-256 input. They MUST NOT hash a merged object that mixes requester declarations with authority-derived values.
+
+### 14.3 Hash string representation
+
+The normative string form is ASCII `sha256:` followed by exactly 64 lowercase hexadecimal characters. No whitespace, truncation, uppercase, base64, or `0x` prefix. Pattern:
+
+```text
+^sha256:[0-9a-f]{64}$
+```
+
+Implementations MUST validate this representation before embedding a hash string in another canonical structure.
+
+### 14.4 Golden fixtures
+
+Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, and `sha256` fields, and MUST reject every `reject` vector. Those fixtures are not the 47 frozen 0.1 tests.
+
+---
+
+## 15. Change log
 
 | Version | Notes |
 | --- | --- |
 | 0.2.0-draft.2.1 | Decision/error/state/compatibility contract. `DENY` first-class. Distinct `EVALUATION_ERROR`. Lifecycle including claim and unknown-outcome. 0.1 frozen. Schemas, hashes, and conformance deferred. |
 | 0.2.0-draft.2.1b | Claim ticket restated to §11.1 (adapter binding, short window, atomic online claim). Dedicated `tlpx.authorization_claim`. Sealing described as evidence-chain property, not a record field. |
+| 0.2.0-draft.2.2 | Northstar JCS profile, `sha256:` representation, four domain prefixes, and golden fixtures. |

@@ -29,6 +29,7 @@ All tests use local Node; no network required.
 | `scripts/test-airgap.mjs` | Chain auth, state machine, anti-forgery, executor | temp files |
 | `scripts/test-policy-ops.mjs` | Safe expressions + operator allowlist | temp files |
 | `scripts/test-policy-compile.mjs` | Phase 1 negative compile / fail-closed load | temp files |
+| `scripts/test-jcs.mjs` | TL-PX 0.2 JCS / domain-hash golden fixtures | `tests/fixtures/tlpx-0.2/jcs/` |
 | `scripts/conformance.mjs` | Spec conformance (deterministic decisions, parties, chain) | temp files |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |

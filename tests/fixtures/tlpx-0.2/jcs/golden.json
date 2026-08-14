@@ -1,0 +1,401 @@
+{
+  "profile": "northstar-jcs-v1",
+  "standard": "TL-PX",
+  "standard_version": "0.2.0",
+  "hash_pattern": "^sha256:[0-9a-f]{64}$",
+  "domains": {
+    "intent": [
+      110,
+      111,
+      114,
+      116,
+      104,
+      115,
+      116,
+      97,
+      114,
+      58,
+      105,
+      110,
+      116,
+      101,
+      110,
+      116,
+      58,
+      118,
+      49,
+      0
+    ],
+    "authorized-action": [
+      110,
+      111,
+      114,
+      116,
+      104,
+      115,
+      116,
+      97,
+      114,
+      58,
+      97,
+      117,
+      116,
+      104,
+      111,
+      114,
+      105,
+      122,
+      101,
+      100,
+      45,
+      97,
+      99,
+      116,
+      105,
+      111,
+      110,
+      58,
+      118,
+      49,
+      0
+    ],
+    "executed-action": [
+      110,
+      111,
+      114,
+      116,
+      104,
+      115,
+      116,
+      97,
+      114,
+      58,
+      101,
+      120,
+      101,
+      99,
+      117,
+      116,
+      101,
+      100,
+      45,
+      97,
+      99,
+      116,
+      105,
+      111,
+      110,
+      58,
+      118,
+      49,
+      0
+    ],
+    "approval-context": [
+      110,
+      111,
+      114,
+      116,
+      104,
+      115,
+      116,
+      97,
+      114,
+      58,
+      97,
+      112,
+      112,
+      114,
+      111,
+      118,
+      97,
+      108,
+      45,
+      99,
+      111,
+      110,
+      116,
+      101,
+      120,
+      116,
+      58,
+      118,
+      49,
+      0
+    ]
+  },
+  "notes": [
+    "Domain prefixes are UTF-8 bytes including a trailing NUL (0x00).",
+    "canonical is the exact JCS Unicode string; canonical_utf8_hex is its UTF-8 encoding.",
+    "sha256[domain] = sha256: + hex(SHA-256(domain_prefix || utf8(canonical))).",
+    "Do not hash JSON.stringify output. 0.1 audit canonicalJson is a different function.",
+    "unicode-nfc and unicode-escape-nfc MUST produce identical canonical bytes.",
+    "nfd-key is not the same key as café (U+00E9)."
+  ],
+  "accept": [
+    {
+      "id": "empty-object",
+      "input_json": "{}",
+      "canonical": "{}",
+      "canonical_utf8_hex": "7b7d",
+      "sha256": {
+        "intent": "sha256:85827207f35dc84767d9912d3306f52a951c016f13825818b1bd4149d510dcf5",
+        "authorized-action": "sha256:ce314ccb7db1243d1857b3ad9503c1760d6dd1b9a629ccc8caa5b5d225922c46",
+        "executed-action": "sha256:53cf371769b52bad4c5949e8dbb608995a63ed545425c7fd52eb5e6ad096a2a2",
+        "approval-context": "sha256:3d9349d7bad6ad478907ac4f0c5c1b75fe2260857ecb2d89cab265129da7bf31"
+      }
+    },
+    {
+      "id": "empty-array",
+      "input_json": "[]",
+      "canonical": "[]",
+      "canonical_utf8_hex": "5b5d",
+      "sha256": {
+        "intent": "sha256:6f66e0e629dcedd2741086100d7e5140a680b5a52d38b6739f778a8d910bff0c",
+        "authorized-action": "sha256:10ca60fbb35f9bd5779816236b6f6b1de22b999aa1c8a93c7ef025907cfb7045",
+        "executed-action": "sha256:e33ee6a07dd8de1487a5ad95e4145e5a1e6ecf9a46f077c77cbd29ae3be53d11",
+        "approval-context": "sha256:20c71090bc284200179441010addfe99774783b3f8ec549f71fae8f69f5d720d"
+      }
+    },
+    {
+      "id": "null",
+      "input_json": "null",
+      "canonical": "null",
+      "canonical_utf8_hex": "6e756c6c",
+      "sha256": {
+        "intent": "sha256:13eab200bd3f93b1e523956982a465e1aa0763a9cb26250f991723a0aa54ef3a",
+        "authorized-action": "sha256:9446beea02b11b55d0eee3d952a1ba52319c758216004b8ed6837d8aadb35016",
+        "executed-action": "sha256:cb82169638dd6e90c1226f8d4bcffee2b09485618e70a0e355b6728a2a0a1208",
+        "approval-context": "sha256:cdf43f78e15852a0fc454ac82f30807a71966472ec9be6b7be8e1caa55568562"
+      }
+    },
+    {
+      "id": "true",
+      "input_json": "true",
+      "canonical": "true",
+      "canonical_utf8_hex": "74727565",
+      "sha256": {
+        "intent": "sha256:19abf7c1153770f551ef7c3d935a536835d0fc60f932f1cf1dfb664ae1283a94",
+        "authorized-action": "sha256:4378d24dbf5009dfd09fe540fc0ea85c49ce87059288fecc78e5a2009ef0fe14",
+        "executed-action": "sha256:2bb7ba0015968e8542736be985c22b2c598b569dc74891eac153e9f65c3b7332",
+        "approval-context": "sha256:ebbc6fadcec59c84860bfc42d368f7c82f93a6a171ff6472ab781da2bf15057b"
+      }
+    },
+    {
+      "id": "false",
+      "input_json": "false",
+      "canonical": "false",
+      "canonical_utf8_hex": "66616c7365",
+      "sha256": {
+        "intent": "sha256:d93d9003f7554392aa6fef0e2d86924f9e76070064cefb588768f7c8c15ded6f",
+        "authorized-action": "sha256:40bcfb16338081663a29f8bb7c7cf9f32f4923995ba47c4eb710f7d54a24a8ec",
+        "executed-action": "sha256:41f3372acc699a74cebb308e0b90d4fe07e62f411193f3b77d452b02ba9a81e6",
+        "approval-context": "sha256:cf940952247febfedf7975404832528af233bd1b1b54e1b1567053e55df6c419"
+      }
+    },
+    {
+      "id": "empty-string",
+      "input_json": "\"\"",
+      "canonical": "\"\"",
+      "canonical_utf8_hex": "2222",
+      "sha256": {
+        "intent": "sha256:72f0eca358d94c8be2b4d6afd05a73a9c167b944ef7f487a349688e2a5c1625b",
+        "authorized-action": "sha256:57ae39e41847ec5807381528d84898dd4c0ad2c7e0a565f98109bffbf03d2640",
+        "executed-action": "sha256:9a2a64e49ed017c6bb6140e8e31214c360ebb78aee459151410386c48d4a96e9",
+        "approval-context": "sha256:21861f9dc1f4c44cde5168ddc5ad9f3ee257a0e57fcd015428f7c1cccca91e02"
+      }
+    },
+    {
+      "id": "integer-zero",
+      "input_json": "0",
+      "canonical": "0",
+      "canonical_utf8_hex": "30",
+      "sha256": {
+        "intent": "sha256:2ea60c6120b2fbff49644417d1e3e1c9d5448553cffc707126138cc9ed323e74",
+        "authorized-action": "sha256:e5516772d834d6187dfd745ae73fb477d3559870cf213cb61ef4f984a27b7f83",
+        "executed-action": "sha256:d626ee9032aa0ba7ef6d779198badae5b4e69c26497a445ad1c3b75dc700b10a",
+        "approval-context": "sha256:017f84eb081b24964f430a66d36443a9f83ff5e49c355437284e430fe9e38ed8"
+      }
+    },
+    {
+      "id": "integer-negative",
+      "input_json": "-42",
+      "canonical": "-42",
+      "canonical_utf8_hex": "2d3432",
+      "sha256": {
+        "intent": "sha256:93ff15cf1f40d5d312ab47a47f3f379e159c0c10842c155d0f71a5b8e45cf94b",
+        "authorized-action": "sha256:a54ed575ee2c9aa9daa582576e07a8fc8df4a975b65cdb0dce7a3f4f6e939c19",
+        "executed-action": "sha256:f7378a8407bdf966304146b4718a02722a4eb945d27e43d5efaee5166929bc5a",
+        "approval-context": "sha256:7e53d4da104cb4d5e965d89770fe67e9bc3836b2f2a8e14fca7d5400b197a987"
+      }
+    },
+    {
+      "id": "integer-max-safe",
+      "input_json": "9007199254740991",
+      "canonical": "9007199254740991",
+      "canonical_utf8_hex": "39303037313939323534373430393931",
+      "sha256": {
+        "intent": "sha256:02c1aceb6d3cc5ea81674fb64fe31ed71a42c5148f8a58c087be4317c50ffe57",
+        "authorized-action": "sha256:364011a5c7fd2cac614705e7a03e5aaf1a32f42fa5f198a62af03a1d61e5b797",
+        "executed-action": "sha256:5dbbe0f400dcd6cc3c33e5a1d1b9e81159464600801d481f542b997bbd9d7a5e",
+        "approval-context": "sha256:eff08f30e6328c2c80fba1c4531b2c5a0ab484b1df4535ce58a0197009a5b82f"
+      }
+    },
+    {
+      "id": "integer-min-safe",
+      "input_json": "-9007199254740991",
+      "canonical": "-9007199254740991",
+      "canonical_utf8_hex": "2d39303037313939323534373430393931",
+      "sha256": {
+        "intent": "sha256:36fd5c45124065df3f3c3699b39130f3b83f6266c71311d9ac74bedf7f13f7cf",
+        "authorized-action": "sha256:94eda205028ceec650da87b6ab860d65310aec81c1a756a02e321fc6bafa798b",
+        "executed-action": "sha256:fd65fe31327540428a858bd9598680b53083953524f4e11d29e03ca8d78d8ef4",
+        "approval-context": "sha256:de59d4047bf933d5aeb40747895b1073471bc57476398f26453139a734eff759"
+      }
+    },
+    {
+      "id": "key-order",
+      "input_json": "{\"b\":1,\"a\":2}",
+      "canonical": "{\"a\":2,\"b\":1}",
+      "canonical_utf8_hex": "7b2261223a322c2262223a317d",
+      "sha256": {
+        "intent": "sha256:31004a6f4f4a172150a35ab163bfa842f943d499b5cffad938f91fb7e0e590cf",
+        "authorized-action": "sha256:68a8253710655e40a5e114fd624139837ff902a3ddf3b7e5f565d80db0e38bc0",
+        "executed-action": "sha256:b262040cc5bbb70b101fa6970f915641788b88b538bdcab34f1b239e6ade5567",
+        "approval-context": "sha256:e2f4b9209101cb709910434bbeef934a58f3684834eeaabc33c3fef9d4c947fc"
+      }
+    },
+    {
+      "id": "null-value",
+      "input_json": "{\"a\":null}",
+      "canonical": "{\"a\":null}",
+      "canonical_utf8_hex": "7b2261223a6e756c6c7d",
+      "sha256": {
+        "intent": "sha256:c2ec3b4718768b2d5d90e1b0f3c02c0f6ff9b46ca4c551de17384d97e10b0dd0",
+        "authorized-action": "sha256:81803ac387364c6e049ed54858ef489fa4f17f416553cae1740e02233571a9cc",
+        "executed-action": "sha256:3e548bdfd23849f4d9ba8f2df632804fbeb4d9d7350182e05f3dcb4bf12f5619",
+        "approval-context": "sha256:c48beb4ab8f931972a2068ea965662b3aef8e666276ddb6201ee528c09df7dbc"
+      }
+    },
+    {
+      "id": "nested",
+      "input_json": "{\"a\":{\"c\":1,\"b\":2},\"d\":[3,1]}",
+      "canonical": "{\"a\":{\"b\":2,\"c\":1},\"d\":[3,1]}",
+      "canonical_utf8_hex": "7b2261223a7b2262223a322c2263223a317d2c2264223a5b332c315d7d",
+      "sha256": {
+        "intent": "sha256:2ec5024535f14f64506a65e75dd37057a14455330b97da95e6af6005ffb83a44",
+        "authorized-action": "sha256:245df968bebf3cdf8a92760c57718bab17eab4fa60c1506e618b26ea47529f7d",
+        "executed-action": "sha256:a87c894404e770e57c8f01cd06a9881389f4af6128914364bfb1ab490ae71492",
+        "approval-context": "sha256:a09b8d0751d19006b5a90976a11d3e8cc3df75691114391c2056d37ef6115bbb"
+      }
+    },
+    {
+      "id": "unicode-nfc",
+      "input_json": "{\"café\":1}",
+      "canonical": "{\"café\":1}",
+      "canonical_utf8_hex": "7b22636166c3a9223a317d",
+      "sha256": {
+        "intent": "sha256:a68af7a3685955c65a63e8c8d9c2db28e69ab9c9abff58b2c379444ab014f81b",
+        "authorized-action": "sha256:67dbefe614f15ff3e53cb878a0660f56c093dedab768e318d75b857dbb4e771f",
+        "executed-action": "sha256:ab6cccf15ad212ec557ed156fe532b785062176a7d5db13246994f1d1c468990",
+        "approval-context": "sha256:0e0e8909b4301311966d1e82501dd414b70c92218d401a0684d5c7687b8b2259"
+      }
+    },
+    {
+      "id": "unicode-escape-nfc",
+      "input_json": "{\"caf\\u00e9\":1}",
+      "canonical": "{\"café\":1}",
+      "canonical_utf8_hex": "7b22636166c3a9223a317d",
+      "sha256": {
+        "intent": "sha256:a68af7a3685955c65a63e8c8d9c2db28e69ab9c9abff58b2c379444ab014f81b",
+        "authorized-action": "sha256:67dbefe614f15ff3e53cb878a0660f56c093dedab768e318d75b857dbb4e771f",
+        "executed-action": "sha256:ab6cccf15ad212ec557ed156fe532b785062176a7d5db13246994f1d1c468990",
+        "approval-context": "sha256:0e0e8909b4301311966d1e82501dd414b70c92218d401a0684d5c7687b8b2259"
+      }
+    },
+    {
+      "id": "nfd-key",
+      "input_json": "{\"e\\u0301\":1}",
+      "canonical": "{\"é\":1}",
+      "canonical_utf8_hex": "7b2265cc81223a317d",
+      "sha256": {
+        "intent": "sha256:8f6fd0e66375b9c71ab7fbd19c129ce33b47deb26ee8ab53dff201f750a56127",
+        "authorized-action": "sha256:3803efa86dded2e0b3d858752301143dd7038a6650cf2958f23208c03fa7a603",
+        "executed-action": "sha256:dd20d93dbe3608e5a48aafa49f4bee0bb68e15241f02c9e448a26a0f7a8d66f3",
+        "approval-context": "sha256:20ea1d4e1c1a0052de91246233f627d61f2a2f7831498d016b819ddf8cc71bfc"
+      }
+    },
+    {
+      "id": "string-escapes",
+      "input_json": "{\"x\":\"a\\\"b\\\\c\\n\"}",
+      "canonical": "{\"x\":\"a\\\"b\\\\c\\n\"}",
+      "canonical_utf8_hex": "7b2278223a22615c22625c5c635c6e227d",
+      "sha256": {
+        "intent": "sha256:266836b6f7014295fead792a91cec18156b44a712bc17c889ee53193a7970437",
+        "authorized-action": "sha256:2edb958a79156e2ff15daed501544093b42dc146b9d3450146b95bfc745eabe8",
+        "executed-action": "sha256:08bbb5dfe91a4de8b5c5859af5d8fa67f756f68c2128e838cc3f7af4d10756ce",
+        "approval-context": "sha256:3f8e17b57368c1d0559fc2898ffc0a64724151b0f874fe84a1886eb528a39648"
+      }
+    },
+    {
+      "id": "control-u0001",
+      "input_json": "{\"x\":\"\\u0001\"}",
+      "canonical": "{\"x\":\"\\u0001\"}",
+      "canonical_utf8_hex": "7b2278223a225c7530303031227d",
+      "sha256": {
+        "intent": "sha256:9d0323dcef733a0ac4861e3eeb22ecc46627ff290d2cba6219ee4fb6ba7dae9e",
+        "authorized-action": "sha256:a54f8162bc1cfee8eaf7919a58cc869cf37c8d2a6d3bf11567f5ec967beb7a9d",
+        "executed-action": "sha256:552af5015110c832e00d85323e71eac83eff9d955eb40c79b964852e5d29e59d",
+        "approval-context": "sha256:809cf44ba3ab7625665eb799f6c906bca81c7ee5e4bf9e255c15404739239f41"
+      }
+    },
+    {
+      "id": "approval-context",
+      "input_json": "{\"authorized_action_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"policy_bundle_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"approval_route\":[\"human.ops.alex\"],\"material_display_fields\":[\"action\",\"target\"],\"renderer_id\":\"glass.approval.v1\",\"renderer_version\":\"1.0.0\"}",
+      "canonical": "{\"approval_route\":[\"human.ops.alex\"],\"authorized_action_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"material_display_fields\":[\"action\",\"target\"],\"policy_bundle_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"renderer_id\":\"glass.approval.v1\",\"renderer_version\":\"1.0.0\"}",
+      "canonical_utf8_hex": "7b22617070726f76616c5f726f757465223a5b2268756d616e2e6f70732e616c6578225d2c22617574686f72697a65645f616374696f6e5f68617368223a227368613235363a61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c226d6174657269616c5f646973706c61795f6669656c6473223a5b22616374696f6e222c22746172676574225d2c22706f6c6963795f62756e646c655f68617368223a227368613235363a62626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c2272656e64657265725f6964223a22676c6173732e617070726f76616c2e7631222c2272656e64657265725f76657273696f6e223a22312e302e30227d",
+      "sha256": {
+        "intent": "sha256:3c1ab209ac003415f3df82e9c30a0a777c912a5e3d1e8220c80b40a54d46f016",
+        "authorized-action": "sha256:765c365055e5aac774663f8ea1752d81d325c2962ac5a4ce7f8011bc4924e47a",
+        "executed-action": "sha256:c35bb5cd3b8a0dcdb0b37e9603f52b47759796c6b179e58aa8fabbc9b27ebab5",
+        "approval-context": "sha256:f209a79a9c1bf300a1304cd32e434917b8d077c469a2a21211f711a07d4194f8"
+      }
+    }
+  ],
+  "reject": [
+    {
+      "id": "duplicate-key",
+      "input_json": "{\"a\":1,\"a\":2}",
+      "error_contains": "duplicate key"
+    },
+    {
+      "id": "float-dot",
+      "input_json": "1.5",
+      "error_contains": "floating-point"
+    },
+    {
+      "id": "float-integer-dot",
+      "input_json": "1.0",
+      "error_contains": "floating-point"
+    },
+    {
+      "id": "scientific",
+      "input_json": "1e2",
+      "error_contains": "floating-point"
+    },
+    {
+      "id": "negative-zero",
+      "input_json": "-0",
+      "error_contains": "negative zero"
+    },
+    {
+      "id": "unsafe-integer",
+      "input_json": "9007199254740992",
+      "error_contains": "safe range"
+    },
+    {
+      "id": "trailing-data",
+      "input_json": "{}{}",
+      "error_contains": "trailing"
+    }
+  ]
+}

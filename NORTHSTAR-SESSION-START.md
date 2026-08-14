@@ -138,7 +138,7 @@ Do not load every file merely to create context. Read Tier 1 first, determine th
 At the time this file was last updated (2026-08-14):
 
 - Phase 1 slices 1.1–1.2 are implemented in the JS reference (`31175c5`).
-- Phase 2 live scope is slice **2.1 only**: TL-PX 0.1 frozen; `docs/standard/SPEC-v0.2.md` is the draft decision/error/state contract. Slices 2.2–2.4 are not open.
+- Phase 2 live scope is slice **2.2**: JCS profile and golden hash fixtures. Slice 2.3 schemas are not open.
 - JavaScript is the functioning 0.1 reference implementation.
 - Go has a partial control-plane/service implementation.
 - Java has policy and Switchboard evaluation.

@@ -61,3 +61,22 @@ export {
 } from "./switchboard.mjs";
 export { assertNotAlreadyResolved, findDecisionInRecords } from "./chain.mjs";
 export { executeAuthorized } from "./executor.mjs";
+export {
+  canonicalize,
+  canonicalizeJsonText,
+  parseRestrictedJson,
+  utf8Hex,
+  utf8Bytes
+} from "./jcs.mjs";
+export {
+  HASH_PATTERN,
+  HASH_DOMAINS,
+  assertHashString,
+  hashString,
+  hashValue,
+  hashJsonText,
+  intentHash,
+  authorizedActionHash,
+  executedActionHash,
+  approvalContextHash
+} from "./hash.mjs";
