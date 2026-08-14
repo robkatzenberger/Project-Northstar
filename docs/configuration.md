@@ -37,8 +37,8 @@ rules:
 | --- | --- |
 | `id` | Becomes decision `policy_id` |
 | `description` | Human-readable `reason` |
-| `if` | Boolean expression over intent fields |
-| `require` | Any truthy value → `REQUIRE_APPROVAL` |
+| `if` | Boolean expression over the closed field list below |
+| `require` | Must be `human_approval` → `REQUIRE_APPROVAL` |
 | `deny: true` | Also maps to `REQUIRE_APPROVAL` in policy layer (APEX lineage) |
 
 ### Expression language
@@ -50,14 +50,16 @@ Supported:
 - Membership: `"PII" in data_classes`
 - Combinators: `and`, `or`
 
-Fields often available after Switchboard enrichment:
+Closed field list (after Switchboard enrichment):
 
 - `action`, `target`, `risk`, `data_classes`
 - `actor`, `actor_type`
 - `whitelisted`, `credibility`, `credibility_band`
 - `low_credibility`, `high_trust` (booleans)
 
-**Security:** expression evaluation uses a **safe AST parser** (no `new Function`). Still load only operator-owned policy files.
+`in` is valid only for `data_classes`. The entire pack is compiled before any decision. A malformed pack fails load or `evaluateIntent` and issues no authorization. Valid packs still use the frozen v0.1 rule: no matching escalation rule implies `ALLOW`.
+
+**Security:** expression evaluation uses a **safe AST parser** (no `new Function`). Compile errors are not treated as a non-match. Still load only operator-owned policy files.
 
 ### Ordering
 

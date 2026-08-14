@@ -45,8 +45,20 @@ console.log("Policy parser + operators\n");
     "and combo"
   );
   assert(evaluateCondition('low_credibility == true', { low_credibility: true }) === true, "bool true");
-  assert(evaluateCondition('risk == "low" || this.constructor', { risk: "low" }) === false, "inject rejected");
-  assert(evaluateCondition("__proto__ == \"x\"", {}) === false, "proto inject rejected");
+  let injectThrew = false;
+  try {
+    evaluateCondition('risk == "low" || this.constructor', { risk: "low" });
+  } catch {
+    injectThrew = true;
+  }
+  assert(injectThrew, "inject rejected at compile");
+  let protoThrew = false;
+  try {
+    evaluateCondition("__proto__ == \"x\"", {});
+  } catch {
+    protoThrew = true;
+  }
+  assert(protoThrew, "proto inject rejected at compile");
 }
 
 {

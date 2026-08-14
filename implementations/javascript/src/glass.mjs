@@ -6,7 +6,7 @@
  */
 
 import { receiptId, nowIso, uuid } from "./ids.mjs";
-import { evaluateRules } from "./policy.mjs";
+import { compilePolicy, evaluateRules } from "./policy.mjs";
 import { appendAudit, readAudit } from "./audit.mjs";
 import {
   CONTROL_MODE,
@@ -58,6 +58,7 @@ function persist(opts, record) {
  */
 export function evaluateIntent(intent, policy, opts = {}) {
   requireAuditPath(opts, "evaluateIntent");
+  const compiledPolicy = compilePolicy(policy);
 
   if (!intent?.intent_id && !intent?.prism_id) {
     throw new Error("evaluateIntent: intent_id or prism_id required");
@@ -96,7 +97,7 @@ export function evaluateIntent(intent, policy, opts = {}) {
   if (switchboard_context?.gate) {
     outcome = { ...switchboard_context.gate };
   } else {
-    outcome = evaluateRules(normalized, policy);
+    outcome = evaluateRules(normalized, compiledPolicy);
   }
 
   const evaluatedAt = nowIso();
@@ -131,7 +132,7 @@ export function evaluateIntent(intent, policy, opts = {}) {
     decision: outcome.decision,
     reason: outcome.reason,
     policy_id: outcome.policy_id,
-    policy_pack_id: policy.policy_pack_id || "default",
+    policy_pack_id: compiledPolicy.policy_pack_id || "default",
     reward_signal,
     parties: {
       declarer: {

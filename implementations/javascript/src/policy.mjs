@@ -1,6 +1,9 @@
 /**
- * Minimal deterministic policy loader + safe expression evaluator.
- * Compatible with APEX-Lite style rules YAML used in ~/APEX-Lite.
+ * Deterministic policy loader, compiler, and evaluator.
+ *
+ * Stages: parse → validate → compile → evaluate.
+ * The entire pack is compiled before any decision. Invalid policy
+ * never authorizes. Compile/parse errors are not treated as a non-match.
  *
  * Expression language (no eval / new Function):
  *   field == "string" | field != "string" | field == true|false|number
@@ -11,6 +14,45 @@
 
 import fs from "node:fs";
 
+export const POLICY_COMPILED = Symbol("northstar.policy.compiled");
+
+export const POLICY_RULE_KEYS = Object.freeze([
+  "id",
+  "description",
+  "if",
+  "require",
+  "deny"
+]);
+
+export const POLICY_PACK_KEYS = Object.freeze(["policy_pack_id", "rules"]);
+
+export const POLICY_REQUIRE_VALUES = Object.freeze(["human_approval"]);
+
+/** Intent fields a compiled expression may name. */
+export const POLICY_EXPRESSION_FIELDS = Object.freeze([
+  "action",
+  "target",
+  "risk",
+  "data_classes",
+  "actor",
+  "actor_type",
+  "whitelisted",
+  "credibility",
+  "credibility_band",
+  "low_credibility",
+  "high_trust"
+]);
+
+/** Fields that may appear on the right of `in`. */
+export const POLICY_ARRAY_FIELDS = Object.freeze(["data_classes"]);
+
+const RULE_KEY_SET = new Set(POLICY_RULE_KEYS);
+const PACK_KEY_SET = new Set(POLICY_PACK_KEYS);
+const FIELD_SET = new Set(POLICY_EXPRESSION_FIELDS);
+const ARRAY_FIELD_SET = new Set(POLICY_ARRAY_FIELDS);
+const REQUIRE_SET = new Set(POLICY_REQUIRE_VALUES);
+const YAML_RULE_FIELDS = new Set(["description", "if", "require", "deny"]);
+
 function parseScalar(value) {
   if (value === "true") return true;
   if (value === "false") return false;
@@ -20,37 +62,94 @@ function parseScalar(value) {
   return value;
 }
 
-export function readPolicyFile(filePath) {
-  const text = fs.readFileSync(filePath, "utf8");
-  return parsePolicyText(text);
+function policyError(message) {
+  return new Error(`policy: ${message}`);
 }
 
+export function readPolicyFile(filePath) {
+  const text = fs.readFileSync(filePath, "utf8");
+  return compilePolicy(parsePolicyText(text));
+}
+
+/**
+ * Parse a restricted YAML subset into an uncompiled pack.
+ * Unmatched or unknown structure is rejected.
+ */
 export function parsePolicyText(text) {
+  if (typeof text !== "string") {
+    throw policyError("policy text must be a string");
+  }
+
   const lines = text.split(/\r?\n/);
   const rules = [];
   let currentRule = null;
+  let seenRulesKey = false;
+  let policyPackId = "default";
 
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
-    if (!line.trim() || line.trimStart().startsWith("#") || line.trim() === "rules:") {
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+    const lineNo = i + 1;
+
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    if (/^policy_pack_id:\s+\S/.test(trimmed) && !seenRulesKey && !currentRule) {
+      policyPackId = parseScalar(trimmed.slice(trimmed.indexOf(":") + 1).trim());
+      if (typeof policyPackId !== "string" || !policyPackId) {
+        throw policyError(`invalid policy_pack_id at line ${lineNo}`);
+      }
       continue;
     }
 
-    const ruleMatch = line.match(/^\s*-\s+id:\s+(.+)$/);
+    if (trimmed === "rules:") {
+      if (seenRulesKey) {
+        throw policyError(`duplicate rules: key at line ${lineNo}`);
+      }
+      seenRulesKey = true;
+      currentRule = null;
+      continue;
+    }
+
+    const ruleMatch = rawLine.match(/^(\s*)-\s+id:\s*(.*)$/);
     if (ruleMatch) {
-      currentRule = { id: parseScalar(ruleMatch[1].trim()) };
+      if (!seenRulesKey) {
+        throw policyError(`rule before rules: key at line ${lineNo}`);
+      }
+      const id = parseScalar(String(ruleMatch[2] ?? "").trim());
+      if (typeof id !== "string" || !id) {
+        throw policyError(`missing rule id at line ${lineNo}`);
+      }
+      currentRule = { id };
       rules.push(currentRule);
       continue;
     }
 
-    const fieldMatch = line.match(/^\s+([A-Za-z_]+):\s+(.+)$/);
+    const fieldMatch = rawLine.match(/^\s+([A-Za-z_]+):\s*(.*)$/);
     if (fieldMatch && currentRule) {
-      currentRule[fieldMatch[1]] = parseScalar(fieldMatch[2].trim());
+      const key = fieldMatch[1];
+      const rawValue = fieldMatch[2].trim();
+      if (!YAML_RULE_FIELDS.has(key)) {
+        throw policyError(`unknown field '${key}' at line ${lineNo}`);
+      }
+      if (Object.prototype.hasOwnProperty.call(currentRule, key)) {
+        throw policyError(`duplicate field '${key}' on rule ${currentRule.id} at line ${lineNo}`);
+      }
+      if (!rawValue) {
+        throw policyError(`empty field '${key}' at line ${lineNo}`);
+      }
+      currentRule[key] = parseScalar(rawValue);
+      continue;
     }
+
+    throw policyError(`unsupported structure at line ${lineNo}`);
+  }
+
+  if (!seenRulesKey) {
+    throw policyError("missing rules: key");
   }
 
   return {
-    policy_pack_id: "default",
+    policy_pack_id: policyPackId,
     rules
   };
 }
@@ -97,7 +196,7 @@ export function tokenize(expr) {
         out += s[j];
         j++;
       }
-      if (j >= s.length) throw new Error("policy expr: unterminated string");
+      if (j >= s.length) throw policyError("unterminated string");
       tokens.push({ type: "STRING", value: out });
       i = j + 1;
       continue;
@@ -119,12 +218,12 @@ export function tokenize(expr) {
       let j = i + 1;
       while (j < s.length && /[0-9.]/.test(s[j])) j++;
       const num = Number(s.slice(i, j));
-      if (Number.isNaN(num)) throw new Error(`policy expr: bad number near ${s.slice(i)}`);
+      if (Number.isNaN(num)) throw policyError(`bad number near ${s.slice(i)}`);
       tokens.push({ type: "NUMBER", value: num });
       i = j;
       continue;
     }
-    throw new Error(`policy expr: illegal character '${c}' at ${i}`);
+    throw policyError(`illegal character '${c}' at ${i}`);
   }
   return tokens;
 }
@@ -142,7 +241,7 @@ export function parseExpr(tokens) {
   const take = (type) => {
     const t = tokens[pos];
     if (!t || (type && t.type !== type)) {
-      throw new Error(`policy expr: expected ${type || "token"}, got ${t?.type || "EOF"}`);
+      throw policyError(`expected ${type || "token"}, got ${t?.type || "EOF"}`);
     }
     pos++;
     return t;
@@ -185,12 +284,12 @@ export function parseExpr(tokens) {
       const field = take("IDENT").value;
       const op = peek()?.type;
       if (op !== "EQ" && op !== "NE") {
-        throw new Error(`policy expr: expected == or != after ${field}`);
+        throw policyError(`expected == or != after ${field}`);
       }
       take(op);
       const v = peek();
       if (!v || !["STRING", "NUMBER", "BOOL"].includes(v.type)) {
-        throw new Error(`policy expr: expected value after ${field}`);
+        throw policyError(`expected value after ${field}`);
       }
       pos++;
       return {
@@ -199,14 +298,147 @@ export function parseExpr(tokens) {
         value: v.value
       };
     }
-    throw new Error(`policy expr: unexpected token ${peek()?.type || "EOF"}`);
+    throw policyError(`unexpected token ${peek()?.type || "EOF"}`);
   }
 
   const ast = parseOr();
   if (pos < tokens.length) {
-    throw new Error(`policy expr: trailing token ${tokens[pos].type}`);
+    throw policyError(`trailing token ${tokens[pos].type}`);
   }
   return ast;
+}
+
+function walkAstFields(ast, visit) {
+  switch (ast.type) {
+    case "or":
+    case "and":
+      walkAstFields(ast.left, visit);
+      walkAstFields(ast.right, visit);
+      return;
+    case "eq":
+    case "ne":
+      visit(ast.field, ast.type);
+      return;
+    case "in":
+      visit(ast.field, "in");
+      return;
+    default:
+      throw policyError(`unknown node ${ast.type}`);
+  }
+}
+
+export function compileExpression(expression) {
+  if (typeof expression !== "string" || !expression.trim()) {
+    throw policyError("missing condition");
+  }
+  const tokens = tokenize(expression);
+  if (tokens.length === 0) {
+    throw policyError("empty condition");
+  }
+  const ast = parseExpr(tokens);
+  walkAstFields(ast, (field, op) => {
+    if (!FIELD_SET.has(field)) {
+      throw policyError(`unknown field '${field}'`);
+    }
+    if (op === "in" && !ARRAY_FIELD_SET.has(field)) {
+      throw policyError(`'in' requires an array field, got '${field}'`);
+    }
+  });
+  return ast;
+}
+
+function compileRule(rule, index, ids) {
+  if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
+    throw policyError(`rule ${index} must be an object`);
+  }
+
+  for (const key of Object.keys(rule)) {
+    if (!RULE_KEY_SET.has(key)) {
+      throw policyError(`unknown field '${key}' on rule ${rule.id ?? index}`);
+    }
+  }
+
+  if (typeof rule.id !== "string" || !rule.id.trim()) {
+    throw policyError(`rule ${index} missing id`);
+  }
+  if (ids.has(rule.id)) {
+    throw policyError(`duplicate rule id '${rule.id}'`);
+  }
+  ids.add(rule.id);
+
+  if (rule.description !== undefined && typeof rule.description !== "string") {
+    throw policyError(`rule ${rule.id} description must be a string`);
+  }
+
+  const ast = compileExpression(rule.if);
+
+  const hasRequire = rule.require !== undefined && rule.require !== null && rule.require !== false;
+  const hasDeny = rule.deny !== undefined;
+
+  if (hasRequire) {
+    if (typeof rule.require !== "string" || !REQUIRE_SET.has(rule.require)) {
+      throw policyError(`rule ${rule.id} invalid require '${rule.require}'`);
+    }
+  }
+  if (hasDeny && rule.deny !== true) {
+    throw policyError(`rule ${rule.id} invalid deny value`);
+  }
+  if (!hasRequire && rule.deny !== true) {
+    throw policyError(`rule ${rule.id} has no effect`);
+  }
+
+  const compiled = {
+    id: rule.id,
+    description: rule.description,
+    if: rule.if,
+    require: hasRequire ? rule.require : undefined,
+    deny: rule.deny === true ? true : undefined
+  };
+  Object.defineProperty(compiled, "ast", {
+    value: ast,
+    enumerable: false
+  });
+  return Object.freeze(compiled);
+}
+
+/**
+ * Validate and compile an entire pack. Idempotent for already-compiled packs.
+ * Throws; never returns a pack that may authorize.
+ */
+export function compilePolicy(policy) {
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
+    throw policyError("pack must be an object");
+  }
+  if (policy[POLICY_COMPILED]) return policy;
+
+  for (const key of Object.keys(policy)) {
+    if (!PACK_KEY_SET.has(key)) {
+      throw policyError(`unknown pack field '${key}'`);
+    }
+  }
+
+  if (!Array.isArray(policy.rules)) {
+    throw policyError("rules must be an array");
+  }
+  if (policy.rules.length === 0) {
+    throw policyError("empty policy pack");
+  }
+
+  const ids = new Set();
+  const rules = policy.rules.map((rule, i) => compileRule(rule, i, ids));
+
+  const compiled = {
+    policy_pack_id:
+      typeof policy.policy_pack_id === "string" && policy.policy_pack_id
+        ? policy.policy_pack_id
+        : "default",
+    rules: Object.freeze(rules)
+  };
+  Object.defineProperty(compiled, POLICY_COMPILED, {
+    value: true,
+    enumerable: false
+  });
+  return Object.freeze(compiled);
 }
 
 export function evalAst(ast, intent) {
@@ -224,44 +456,33 @@ export function evalAst(ast, intent) {
       return Array.isArray(arr) && arr.includes(ast.item);
     }
     default:
-      throw new Error(`policy expr: unknown node ${ast.type}`);
+      throw policyError(`unknown node ${ast.type}`);
   }
 }
 
 /**
  * Evaluate a tiny policy expression against intent fields (safe, no Function).
+ * Compile errors throw. They are not treated as a non-match.
  */
 export function evaluateCondition(expression, intent) {
-  if (!expression || typeof expression !== "string") return false;
-  try {
-    const tokens = tokenize(expression);
-    const ast = parseExpr(tokens);
-    return Boolean(evalAst(ast, intent));
-  } catch {
-    // Malformed rule does not match (fail closed for that rule)
-    return false;
-  }
+  const ast = compileExpression(expression);
+  return Boolean(evalAst(ast, intent));
 }
 
 /**
  * @returns {{ decision: "ALLOW"|"REQUIRE_APPROVAL", reason: string, policy_id: string|null }}
  */
 export function evaluateRules(intent, policy) {
-  for (const rule of policy.rules) {
-    if (!rule.if || !evaluateCondition(rule.if, intent)) {
-      continue;
-    }
-
-    // deny: true maps to REQUIRE_APPROVAL (APEX-Lite ALLOW_OR_ESCALATE philosophy)
-    if (rule.deny === true || rule.require) {
-      return {
-        decision: "REQUIRE_APPROVAL",
-        reason:
-          rule.description ||
-          (rule.require ? `Policy requires ${rule.require}` : "Policy requires approval"),
-        policy_id: rule.id
-      };
-    }
+  const compiled = compilePolicy(policy);
+  for (const rule of compiled.rules) {
+    if (!evalAst(rule.ast, intent)) continue;
+    return {
+      decision: "REQUIRE_APPROVAL",
+      reason:
+        rule.description ||
+        (rule.require ? `Policy requires ${rule.require}` : "Policy requires approval"),
+      policy_id: rule.id
+    };
   }
 
   return {

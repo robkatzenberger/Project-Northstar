@@ -184,18 +184,24 @@ console.log("══════════════════════�
       }
     ]
   };
-  // Malformed/inject rules must not match; safe intent may still ALLOW if only evil rules fail parse
-  const d = evaluateIntent(intent("intent-safe.json"), evilPolicy, { auditPath: log });
-  // First rule contains illegal tokens → evaluateCondition false; second illegal → false → ALLOW
-  const held = d.decision === "ALLOW" || d.decision === "REQUIRE_APPROVAL";
+  let threw = false;
+  let d = null;
+  try {
+    d = evaluateIntent(intent("intent-safe.json"), evilPolicy, { auditPath: log });
+  } catch {
+    threw = true;
+  }
+  const leaked = fs.existsSync(log) && /AUTHORIZED/.test(fs.readFileSync(log, "utf8"));
   row(
     "A7",
     "Policy expression injection (no new Function)",
-    held && !String(d.reason).includes("process") ? "PASS" : "FAIL",
+    threw && !d && !leaked ? "PASS" : "FAIL",
     "REAL",
-    `safe parser: decision=${d.decision} (inject rules do not execute JS)`
+    threw
+      ? "safe parser: malformed inject pack rejected; no authorization issued"
+      : `safe parser: decision=${d?.decision} (inject pack was not rejected)`
   );
-  fs.unlinkSync(log);
+  if (fs.existsSync(log)) fs.unlinkSync(log);
 }
 
 // A8: Missing actor_type defaults

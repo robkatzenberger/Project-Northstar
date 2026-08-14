@@ -5,7 +5,7 @@
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                      # unit + switchboard + air-gap
+npm test                      # unit + switchboard + air-gap + policy + compile
 npm run test:unit
 npm run test:switchboard
 npm run test:airgap
@@ -27,6 +27,8 @@ All tests use local Node; no network required.
 | `scripts/test.mjs` | Core Prism/gate/accountability | temp files |
 | `scripts/test-switchboard.mjs` | Whitelist, credibility, DENY paths | temp files |
 | `scripts/test-airgap.mjs` | Chain auth, state machine, anti-forgery, executor | temp files |
+| `scripts/test-policy-ops.mjs` | Safe expressions + operator allowlist | temp files |
+| `scripts/test-policy-compile.mjs` | Phase 1 negative compile / fail-closed load | temp files |
 | `scripts/conformance.mjs` | Spec conformance (deterministic decisions, parties, chain) | temp files |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |

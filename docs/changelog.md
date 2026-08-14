@@ -48,6 +48,10 @@ Format: newest first.
 
 ## Unreleased
 
+### Security hardening
+
+- **Strict policy compile** (Phase 1): parse → validate → compile → evaluate; malformed packs fail load and issue no authorization. `evaluateCondition` no longer treats parse errors as a non-match.
+
 ### Added
 
 - Multi-language monorepo under `implementations/` (JS active; Go/Java skeletons; Rust/Python placeholders)

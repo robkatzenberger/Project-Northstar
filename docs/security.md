@@ -50,7 +50,7 @@ This document is **engineering guidance**, not a formal certification or legal o
 | **Anyone who can write the audit can forge ALLOW** | Mitigated | Hash-chain + HMAC seal (A9); still protect seal key + OS ACLs |
 | **Operator id free string** | Medium | Approval-route + allowlist enforced; still no SSO/mTLS crypto identity |
 | **Declared intent can lie** | Medium–High | By design metadata trust; pair with scope limits + monitoring |
-| **Policy expression engine** | Low (mitigated) | Safe AST parser (no `new Function`); still only load trusted policy files |
+| **Policy expression engine** | Low (mitigated) | Safe AST parser (no `new Function`); entire pack compiled before any decision; malformed policy fails load and issues no authorization |
 | **`allowEphemeral`** | Medium if misused | Never enable in production adapters |
 | **Secrets in audit JSONL** | High if leaked | Redact; restrict file perms (`chmod 600`); no commit |
 

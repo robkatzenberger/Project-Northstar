@@ -2,11 +2,18 @@ export { createPrismSignal, toEvaluationIntent, PRISM_VERSION } from "./prism.mj
 export {
   readPolicyFile,
   parsePolicyText,
+  compilePolicy,
+  compileExpression,
   evaluateRules,
   evaluateCondition,
   tokenize,
   parseExpr,
-  evalAst
+  evalAst,
+  POLICY_COMPILED,
+  POLICY_RULE_KEYS,
+  POLICY_EXPRESSION_FIELDS,
+  POLICY_ARRAY_FIELDS,
+  POLICY_REQUIRE_VALUES
 } from "./policy.mjs";
 export { assertOperatorAllowed, loadOperatorsFile } from "./operators.mjs";
 export {
