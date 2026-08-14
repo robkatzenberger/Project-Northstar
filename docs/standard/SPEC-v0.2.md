@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — slices 2.1–2.2 accepted (decision / error / state / compatibility / JCS hashes). Slice 2.3 not started.  
+**Status:** Draft contract — slices 2.1–2.3 accepted; implementation-driven 2.3d idempotency/evidence hardening is pending independent verification.
 **Profile:** Minimum  
 **Date:** 2026-08-14  
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -14,6 +14,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | --- | --- |
 | 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
 | 2.3 | Done: `schemas/tlpx-0.2/`, `validate-v02.mjs`, `npm run conformance:0.2`. Not a 0.2 runtime. |
+| 2.3d | Draft in this working tree: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, and authority-wide sequence. Pending named-commit crosscheck. |
 | 2.4 | Policy precedence, provenance, trusted ordering, requirements-maturity labels |
 
 **Not legal advice. Not a patent claim set.** Product and protocol language only.
@@ -24,7 +25,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** are to be interpreted as in RFC 2119.
 
-An implementation MUST NOT claim **“TL-PX 0.2 Minimum conforming”** until slice 2.3 publishes schemas and a distinct conformance suite and that suite is passed. This document is still the normative vocabulary for work that targets 0.2.
+Passing the slice 2.3 record/schema suite establishes only conformance of the tested objects and validators. An implementation MUST NOT claim **“TL-PX 0.2 Minimum conforming runtime”** until it implements every applicable normative behavior, emits schema-valid evidence, and passes the eventual runtime profile. This document is the normative vocabulary for work that targets 0.2.
 
 The current JavaScript reference remains a TL-PX **0.1** implementation plus Phase 1 fail-closed policy compile. It MUST continue to emit `standard_version: "0.1.0"` until a separately versioned 0.2 adapter exists. It MUST NOT be silently treated as 0.2-conforming.
 
@@ -146,7 +147,7 @@ JCS(action_binding(Authorized Action))
 
 Equivalently, both sides hashed under `northstar:executed-action:v1` MUST be equal. That common digest is `action_binding_hash` when computed by the authority at issuance, and `executed_action_hash` when computed by the PEP over the presented Executed Action. The authorization record MUST store `action_binding_hash`. Atomic claim MUST compare the presented binding digest to that stored value. A mismatch MUST block and MUST record `ACTION_MISMATCH`.
 
-`capability` and `resource_scope` are **not** part of the Action Binding. They are policy-derived authorization constraints. The PEP MUST enforce them independently against the adapter operation (the presented action/target/arguments must fall within the authorized capability and resource scope). They MUST NOT be omitted from enforcement merely because they are absent from the binding.
+`capability` and `resource_scope` are **not** part of the Action Binding. They are policy-derived authorization constraints. The PEP MUST enforce them independently against the adapter operation **before a claim may succeed** (the presented target MUST be in `resource_scope`; the presented adapter MUST be covered by `capability`). They MUST NOT be omitted from enforcement merely because they are absent from the binding. Constraint failure MUST block claim and MUST NOT consume the authorization.
 
 ### 4.1 Submitted Intent
 
@@ -172,8 +173,16 @@ Required conceptual fields:
 | `artifact_hash` | Digest of executable/artifact, or `null` |
 | `adapter` | Adapter id and version |
 | `request_id` | Requester-scoped idempotency / correlation id |
+| `retry_of_receipt_id` | Optional evidence link to an earlier retryable evaluation owned by the same authenticated requester |
 
-Changing any material submitted-intent field requires a new evaluation. Duplicate `request_id` values within an authenticated requester scope MUST return the existing result and MUST NOT collide globally.
+The idempotency key is the pair `(authenticated requester, request_id)`, where the requester comes from authenticated context rather than the proposed identity in the request body. Once durably occupied, that pair is write-once:
+
+- the same pair with the same available `intent_hash` MUST return the stored result;
+- the same pair with a different available `intent_hash` MUST block with `IDEMPOTENCY_CONFLICT` and MUST NOT replace the stored result;
+- if the stored result has no `intent_hash` because canonical intent validation failed, every duplicate of that pair MUST return the stored error rather than re-evaluate;
+- changing any material intent field or retrying an evaluation requires a new `request_id`.
+
+`retry_of_receipt_id`, when present, is evidence linkage only. It MUST reference an evaluation receipt owned by the same authenticated requester, MUST NOT convey authorization, and MUST NOT bypass authentication, Switchboard, policy, or claim. The link MAY appear on the successor Submitted Intent and its decision/error record.
 
 ### 4.2 Authorized Action
 
@@ -228,13 +237,21 @@ A **decision** is a successful evaluation of an exact request.
 | `REQUIRE_APPROVAL` | `PENDING_APPROVAL` | A permitted authenticated human must decide. No claim is possible yet. |
 | `DENY` | `DENIED` | Terminal refusal. It MUST NOT be approved, claimed, or executed. |
 
-`DENY` means the authority **successfully evaluated** the request and refused it. It is terminal for that request and is **not** automatically retryable. Repeating the same idempotent request MUST return the same refusal. A new evaluation requires a material change such as a new action, principal scope, policy version, revocation state, or environment.
+`DENY` means the authority **successfully evaluated** the request and refused it. It is terminal for that `(authenticated requester, request_id)` and is **not** automatically retryable. Repeating the same idempotent request MUST return the same refusal. Any successor evaluation—whether prompted by changed intent, policy, identity scope, revocation state, or environment—MUST use a new `request_id`.
 
 Policy `DENY` and Switchboard `DENY` are both `decision: "DENY"`. They MUST use distinct `policy_id` / reason-code values so the refusing stage is visible. They MUST validate against the 0.2 decision schema (slice 2.3). They MUST NOT be recorded as `tlpx.evaluation_error`.
 
 ### 5.3 What is not a decision
 
 Policy compilation failure, evaluation failure, authentication failure, missing action data, unavailable policy, and infrastructure failure MUST produce `tlpx.evaluation_error`, not a fourth decision and not `DENY`.
+
+Failure attribution is normative:
+
+- a correct, repeatable refusal of a valid request under active, internally consistent configuration is `DENY`;
+- inability to establish a trustworthy decision is `EVALUATION_ERROR`;
+- statically detectable policy/capability inconsistency is activation failure and the authority MUST NOT serve that bundle.
+
+Unknown, inactive, untrusted, or action-out-of-scope principals are Switchboard `DENY`. A target outside the matched rule's resource scope, a requested capability that differs from that rule's capability, or an adapter outside that capability are policy `DENY`. Duplicate authorization scopes, `ALLOW` without a complete authorization template, and an `ALLOW` capability absent from the active capability registry are `POLICY_COMPILE_FAILED` activation failures. If an activation invariant is somehow violated at runtime, the authority MUST record a non-retryable evaluation error and issue nothing; it MUST NOT reinterpret the failure as a policy non-match.
 
 ---
 
@@ -251,6 +268,10 @@ An evaluation error:
 
 Induced errors MUST NOT create gaps in the evidence sequence.
 
+When authenticated requester context and a valid `request_id` are available, the error MUST occupy that authenticated idempotency slot. An authentication mismatch is scoped to the authenticated caller, never the proposed requester in the body. Errors before authenticated context or a valid request id exists receive correlation evidence but do not occupy an idempotency slot.
+
+If authoritative storage cannot commit the evidence row, Northstar MUST fail closed and issue nothing. It MUST NOT claim that the idempotency slot or evidence sequence was durably occupied. A later successful write is the first durable outcome for that pair, not mutation of a stored result.
+
 ### 6.1 Retryability
 
 `DENY` is not retryable except by a new, materially different evaluation.
@@ -259,11 +280,11 @@ Induced errors MUST NOT create gaps in the evidence sequence.
 
 | Value | Meaning |
 | --- | --- |
-| `NEVER` | Do not retry this evaluation. |
-| `AFTER_CONDITION` | Retry only after `required_condition` is met; honor `retry_after` if present. |
-| `IMMEDIATE` | A bounded immediate retry is permitted. |
+| `NEVER` | Do not create a successor evaluation for this error. |
+| `AFTER_CONDITION` | A successor evaluation is permitted only after `required_condition` is met; honor `retry_after` if present. |
+| `IMMEDIATE` | A bounded immediate successor evaluation is permitted. |
 
-Optional `retry_after` and `required_condition` constrain retries and MUST be used to prevent retry storms. Implementations MUST NOT treat an error as a policy non-match.
+Retryability never reopens or rewrites the errored idempotency slot. Every retry is a new evaluation attempt with a new requester-scoped `request_id`; it MAY link to the prior receipt using `retry_of_receipt_id`. `required_condition` is REQUIRED exactly when retryability is `AFTER_CONDITION`. Optional `retry_after` further constrains successor timing. Implementations MUST NOT treat an error as a policy non-match.
 
 Phase 1 JS compile failures remain process/load failures and MUST NOT emit a 0.2 error record from the 0.1 reference.
 
@@ -386,6 +407,8 @@ A 0.2 decision record MUST include:
 - `standard_version` = `0.2.0`
 - `control_mode` = `ALLOW_ESCALATE_OR_DENY`
 - `receipt_id`
+- authenticated requester-scoped `request_id`
+- optional `retry_of_receipt_id`
 - `evaluated_at`
 - `decision` = `ALLOW` \| `REQUIRE_APPROVAL` \| `DENY`
 - `authorization_state` = the mapped state from §5.2
@@ -405,7 +428,9 @@ A 0.2 decision MUST NOT use 0.1 field `authorization_status` as its primary stat
 
 ### 8.2 Evaluation error record (normative fields)
 
-MUST include: `record_type`, `standard`, `standard_version`, `receipt_id`, `occurred_at`, `stage`, `error_code`, `retryability`, `sequence`, and non-sensitive `reason`. MAY include `retry_after`, `required_condition`, and available policy/adapter identity.
+MUST include: `record_type`, `standard`, `standard_version`, `receipt_id`, `occurred_at`, `stage`, `error_code`, `retryability`, `sequence`, and non-sensitive `reason`. `required_condition` is REQUIRED if and only if retryability is `AFTER_CONDITION`.
+
+When known, the record MUST include authenticated requester and `request_id` together. It MUST include `intent_hash` when canonical intent validation succeeded. It MAY include `retry_of_receipt_id`, `retry_after`, and available policy/adapter identity. `intent_hash` and `retry_of_receipt_id` require authenticated requester plus request id. Fields that could not be established safely MUST be absent rather than guessed from untrusted input.
 
 Sealing is an evidence-storage property, not a field on the record. The error record MUST be appended to the sealed evidence chain with a trusted sequence number. It MUST NOT include an authorization id and MUST NOT set an authorization state other than absent/null.
 
@@ -435,7 +460,7 @@ idempotency_key
 state = AUTHORIZED_UNCLAIMED
 ```
 
-The requester MUST NOT supply `authorization_id` or `authorization_nonce`. Northstar generates authorization ids, nonces, and later claim ids.
+The requester MUST NOT supply `authorization_id`, `authorization_nonce`, or `action_binding_hash`. Northstar generates authorization ids, nonces, and claim ids. `action_binding_hash` MUST be computed by the authority from a validated Authorized Action at issuance. A requester-supplied binding digest MUST be ignored or rejected; it MUST NOT be stored.
 
 ### 8.3.1 Portable claim ticket
 
@@ -464,7 +489,7 @@ Zero updated authoritative rows MUST produce a blocking reason from §9.3 and MU
 
 ### 8.4 Operator action record
 
-MUST include authenticated operator subject, `outcome` (`APPROVE` \| `REJECT` \| `CANCEL`), linked decision `receipt_id`, `authorized_action_hash` the human saw (for `APPROVE` / `REJECT`), policy-bundle digest, approval route / quorum rule, renderer identity/version, trusted sequence, and timestamp.
+MUST include authenticated operator subject, `outcome` (`APPROVE` \| `REJECT` \| `CANCEL`), linked decision `receipt_id`, policy-bundle digest, trusted sequence, and timestamp. `APPROVE` and `REJECT` additionally MUST include the `authorized_action_hash` the human saw, approval route / quorum rule, and renderer identity/version. `CANCEL` MUST NOT invent renderer evidence when no approval representation was displayed.
 
 `APPROVE` MUST produce a new `tlpx.authorization` in `AUTHORIZED_UNCLAIMED`. It MUST NOT mutate a previous authorization in place.
 
@@ -481,8 +506,11 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `POLICY_ALLOW` | `ALLOW` via matching or explicit default |
 | `POLICY_REQUIRE_APPROVAL` | `REQUIRE_APPROVAL` |
 | `POLICY_DENY` | `DENY` from policy |
+| `POLICY_TARGET_OUT_OF_SCOPE` | `DENY` because the exact target is outside the matched rule's scope |
+| `POLICY_CAPABILITY_MISMATCH` | `DENY` because requested capability or adapter is not covered by the matched rule |
 | `SWITCHBOARD_UNKNOWN_PRINCIPAL` | `DENY` |
 | `SWITCHBOARD_NOT_WHITELISTED` | `DENY` |
+| `SWITCHBOARD_PRINCIPAL_INACTIVE` | `DENY` because a named principal is inactive |
 | `SWITCHBOARD_ACTION_DENIED` | `DENY` |
 
 ### 9.2 Evaluation errors
@@ -494,6 +522,7 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `INTENT_INVALID` | `NEVER` |
 | `ACTION_DATA_AMBIGUOUS` | `NEVER` |
 | `AUTHENTICATION_FAILED` | `AFTER_CONDITION` |
+| `IDEMPOTENCY_CONFLICT` | `NEVER` |
 | `AUTHORITY_INTERNAL_ERROR` | `AFTER_CONDITION` or `NEVER` |
 
 ### 9.3 Claim and execution blocks
@@ -507,6 +536,11 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `AUTHORIZATION_DENIED` | No authorization exists because evaluation was `DENIED` |
 | `AUTHORIZATION_TERMINAL` | State is already terminal |
 | `AUTHORIZATION_REVOKED` | Revoked before or at claim |
+| `EXECUTOR_NOT_ACTIVE` | Named executor is unknown or inactive at claim |
+| `EXECUTOR_ACTION_DENIED` | Named executor no longer has action scope at claim |
+| `POLICY_INACTIVE` | Issuing policy is no longer active at claim |
+| `AUTHORIZATION_SCOPE_DENIED` | Presented target is outside stored resource scope |
+| `AUTHORIZATION_CAPABILITY_DENIED` | Presented adapter is outside stored capability |
 
 Unknown codes MUST fail closed for authorization (do not treat as allow). Display MAY show the raw code.
 
@@ -553,7 +587,7 @@ Durable 0.2 records MUST attribute at least:
 
 Until 0.2 schemas, conformance, and an independent review exist, implementations of this contract MUST be described as a draft specification or experimental preview — not as production-safe 0.2.
 
-This document does not make the JavaScript reference a 0.2 authority. It does not implement atomic claim, PEP enforcement, or Rust. The 0.2 JCS/hash helpers are a fixture oracle, not a 0.2 decision engine.
+This document does not make the JavaScript reference a 0.2 authority. It does not implement atomic claim, PEP enforcement, or Rust. The 0.2 schema validators and JCS/hash helpers are contract oracles, not a 0.2 decision engine.
 
 ---
 
@@ -621,3 +655,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.3 | Record/object schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS `validate-v02`, distinct `conformance:0.2` suite. |
 | 0.2.0-draft.2.3b | PEP compares Action Binding under `executed-action` domain. `authorized_action_hash` is not compared to `executed_action_hash`. Authorized Action requires `risk_reasons` and `risk_source`. |
 | 0.2.0-draft.2.3c | Authorization stores `action_binding_hash`. Claim compares presented binding to that value. `capability`/`resource_scope` stay PEP constraints, not binding fields. |
+| 0.2.0-draft.2.3d | Authenticated idempotency slots are immutable; retries use successor ids and same-principal evidence links; request refusals are distinguished from activation/runtime errors; operator context is conditional; committed decisions, errors, and claims share one authority sequence. Pending independent verification. |

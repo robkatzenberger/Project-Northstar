@@ -162,9 +162,8 @@ fn parse_number(p: &mut Parser<'_>) -> Result<Value> {
         }
         _ => return Err(Error::jcs("invalid number")),
     }
-    match p.peek() {
-        Some('.' | 'e' | 'E') => return Err(Error::jcs("floating-point values are prohibited")),
-        _ => {}
+    if let Some('.' | 'e' | 'E') = p.peek() {
+        return Err(Error::jcs("floating-point values are prohibited"));
     }
     let token = &p.s[start..p.i];
     if token == "-0" {
@@ -173,7 +172,7 @@ fn parse_number(p: &mut Parser<'_>) -> Result<Value> {
     let n: i64 = token
         .parse()
         .map_err(|_| Error::jcs(format!("invalid integer {token}")))?;
-    if n > MAX_SAFE_INTEGER || n < MIN_SAFE_INTEGER {
+    if !(MIN_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&n) {
         return Err(Error::jcs(format!("integer out of safe range: {token}")));
     }
     Ok(Value::Int(n))

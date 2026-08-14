@@ -4,7 +4,7 @@
 **Runtime:** Node.js 18+ (ES modules, `.mjs`)  
 **Package name:** `tlpx-reference`
 
-This is the current full **TL-PX 0.1** reference for Switchboard + air-gapped executor, plus the **0.2 JCS/hash oracle**. Runtime records still use `standard_version: "0.1.0"`.
+This is the current full **TL-PX 0.1** reference for Switchboard + air-gapped executor, plus the **0.2 schema/JCS/hash oracle**. Runtime records still use `standard_version: "0.1.0"`.
 
 ## Layout
 

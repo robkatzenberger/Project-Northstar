@@ -2,7 +2,7 @@
 
 **Minimum Profile** — the open, testable contract for real-world adopters.
 
-TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract through slice 2.2 (decisions, errors, states, JCS hashes). The JavaScript gate still implements 0.1 and hosts the 0.2 JCS/hash oracle. Slice 2.3 schemas are not started.
+TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract through accepted slice 2.3, with implementation-driven 2.3d idempotency/evidence hardening pending independent verification. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/JCS/hash oracle.
 
 ## Why a standard (not only a demo)
 
@@ -22,10 +22,10 @@ Enterprise product features (Glass full suite: signed tokens, multi-tenant ops, 
 ## Start here
 
 1. Project docs hub: **[../README.md](../README.md)**  
-2. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)** (frozen 0.1) and **[SPEC-v0.2.md](./SPEC-v0.2.md)** (draft 0.2 through slice 2.2)  
-3. Inspect schemas in `../../schemas/tlpx-0.1/` (frozen). `../../schemas/tlpx-0.2/` is reserved for slice 2.3.  
+2. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)** (frozen 0.1) and **[SPEC-v0.2.md](./SPEC-v0.2.md)** (draft 0.2 through slice 2.3 plus pending 2.3d)
+3. Inspect schemas in `../../schemas/tlpx-0.1/` (frozen) and `../../schemas/tlpx-0.2/` (draft).
 4. JCS/hash golden fixtures: `../../tests/fixtures/tlpx-0.2/jcs/`  
-5. Run the **0.1** suite and the **0.2 JCS** check:
+5. Run the **0.1** suite and the **0.2 schema/JCS** checks:
 
 ```bash
 cd ../../implementations/javascript
@@ -46,7 +46,7 @@ npm run demo
 ```text
 Prism          → optional intent signal dialect
 TL-PX 0.1      → frozen historical minimum (47 fixtures)  
-TL-PX 0.2      → draft contract through slice 2.2; schemas are slice 2.3
+TL-PX 0.2      → draft contract through slice 2.3; 2.3d pending crosscheck
 APEX-Lite      → early playable reference (concept)
 This reference → conforming TL-PX implementation
 Glass product  → enterprise extensions on top of TL-PX

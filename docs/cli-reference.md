@@ -117,7 +117,7 @@ Run from `implementations/javascript/`:
 
 | Script | Command |
 | --- | --- |
-| `npm test` | unit + switchboard + air-gap + policy compile + 0.2 JCS |
+| `npm test` | unit + switchboard + air-gap + policy compile + 0.2 JCS + schema conformance |
 | `npm run conformance` | frozen TL-PX 0.1 suite (47 fixtures) |
 | `npm run demo` | narrative demo |
 | `npm run demo:switchboard` | Switchboard demo |

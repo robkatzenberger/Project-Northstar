@@ -20,10 +20,10 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 
 | Folder | Status | Notes |
 | --- | --- | --- |
-| [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 hash oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, JCS fixtures |
+| [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 schema/hash oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Skeleton** | `tlpx` crate: 0.2 types + JCS/hash matching golden fixtures. No claim/PEP yet. |
+| [`rust/`](./rust/) | **Local authority MVP** | 0.2 types/JCS plus deterministic evaluation, SQLite authorization, revocation, idempotency, and atomic one-time claim. No authenticated transport, execution receipt, or PEP yet. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

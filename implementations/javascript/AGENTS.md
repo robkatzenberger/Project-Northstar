@@ -16,7 +16,7 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 Normative 0.1: `docs/standard/SPEC-v0.1.md` (frozen)  
-Draft 0.2: `docs/standard/SPEC-v0.2.md` (through slice 2.2)  
+Draft 0.2: `docs/standard/SPEC-v0.2.md` (through slice 2.3)
 Full documentation hub: `docs/README.md`
 
 ## Non-negotiables
@@ -37,9 +37,9 @@ Full documentation hub: `docs/README.md`
 - Keep secrets out of git. No API keys, SMS tokens, or production policy dumps in the tree.
 - Do not force-push, rewrite published history, or push remotes unless the human asks.
 
-## Stack guidance (until locked)
+## Stack guidance
 
-- Default implementation language for new Glass code: **TypeScript on Node** (modern product path), unless we choose to evolve the JS APEX-Lite tree in place.
+- The authoritative 0.2 core is being built in **Rust**. Keep this JavaScript tree as the frozen 0.1 reference, Phase 1 compiler evidence, and 0.2 schema/JCS/hash oracle; do not grow it into the production authority.
 - Config and examples stay plain: **JSON / YAML**, readable by operators without a build step.
 - Tests should cover policy decisions deterministically (fixtures in, receipt out).
 
@@ -49,7 +49,8 @@ Full documentation hub: `docs/README.md`
 cd implementations/javascript   # from monorepo root
 # or: cd ~/projects/northstar/implementations/javascript
 npm run conformance   # frozen TL-PX 0.1 pass/fail
-npm test              # unit + compile + 0.2 JCS
+npm run conformance:0.2 # draft 0.2 schemas/validators only
+npm test              # unit + compile + 0.2 JCS/schema oracle
 npm run test:jcs      # 0.2 hash oracle only
 npm run demo          # 3 scenarios + accountability report
 node bin/glass.mjs help

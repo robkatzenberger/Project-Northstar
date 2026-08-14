@@ -1,7 +1,8 @@
 /**
  * Tiny JSON Schema subset for TL-PX 0.2.
  * Supports: type, const, enum, required, properties, additionalProperties,
- * minLength, pattern, minimum, items, anyOf, $ref.
+ * minLength, minItems, pattern, minimum, items, anyOf, allOf, not,
+ * if/then/else, $ref.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -79,6 +80,23 @@ function walk(schema, value, root, path, errors) {
     if (!ok) errors.push(`${path}: does not match anyOf`);
     return;
   }
+  if (schema.allOf) {
+    for (const sub of schema.allOf) walk(sub, value, root, path, errors);
+  }
+  if (schema.not) {
+    const inner = [];
+    walk(schema.not, value, root, path, inner);
+    if (inner.length === 0) errors.push(`${path}: matches forbidden schema`);
+  }
+  if (schema.if) {
+    const conditionErrors = [];
+    walk(schema.if, value, root, path, conditionErrors);
+    if (conditionErrors.length === 0) {
+      if (schema.then) walk(schema.then, value, root, path, errors);
+    } else if (schema.else) {
+      walk(schema.else, value, root, path, errors);
+    }
+  }
   if (schema.const !== undefined && value !== schema.const) {
     errors.push(`${path}: must be ${JSON.stringify(schema.const)}`);
   }
@@ -105,19 +123,24 @@ function walk(schema, value, root, path, errors) {
   if (Array.isArray(value) && schema.items) {
     value.forEach((item, i) => walk(schema.items, item, root, `${path}[${i}]`, errors));
   }
-  if (value && typeof value === "object" && !Array.isArray(value) && schema.properties) {
+  if (Array.isArray(value) && schema.minItems != null && value.length < schema.minItems) {
+    errors.push(`${path}: fewer than ${schema.minItems} items`);
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
     if (Array.isArray(schema.required)) {
       for (const key of schema.required) {
         if (!(key in value)) errors.push(`${path}.${key}: required`);
       }
     }
-    if (schema.additionalProperties === false) {
+    if (schema.additionalProperties === false && schema.properties) {
       for (const key of Object.keys(value)) {
         if (!schema.properties[key]) errors.push(`${path}.${key}: additional property`);
       }
     }
-    for (const [key, sub] of Object.entries(schema.properties)) {
-      if (key in value) walk(sub, value[key], root, `${path}.${key}`, errors);
+    if (schema.properties) {
+      for (const [key, sub] of Object.entries(schema.properties)) {
+        if (key in value) walk(sub, value[key], root, `${path}.${key}`, errors);
+      }
     }
   }
 }

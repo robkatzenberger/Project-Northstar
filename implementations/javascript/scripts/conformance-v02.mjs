@@ -85,6 +85,7 @@ function decision(over = {}) {
     standard_version: "0.2.0",
     control_mode: "ALLOW_ESCALATE_OR_DENY",
     receipt_id: "rcpt_1",
+    request_id: "req-1",
     evaluated_at: T,
     decision: "ALLOW",
     authorization_state: "AUTHORIZED_UNCLAIMED",
@@ -140,6 +141,16 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     sequence: 2
   };
   check("evaluation_error", validateV02("evaluation-error", err).ok);
+  check(
+    "scoped evaluation_error",
+    validateV02("evaluation-error", {
+      ...err,
+      receipt_id: "rcpt_scoped",
+      authenticated_requester: "agent.a",
+      request_id: "req-error",
+      intent_hash: H
+    }).ok
+  );
 }
 
 {
@@ -179,11 +190,124 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     "intent cannot carry authorization_nonce",
     !validateV02("submitted-intent", { ...intent, authorization_nonce: "n" }).ok
   );
+  check(
+    "intent cannot carry action_binding_hash",
+    !validateV02("submitted-intent", { ...intent, action_binding_hash: H }).ok
+  );
   check("authorized-action rejects request_id", !validateV02("authorized-action", { ...authorized, request_id: "x" }).ok);
+  check(
+    "retry linkage accepted on successor intent",
+    validateV02("submitted-intent", { ...intent, request_id: "req-2", retry_of_receipt_id: "rcpt_e" }).ok
+  );
+  check(
+    "retry linkage accepted on successor decision",
+    validateV02("decision", decision({ request_id: "req-2", retry_of_receipt_id: "rcpt_e" })).ok
+  );
 }
 
 {
-  console.log("C4  Claim and execution");
+  console.log("C4  Evaluation-error and operator invariants");
+  const baseError = {
+    record_type: "tlpx.evaluation_error",
+    standard: "TL-PX",
+    standard_version: "0.2.0",
+    receipt_id: "rcpt_error",
+    occurred_at: T,
+    stage: "authentication",
+    error_code: "AUTHENTICATION_FAILED",
+    retryability: "AFTER_CONDITION",
+    required_condition: "authenticated requester matches proposed requester",
+    reason: "identity mismatch",
+    sequence: 5,
+    authenticated_requester: "agent.a",
+    request_id: "req-error"
+  };
+  check("AFTER_CONDITION requires condition", validateV02("evaluation-error", baseError).ok);
+  const { required_condition: _condition, ...missingCondition } = baseError;
+  check(
+    "AFTER_CONDITION without condition rejected",
+    !validateV02("evaluation-error", missingCondition).ok
+  );
+  check(
+    "NEVER with required_condition rejected",
+    !validateV02("evaluation-error", { ...baseError, retryability: "NEVER" }).ok
+  );
+  const { request_id: _requestId, ...halfScoped } = baseError;
+  check(
+    "half-scoped evaluation_error rejected",
+    !validateV02("evaluation-error", halfScoped).ok
+  );
+  const { authenticated_requester: _requesterOnly, ...requestIdOnly } = baseError;
+  check(
+    "request_id-only evaluation_error rejected",
+    !validateV02("evaluation-error", requestIdOnly).ok
+  );
+  const {
+    authenticated_requester: _authenticatedRequester,
+    request_id: _scopedRequestId,
+    ...unscopedError
+  } = missingCondition;
+  check(
+    "retry link requires authenticated scope",
+    !validateV02("evaluation-error", {
+      ...unscopedError,
+      retryability: "NEVER",
+      retry_of_receipt_id: "rcpt_prior"
+    }).ok
+  );
+  check(
+    "intent hash requires authenticated scope",
+    !validateV02("evaluation-error", {
+      ...unscopedError,
+      retryability: "NEVER",
+      intent_hash: H
+    }).ok
+  );
+
+  const operator = {
+    record_type: "tlpx.operator_action",
+    standard: "TL-PX",
+    standard_version: "0.2.0",
+    receipt_id: "rcpt_pending",
+    acted_at: T,
+    outcome: "APPROVE",
+    operator: { id: "human.ops.alex", type: "human" },
+    authorized_action_hash: H,
+    policy_bundle_hash: H2,
+    approval_route: ["human.ops.alex"],
+    renderer_id: "glass.approval.v1",
+    renderer_version: "1.0.0",
+    sequence: 6
+  };
+  check("APPROVE carries rendered action context", validateV02("operator-action", operator).ok);
+  for (const field of [
+    "authorized_action_hash",
+    "approval_route",
+    "renderer_id",
+    "renderer_version"
+  ]) {
+    const incomplete = { ...operator };
+    delete incomplete[field];
+    check(`APPROVE without ${field} rejected`, !validateV02("operator-action", incomplete).ok);
+  }
+  check(
+    "CANCEL is valid without renderer context",
+    validateV02("operator-action", {
+      record_type: "tlpx.operator_action",
+      standard: "TL-PX",
+      standard_version: "0.2.0",
+      receipt_id: "rcpt_pending",
+      acted_at: T,
+      outcome: "CANCEL",
+      operator: { id: "agent.a", type: "machine" },
+      policy_bundle_hash: H2,
+      sequence: 7
+    }).ok
+  );
+}
+
+{
+  console.log("C5  Claim and execution");
   const authz = {
     record_type: "tlpx.authorization",
     standard: "TL-PX",
@@ -262,7 +386,7 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
 }
 
 {
-  console.log("C5  Reason-code catalog present");
+  console.log("C6  Reason-code catalog present");
   const catalog = JSON.parse(
     fs.readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../schemas/tlpx-0.2/reason-codes.json"),
@@ -271,7 +395,11 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   );
   check("catalog version 0.2.0", catalog.standard_version === "0.2.0");
   check("includes POLICY_DENY", catalog.evaluation.includes("POLICY_DENY"));
+  check("includes policy scope refusal", catalog.evaluation.includes("POLICY_TARGET_OUT_OF_SCOPE"));
+  check("includes inactive principal", catalog.evaluation.includes("SWITCHBOARD_PRINCIPAL_INACTIVE"));
+  check("includes IDEMPOTENCY_CONFLICT", catalog.evaluation_error.includes("IDEMPOTENCY_CONFLICT"));
   check("includes ACTION_MISMATCH", catalog.claim_and_execution.includes("ACTION_MISMATCH"));
+  check("includes POLICY_INACTIVE", catalog.claim_and_execution.includes("POLICY_INACTIVE"));
 }
 
 console.log(`\n────────────────────────────────────────────────`);

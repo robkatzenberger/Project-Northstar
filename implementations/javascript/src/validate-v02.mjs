@@ -45,13 +45,28 @@ export function validateV02(kind, value) {
       result.ok = false;
       result.errors.push("evaluation_error must not carry authorization");
     }
+    const hasRequester = "authenticated_requester" in value;
+    const hasRequestId = "request_id" in value;
+    if (hasRequester !== hasRequestId) {
+      result.ok = false;
+      result.errors.push(
+        "evaluation_error idempotency scope requires authenticated_requester and request_id together"
+      );
+    }
+    if (("intent_hash" in value || "retry_of_receipt_id" in value) && !hasRequester) {
+      result.ok = false;
+      result.errors.push(
+        "evaluation_error intent/retry linkage requires authenticated idempotency scope"
+      );
+    }
   }
   if (kind === "submitted-intent") {
     for (const forbidden of [
       "derived_risk",
       "effective_risk",
       "authorization_id",
-      "authorization_nonce"
+      "authorization_nonce",
+      "action_binding_hash"
     ]) {
       if (forbidden in value) {
         result.ok = false;

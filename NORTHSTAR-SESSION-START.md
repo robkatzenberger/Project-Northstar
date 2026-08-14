@@ -98,15 +98,15 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 ## 5. Current status
 
-**Accepted:** slices 1.1–2.2. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
+**Accepted contract line:** slices 1.1–2.3. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 schema/JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
 
-**2.3** schemas + `conformance:0.2` exist. Rust crate `tlpx` matches the JCS golden fixtures (types + hash oracle). Next: evaluate/claim against those schemas, then OS-enforced PEP (3.9).
+**2.3** schemas + `conformance:0.2` exist. An implementation-driven 2.3d working-tree delta pins immutable authenticated idempotency, retry linkage, failure attribution, conditional operator evidence, and authority-wide sequence semantics; it awaits a named commit and independent crosscheck. Rust crate `tlpx` matches the JCS golden fixtures and now has a durable local authority MVP: exact-match policy, Switchboard checks, authority-generated IDs/nonces, SQLite decisions/errors/idempotency/revocation, and atomic exact-action claim. It does not yet serialize or seal the full 0.2 evidence contract.
 
-**3.9** is the system-level claim. 1.1–2.3 are real security proofs; they are not forced mediation.
+**3.9** remains the system-level claim. The Rust library trusts authenticated-context strings supplied by its embedding and performs no side effect; there is no authenticated transport or OS-protected PEP. The authority MVP is real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
-**Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the planned authority. Go/Java/Python/TS become adapters.
+**Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 

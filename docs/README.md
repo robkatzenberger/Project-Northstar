@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 draft through slice 2.2 (JCS hashes accepted). Gate still emits 0.1.  
+**Standard:** TL-PX v0.1 frozen; v0.2 draft through slice 2.3. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -38,7 +38,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | --- | --- |
 | [standard/README.md](./standard/README.md) | Why a minimum standard; OSS posture |
 | [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 Minimum Profile |
-| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.2 (decisions, errors, states, JCS hashes) |
+| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract (decisions, errors, states, JCS hashes, schemas) |
 | [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | Frozen 0.1 JSON Schemas |
 | [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Slice 2.3 record/object schemas + reason codes |
 
@@ -46,7 +46,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 | Document | Description |
 | --- | --- |
-| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; slices 1.1–2.2 accepted; 2.3 not started |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; slices 1.1–2.3 accepted; 2.3d + Rust authority hardening pending named-commit crosscheck |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
@@ -119,7 +119,7 @@ Agent / human / script
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                    # unit + switchboard + air-gap + policy compile + 0.2 JCS
+npm test                    # unit + switchboard + air-gap + policy compile + 0.2 JCS/schema
 npm run conformance         # frozen TL-PX 0.1 suite (47 fixtures)
 node scripts/tech-test.mjs  # formal technical test #1
 npm run demo

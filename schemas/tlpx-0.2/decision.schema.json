@@ -10,6 +10,7 @@
     "standard_version",
     "control_mode",
     "receipt_id",
+    "request_id",
     "evaluated_at",
     "decision",
     "authorization_state",
@@ -29,6 +30,8 @@
     "standard_version": { "const": "0.2.0" },
     "control_mode": { "const": "ALLOW_ESCALATE_OR_DENY" },
     "receipt_id": { "type": "string", "minLength": 1 },
+    "request_id": { "type": "string", "minLength": 1 },
+    "retry_of_receipt_id": { "type": "string", "minLength": 1 },
     "evaluated_at": { "$ref": "common.schema.json#/$defs/isoTime" },
     "decision": { "enum": ["ALLOW", "REQUIRE_APPROVAL", "DENY"] },
     "authorization_state": {

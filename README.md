@@ -26,14 +26,14 @@ northstar/
   docs/                      Language-agnostic documentation
   docs/roadmap/              Product ideas & phased plan (H-M/M-M, PEP, tokens)
   schemas/tlpx-0.1/          Frozen TL-PX 0.1 JSON schemas
-  schemas/tlpx-0.2/          Reserved for slice 2.3
+  schemas/tlpx-0.2/          TL-PX 0.2 draft schemas and reason codes
   tests/fixtures/tlpx-0.2/   0.2 JCS / hash golden fixtures
   LICENSE
   implementations/
     javascript/              Full Node reference
     go/                      Switchboard + sealed audit + HTTP control plane
     java/                    Policy + Switchboard evaluate
-    rust/                    tlpx skeleton (0.2 types + JCS/hash)
+    rust/                    tlpx local authority MVP (no PEP)
     python/                  Placeholder
   var/                       Local audit logs (gitignored)
 ```
@@ -46,7 +46,7 @@ northstar/
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 spec |
-| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.2 |
+| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.3 |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -90,7 +90,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Slices 1.1–2.2 are accepted. Planned 2.3+ behavior is not current implementation status. The running gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Slices 1.1–2.3 are accepted. Rust now has a local evaluate → authorize → SQLite atomic-claim MVP, but it does not yet emit the full 0.2 evidence contract or mediate a protected capability. The running gate is still TL-PX 0.1.
 
 ---
 
@@ -102,7 +102,8 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Audit hash-chain + HMAC seal (`glass verify`)  
 - [x] Go: Switchboard + sealed audit + CLI + HTTP `tlpxd`  
 - [x] Java: Switchboard + evaluate  
-- [ ] Rust / Python ports  
+- [x] Rust 0.2 types, canonical hashes, and local authority MVP
+- [ ] Rust authenticated transport / execution PEP; Python adapter
 - [ ] Java sealed audit / full ops parity  
 - [ ] Production HA multi-tenant control plane
 

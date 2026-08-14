@@ -76,11 +76,11 @@ fn reject_vectors_fail_closed() {
         let err =
             canonicalize_json_text(&row.input_json).expect_err(&format!("{} should fail", row.id));
         assert!(
-            err.0.contains(&row.error_contains),
+            err.message().contains(&row.error_contains),
             "{}: expected {:?} in {}",
             row.id,
             row.error_contains,
-            err.0
+            err.message()
         );
     }
 }
@@ -136,6 +136,7 @@ fn sample_actions() -> (SubmittedIntent, AuthorizedAction, ExecutedAction) {
         artifact_hash: None,
         adapter: adapter.clone(),
         request_id: "req-1".into(),
+        retry_of_receipt_id: None,
     };
     let authorized = AuthorizedAction {
         requesting_principal: intent.requesting_principal.clone(),

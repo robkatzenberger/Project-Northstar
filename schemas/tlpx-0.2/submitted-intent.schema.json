@@ -42,6 +42,7 @@
       "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
     },
     "adapter": { "$ref": "common.schema.json#/$defs/adapter" },
-    "request_id": { "type": "string", "minLength": 1 }
+    "request_id": { "type": "string", "minLength": 1 },
+    "retry_of_receipt_id": { "type": "string", "minLength": 1 }
   }
 }

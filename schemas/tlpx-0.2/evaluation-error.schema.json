@@ -27,9 +27,39 @@
     "retryability": { "enum": ["NEVER", "AFTER_CONDITION", "IMMEDIATE"] },
     "reason": { "type": "string" },
     "sequence": { "$ref": "common.schema.json#/$defs/sequence" },
+    "authenticated_requester": { "$ref": "common.schema.json#/$defs/principalId" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "intent_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "retry_of_receipt_id": { "type": "string", "minLength": 1 },
     "retry_after": { "type": "string", "minLength": 1 },
     "required_condition": { "type": "string", "minLength": 1 },
     "policy_bundle_id": { "type": "string", "minLength": 1 },
     "adapter": { "$ref": "common.schema.json#/$defs/adapter" }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "retryability": { "const": "AFTER_CONDITION" } },
+        "required": ["retryability"]
+      },
+      "then": { "required": ["required_condition"] },
+      "else": { "not": { "required": ["required_condition"] } }
+    },
+    {
+      "if": { "required": ["authenticated_requester"] },
+      "then": { "required": ["request_id"] }
+    },
+    {
+      "if": { "required": ["request_id"] },
+      "then": { "required": ["authenticated_requester"] }
+    },
+    {
+      "if": { "required": ["intent_hash"] },
+      "then": { "required": ["authenticated_requester", "request_id"] }
+    },
+    {
+      "if": { "required": ["retry_of_receipt_id"] },
+      "then": { "required": ["authenticated_requester", "request_id"] }
+    }
+  ]
 }

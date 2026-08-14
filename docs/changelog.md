@@ -60,10 +60,11 @@ Format: newest first.
 - Crosscheck follow-up: dedicated `tlpx.authorization_claim`; claim tickets must bind adapter and still consume online; sealing is an evidence-chain property.
 - **TL-PX 0.2 slice 2.2:** Northstar JCS profile, domain-separated `sha256:` hashes, and `tests/fixtures/tlpx-0.2/jcs/golden.json`. JS helpers are a fixture oracle; the gate still emits 0.1 records. 0.1 `canonicalJson` is unchanged.
 - JCS follow-up: key sort is RFC 8785 UTF-16 code units; lone surrogates fail closed; fixtures include astral/BMP order and raw `digest_hex`. Independent recheck accepted `636637a`.
-- Docs sweep: living docs now state slices 1.1–2.2 accepted, UTF-16 JCS profile, and that the gate still emits TL-PX 0.1.
+- Docs sweep checkpoint aligned the then-accepted slices 1.1–2.2, UTF-16 JCS profile, and the fact that the gate still emits TL-PX 0.1; later entries advance the 0.2 contract line separately.
 - Document ownership: SPEC-v0.2 = protocol; BUILD-SPEC = delivery; SESSION-START = status/routes; reports = immutable; skills.md = private handoff only.
 - **TL-PX 0.2 slice 2.3:** schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS validators, distinct `npm run conformance:0.2`. Gate still emits 0.1.
-- **Rust skeleton:** `implementations/rust` crate `tlpx` — 0.2 contract types and JCS/hash oracle. `cargo test` matches `golden.json`. No evaluate/claim/PEP.
+- **TL-PX 0.2 implementation-driven 2.3d draft:** authenticated `(principal, request_id)` slots are immutable; every retry uses a successor id; retry links are same-principal evidence only; request refusals are `DENY`; invalid policy/capability configuration fails activation; evaluation errors are durable when storage can commit; `APPROVE`/`REJECT` require rendered action context. This delta remains pending named-commit independent verification.
+- **Rust local authority MVP:** `implementations/rust` crate `tlpx` now adds exact-match deterministic policy, Switchboard requester/executor scope, CSPRNG authorization/nonces/claim IDs, durable SQLite decisions/errors/authorizations, authenticated-principal idempotency and retry linkage, one authority-wide sequence, revocation, expiry, capability/resource checks, and atomic exact-action claim. Race and restart tests cover one-winner consumption and durable outcomes across separate database connections. It still has no authenticated transport, approval resolution, schema-serialized/sealed evidence stream, execution receipt, side effect, or PEP.
 - Action Binding: PEP compares the shared projection under `executed-action`. Full `authorized_action_hash` is not compared to `executed_action_hash`. Rust canonicalize/hash is fallible; types validate first. Schema requires `risk_reasons` and `risk_source`.
 - Authorization stores `action_binding_hash`; claim SQL compares the presented binding to that value. `capability`/`resource_scope` are PEP constraints, not binding fields.
 
@@ -90,5 +91,3 @@ Format: newest first.
 - Cryptographic operator identity (beyond allowlist)  
 - Java sealed audit parity  
 - Production HA / multi-tenant control plane
-
-

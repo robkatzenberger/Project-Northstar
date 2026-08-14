@@ -5,7 +5,7 @@
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                      # unit + switchboard + air-gap + policy compile + 0.2 JCS
+npm test                      # unit + switchboard + air-gap + policy compile + 0.2 JCS/schema
 npm run test:jcs              # TL-PX 0.2 JCS / hash fixtures only
 npm run test:unit
 npm run test:switchboard
@@ -17,12 +17,16 @@ npm run demo
 npm run demo:switchboard
 ```
 
-Rust authority skeleton (separate toolchain):
+Rust local authority MVP (separate toolchain):
 
 ```bash
 cd ~/projects/northstar/implementations/rust
-cargo test    # golden JCS/hash + contract types
+cargo test                              # JCS/types + authority/race/restart tests
+cargo clippy --all-targets -- -D warnings
+cargo run --example local_authority -- /tmp/northstar-authority.sqlite request-1
 ```
+
+The example performs evaluation, issuance, and one durable SQLite claim. It deliberately performs no external side effect and is not a PEP test.
 
 ---
 
@@ -67,6 +71,8 @@ cargo test    # golden JCS/hash + contract types
 ## Conformance
 
 `npm test` also runs `test-jcs.mjs` and `conformance-v02.mjs`. Those are 0.2 oracles. They do not make the gate 0.2-conforming. `npm run conformance` remains the frozen 47.
+
+The Rust suite independently consumes the same JCS golden fixtures (8 tests) and adds 23 authority tests for activation failure, durable `DENY`/`EVALUATION_ERROR`, post-decision SQL failure recovery, immutable idempotency, same-principal retry linkage, anti-poisoning, authority-wide sequence order, replay, executor/action/scope mismatch, expiry, revocation, restart persistence, shared idempotent evaluation, and one-winner claim races across threads and separate SQLite connections. Passing these tests does not establish schema-serialized sealed runtime evidence, authenticated transport, or forced mediation.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 

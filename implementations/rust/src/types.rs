@@ -67,6 +67,7 @@ pub struct SubmittedIntent {
     pub artifact_hash: Option<String>,
     pub adapter: Adapter,
     pub request_id: String,
+    pub retry_of_receipt_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,13 +207,16 @@ impl SubmittedIntent {
         require_id(&self.tenant, "tenant")?;
         require_id(&self.requested_capability, "requested_capability")?;
         require_id(&self.request_id, "request_id")?;
+        if let Some(receipt_id) = &self.retry_of_receipt_id {
+            require_id(receipt_id, "retry_of_receipt_id")?;
+        }
         require_hash_opt(&self.payload_hash, "payload_hash")?;
         require_hash_opt(&self.artifact_hash, "artifact_hash")?;
         self.adapter.validate()
     }
 
     pub fn to_value(&self) -> Value {
-        Value::Object(vec![
+        let mut fields = vec![
             (
                 "requesting_principal".into(),
                 Value::String(self.requesting_principal.clone()),
@@ -247,7 +251,14 @@ impl SubmittedIntent {
             ("artifact_hash".into(), hash_opt(&self.artifact_hash)),
             ("adapter".into(), adapter_value(&self.adapter)),
             ("request_id".into(), Value::String(self.request_id.clone())),
-        ])
+        ];
+        if let Some(receipt_id) = &self.retry_of_receipt_id {
+            fields.push((
+                "retry_of_receipt_id".into(),
+                Value::String(receipt_id.clone()),
+            ));
+        }
+        Value::Object(fields)
     }
 
     pub fn intent_hash(&self) -> Result<String> {

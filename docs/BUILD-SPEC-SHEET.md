@@ -5,7 +5,7 @@
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Live implementation scope:** slices 1.1–2.3 plus Rust 3.1/3.2 skeleton (types + JCS/hash). No claim state machine, token, or PEP until opened. No architecture expansion unless implementation evidence requires it.  
+**Live implementation scope:** accepted slices 1.1–2.3 plus a pending 2.3d contract/schema delta and Rust local-authority MVP: types/hashes, exact-match policy, SQLite decisions/errors/issuance/idempotency/revocation, authority-wide sequence, and atomic claim. This is implementation evidence toward 3.1–3.6, not acceptance of those slices: named-commit crosscheck, authenticated transport/operator identity, schema-valid sealed runtime evidence, approval lifecycle, transactional global revocation state, execution receipts, and the PEP remain open. No snapshot token.
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 
 **Document role:** delivery sequence, acceptance criteria, and maturity labels. Normative protocol semantics live in [`standard/SPEC-v0.2.md`](./standard/SPEC-v0.2.md). Do not expand architecture here unless a delivery slice or implementation evidence requires it.
@@ -149,13 +149,13 @@ Java, Go, Python, and TypeScript components are clients and adapters. They may c
 
 `DENY` means Northstar successfully evaluated the exact request and refused it. It is terminal for that request and is not automatically retryable. Repeating the same idempotent request returns the same refusal; a new evaluation requires a material change such as a new action, principal scope, policy version, revocation state, or environment.
 
-Policy compilation, evaluation, or infrastructure failure produces a terminal `tlpx.evaluation_error` record, not a fourth policy decision and not `DENY`. It creates no authorization and always blocks. Error records declare `retryability` as `NEVER`, `AFTER_CONDITION`, or `IMMEDIATE`; optional `retry_after` and `required_condition` fields constrain retries and prevent retry storms.
+Policy compilation, evaluation, or infrastructure failure produces a terminal `tlpx.evaluation_error` record, not a fourth policy decision and not `DENY`. It creates no authorization and always blocks. Error records declare `retryability` as `NEVER`, `AFTER_CONDITION`, or `IMMEDIATE`; `required_condition` is present exactly for `AFTER_CONDITION`, and optional `retry_after` constrains retries and prevents retry storms. Retryability permits a successor evaluation under a new request id; it never rewrites the errored idempotency slot.
 
-Every evaluation error still receives a receipt/correlation ID, trusted sequence number, timestamp, non-sensitive error code and stage, available policy/adapter identity, and sealed audit row. Induced errors must not create gaps in evidence.
+Every evaluation error still receives a receipt/correlation ID, trusted sequence number, timestamp, non-sensitive error code and stage, available policy/adapter identity, and sealed audit row when authoritative evidence storage can commit. Storage failure blocks and issues nothing; Northstar must not claim an uncommitted row, sequence, or idempotency slot exists.
 
 ## 6. Submitted intent and canonical authorized action
 
-The requester submits an intent object containing only fields available at submission time. That object includes the proposed requester/executor, action, intent class, target, arguments, environment, tenant, `declared_risk`, declared data classes, requested capability, resource scope, payload/artifact digests, adapter identity, and requester-scoped `request_id`. The requester cannot supply trusted `derived_risk`, `effective_risk`, policy outputs, authorization constraints, or an authorization nonce.
+The requester submits an intent object containing only fields available at submission time. That object includes the proposed requester/executor, action, intent class, target, arguments, environment, tenant, `declared_risk`, declared data classes, requested capability, resource scope, payload/artifact digests, adapter identity, requester-scoped `request_id`, and optional non-authorizing `retry_of_receipt_id`. The requester cannot supply trusted `derived_risk`, `effective_risk`, policy outputs, authorization constraints, or an authorization nonce.
 
 Example submitted intent:
 
@@ -258,7 +258,7 @@ A later portable **authorization claim ticket** or **capability proof**, if issu
 
 The authorization-signing key must be separate from audit sealing, service identity, operator authentication, and tenant keys.
 
-The requester may supply only a principal-scoped `request_id` for correlation/idempotency. Northstar generates authorization IDs, authorization nonces, and claim IDs. Duplicate caller request IDs return the existing request result within their authenticated scope and cannot collide globally.
+The requester may supply only an authenticated-principal-scoped `request_id` for correlation/idempotency. Northstar generates authorization IDs, authorization nonces, and claim IDs. `(authenticated principal, request_id)` is write-once after a terminal decision/error commits. Exact duplicates return the stored result; changed available intent hashes block with `IDEMPOTENCY_CONFLICT`; every retry uses a new request id. Authentication mismatch can occupy only the authenticated caller's slot, never the proposed identity's slot. Duplicate caller request IDs cannot collide globally.
 
 ## 8. Authorization lifecycle
 
@@ -355,7 +355,9 @@ WHERE authorization_id = :authorization_id
   AND environment_status = 'ACTIVE';
 ```
 
-`:presented_binding_hash` is the PEP-computed digest of the Executed Action / Action Binding under `northstar:executed-action:v1`. It MUST equal the stored `action_binding_hash`.
+`:presented_binding_hash` is the PEP-computed digest of the Executed Action / Action Binding under `northstar:executed-action:v1`. It MUST equal the stored `action_binding_hash`. The stored digest is authority-computed from the validated Authorized Action at issuance; a requester-supplied value MUST NOT be accepted.
+
+Capability and resource-scope checks MUST run before this update. If they fail, the row MUST remain `AUTHORIZED_UNCLAIMED`.
 
 Exactly one updated row means the claim succeeded. Zero updated rows must produce a blocking reason such as:
 
@@ -478,7 +480,7 @@ If the PEP crashes after the protected system may have accepted the side effect 
 
 - Monotonic time controls local claim expiration and execution leases.
 - Wall-clock time is retained for human-readable and cross-system evidence.
-- Transactional sequence numbers establish authoritative local order.
+- One authority-wide transactional sequence allocator orders decisions, evaluation errors, claims, and later execution evidence. Per-table counters are not interchangeable with this sequence.
 - Timestamps alone must not resolve concurrent state transitions.
 - Portable authorization profiles must define clock-skew and uncertainty limits.
 - Excessive time uncertainty fails closed.
@@ -573,7 +575,7 @@ A correct authority behind a compromised or incomplete adapter does not provide 
 
 Approval interfaces must display the exact action, executor, target, risk, and material arguments represented by the action hash. Any material change invalidates the approval.
 
-The operator-action record must contain the `authorized_action_hash` the human saw, decision receipt ID, authenticated operator subject, approval route/quorum rule, effective policy-bundle digest, renderer identity/version, trusted sequence, outcome, and authenticated-session/signature evidence.
+The operator-action record must contain decision receipt ID, authenticated operator subject, effective policy-bundle digest, trusted sequence, outcome, and authenticated-session/signature evidence. `APPROVE` and `REJECT` additionally contain the `authorized_action_hash` the human saw, approval route/quorum rule, and renderer identity/version. `CANCEL` does not invent renderer evidence when no approval representation was shown.
 
 For what-you-see-is-what-you-sign binding:
 
@@ -659,7 +661,7 @@ Reject at least:
 
 Evaluation must distinguish matched, not matched, and error. An error never behaves like a non-match when the eventual default could be permissive.
 
-Policy must be validated at process startup. A malformed pack fails process start. The previously loaded policy must not remain active accidentally unless an explicitly designed, audited last-known-good mode exists. Phase 1 has no such mode: startup failure is required. Later hot reload must fully compile the replacement, then atomically activate it; never partially load it.
+Policy must be validated at process startup. An activated bundle must be able to construct every authorization it can grant. Duplicate authorization scopes, incomplete `ALLOW` templates, and policy capabilities absent from the active capability registry fail activation with `POLICY_COMPILE_FAILED`. A malformed or internally inconsistent pack fails process start. The previously loaded policy must not remain active accidentally unless an explicitly designed, audited last-known-good mode exists. Phase 1 has no such mode: startup failure is required. Later hot reload must fully compile and cross-validate the replacement, then atomically activate it; never partially load it.
 
 Untrusted callers may not select arbitrary policy files per request. Each decision records policy identity, version, and digest.
 
@@ -800,7 +802,7 @@ Every emitted record, including Switchboard `DENY`, authorization claim, revocat
 
 ### Phase 3: authenticated transactional authority and one-time execution
 
-Implement the Rust authority skeleton, distinct Submitted Intent, Authorized Action, Executed Action, and Execution Receipt types and hashes, authenticated requester/operator/executor identities, SQLite state, short claim window, atomic one-time claim, revocation check, idempotency, and adapter integrity.
+Complete the Rust authority around distinct Submitted Intent, Authorized Action, Executed Action, and Execution Receipt types and hashes, authenticated requester/operator/executor identities, SQLite state, short claim window, atomic one-time claim, revocation check, idempotency, and adapter integrity. The local library MVP supplies part of this path, but trusted embedding strings are not acceptance of authenticated identity and an atomic claim is not an execution receipt.
 
 An unauthenticated `tlpx-run` may be built earlier only as a prototype. It is not the enforcement acceptance test and must be labeled accordingly.
 
@@ -845,6 +847,7 @@ Northstar is not the only control. Production-shaped deployments should also use
 - restricted filesystem and network access;
 - external credential brokering;
 - rate limiting and resource bounds;
+- bounded, monitored evidence storage with retention/export/backpressure controls, because unauthenticated errors and idempotency conflicts are append-only and attacker-triggerable;
 - independent audit export and monitoring;
 - operational kill switches and revocation controls.
 
@@ -929,7 +932,7 @@ The hardened core is complete when:
 - TL-PX 0.1 remains frozen while 0.2 breaking changes are separately versioned and tested;
 - canonical bytes and exact hash strings match across every conforming language;
 - `DENY` and `EVALUATION_ERROR` have distinct, deterministic retry semantics;
-- every evaluation error is sealed into the evidence chain without issuing authorization;
+- every evaluation error that authoritative storage can commit is sequenced and sealed without issuing authorization; storage failure still blocks and must not claim ghost evidence or occupancy;
 - every authorization names one requester and one executor;
 - every authorization binds one exact Authorized Action, payload, artifact, target, and adapter identity where applicable;
 - intent, authorized-action, and executed-action hashes remain distinct and verifiably linked;
