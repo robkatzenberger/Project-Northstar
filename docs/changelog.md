@@ -63,6 +63,7 @@ Format: newest first.
 - Docs sweep: living docs now state slices 1.1–2.2 accepted, UTF-16 JCS profile, and that the gate still emits TL-PX 0.1.
 - Document ownership: SPEC-v0.2 = protocol; BUILD-SPEC = delivery; SESSION-START = status/routes; reports = immutable; skills.md = private handoff only.
 - **TL-PX 0.2 slice 2.3:** schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS validators, distinct `npm run conformance:0.2`. Gate still emits 0.1.
+- **Rust skeleton:** `implementations/rust` crate `tlpx` — 0.2 contract types and JCS/hash oracle. `cargo test` matches `golden.json`. No evaluate/claim/PEP.
 
 ### Added
 

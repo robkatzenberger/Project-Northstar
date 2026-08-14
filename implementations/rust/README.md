@@ -1,29 +1,41 @@
 # Rust implementation
 
-**Status:** Planned authoritative core — not started
+**Status:** Skeleton started — contract types + JCS/hash oracle  
+**Crate:** `tlpx` 0.2.0  
+**Not yet:** evaluate/claim state machine, SQLite, PEP / `tlpx-run`
 
-Intended use: small security-critical TL-PX 0.2 authority and **policy enforcement point** (PEP) that must fail closed. The 0.2 decision contract, JCS fixtures, and 2.3 schemas/validators exist. Implementation starts only when Robert opens the Rust authority slice.
+This is the start of the authoritative 0.2 core. It does not replace the JS 0.1 gate. It must match `tests/fixtures/tlpx-0.2/jcs/golden.json` exactly.
 
-## Planned shape (draft)
+## Layout
 
 ```text
 rust/
   Cargo.toml
   src/lib.rs
-  src/bin/tlpx.rs
-  tests/
+  src/jcs.rs
+  src/hash.rs
+  src/types.rs
+  src/error.rs
+  tests/jcs_golden.rs
 ```
 
-## Requirements when implemented
+## Commands
 
-- Follow the proposed [hardened build specification](../../docs/BUILD-SPEC-SHEET.md), not by rewriting frozen TL-PX v0.1
-- Conform to the future TL-PX v0.2 spec, schemas, JCS/hash fixtures, state model, receipts, and reason codes
-- Deterministic fail-closed policy and authenticated single-use atomic authorization
-- Preserve distinct intent, authorized-action, executed-action, and observed-result evidence
-- No `unsafe` Rust in the authorization path
-- Minimal reviewed dependencies; no in-process LLM or arbitrary policy code
-- Forced mediation and a strong embedding/sidecar story next to protected agent runtimes
+```bash
+cd implementations/rust
+cargo test
+```
 
-## Why Rust later
+Requires a local Rust toolchain (`rustc` / `cargo`). Prod dependency: `sha2`. `serde`/`serde_json` are test-only (load the golden file).
 
-Memory safety + performance for the hot path that wraps tool I/O.
+## Requirements
+
+- Follow [`docs/BUILD-SPEC-SHEET.md`](../../docs/BUILD-SPEC-SHEET.md)
+- Conform to [`docs/standard/SPEC-v0.2.md`](../../docs/standard/SPEC-v0.2.md) and `schemas/tlpx-0.2/`
+- No `unsafe` in this crate
+- No LLM, no dynamic policy code
+- Do not implement the abandoned `AUTHORIZED` snapshot token
+
+## Next (when opened)
+
+Smallest evaluate → authorize → atomic claim path against the 0.2 schemas, then OS-enforced PEP (slice 3.9).

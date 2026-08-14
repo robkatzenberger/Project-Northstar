@@ -100,7 +100,7 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Accepted:** slices 1.1–2.2. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
 
-**2.3** schemas + `conformance:0.2` are in this tree. Next implementation evidence: smallest Rust authority, then OS-enforced PEP (3.9).
+**2.3** schemas + `conformance:0.2` exist. Rust crate `tlpx` matches the JCS golden fixtures (types + hash oracle). Next: evaluate/claim against those schemas, then OS-enforced PEP (3.9).
 
 **3.9** is the system-level claim. 1.1–2.3 are real security proofs; they are not forced mediation.
 

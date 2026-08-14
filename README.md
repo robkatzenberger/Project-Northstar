@@ -33,7 +33,8 @@ northstar/
     javascript/              Full Node reference
     go/                      Switchboard + sealed audit + HTTP control plane
     java/                    Policy + Switchboard evaluate
-    rust/ python/            Placeholders
+    rust/                    tlpx skeleton (0.2 types + JCS/hash)
+    python/                  Placeholder
   var/                       Local audit logs (gitignored)
 ```
 

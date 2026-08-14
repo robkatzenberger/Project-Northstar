@@ -1,0 +1,19 @@
+[package]
+name = "tlpx"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Northstar TL-PX 0.2 authority skeleton: contract types and JCS/hash oracle"
+publish = false
+rust-version = "1.70"
+
+[dependencies]
+sha2 = "0.10"
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lib]
+name = "tlpx"
+path = "src/lib.rs"

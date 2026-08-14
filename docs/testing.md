@@ -17,7 +17,12 @@ npm run demo
 npm run demo:switchboard
 ```
 
-All tests use local Node; no network required.
+Rust authority skeleton (separate toolchain):
+
+```bash
+cd ~/projects/northstar/implementations/rust
+cargo test    # golden JCS/hash + contract types
+```
 
 ---
 

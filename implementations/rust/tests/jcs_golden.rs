@@ -1,0 +1,170 @@
+use serde::Deserialize;
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::PathBuf;
+use tlpx::{assert_hash_string, canonicalize_json_text, digest_hex, hash_string, utf8_hex};
+
+#[derive(Debug, Deserialize)]
+struct Golden {
+    accept: Vec<Accept>,
+    reject: Vec<Reject>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Accept {
+    id: String,
+    input_json: String,
+    canonical: String,
+    canonical_utf8_hex: String,
+    digest_hex: BTreeMap<String, String>,
+    sha256: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Reject {
+    id: String,
+    input_json: String,
+    error_contains: String,
+}
+
+fn golden_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/tlpx-0.2/jcs/golden.json")
+}
+
+fn load() -> Golden {
+    let raw = fs::read_to_string(golden_path()).expect("golden.json");
+    serde_json::from_str(&raw).expect("parse golden.json")
+}
+
+#[test]
+fn accept_vectors_match_js_oracle() {
+    let golden = load();
+    assert!(!golden.accept.is_empty());
+    for row in &golden.accept {
+        let canonical =
+            canonicalize_json_text(&row.input_json).unwrap_or_else(|e| panic!("{}: {e}", row.id));
+        assert_eq!(canonical, row.canonical, "{}", row.id);
+        assert_eq!(utf8_hex(&canonical), row.canonical_utf8_hex, "{}", row.id);
+        for (domain, expected) in &row.sha256 {
+            assert_hash_string(expected).unwrap();
+            let got = hash_string(domain, &canonical).unwrap();
+            assert_eq!(got, *expected, "{} {domain}", row.id);
+            assert_eq!(
+                digest_hex(domain, &canonical).unwrap(),
+                row.digest_hex[domain],
+                "{} {domain} digest",
+                row.id
+            );
+        }
+    }
+}
+
+#[test]
+fn reject_vectors_fail_closed() {
+    let golden = load();
+    assert!(!golden.reject.is_empty());
+    for row in &golden.reject {
+        let err =
+            canonicalize_json_text(&row.input_json).expect_err(&format!("{} should fail", row.id));
+        assert!(
+            err.0.contains(&row.error_contains),
+            "{}: expected {:?} in {}",
+            row.id,
+            row.error_contains,
+            err.0
+        );
+    }
+}
+
+#[test]
+fn utf16_sorts_astral_before_bmp() {
+    let text = r#"{"\uE000":1,"\uD800\uDC00":2}"#;
+    let canonical = canonicalize_json_text(text).unwrap();
+    let units: Vec<u16> = canonical.encode_utf16().collect();
+    // after {' " '} first key starts with U+10000 lead 0xD800
+    assert_eq!(units[0], '{' as u16);
+    assert_eq!(units[1], '"' as u16);
+    assert_eq!(units[2], 0xD800);
+}
+
+#[test]
+fn domains_are_distinct() {
+    let c = "{}";
+    let a = hash_string("intent", c).unwrap();
+    let b = hash_string("authorized-action", c).unwrap();
+    let d = hash_string("executed-action", c).unwrap();
+    let e = hash_string("approval-context", c).unwrap();
+    let set = [a, b, d, e];
+    for i in 0..set.len() {
+        for j in 0..set.len() {
+            if i != j {
+                assert_ne!(set[i], set[j]);
+            }
+        }
+    }
+}
+
+#[test]
+fn contract_types_hash_distinct_objects() {
+    use tlpx::{Adapter, AuthorizedAction, ExecutedAction, Risk, SubmittedIntent, Value};
+
+    let adapter = Adapter {
+        id: "adapter.mailer".into(),
+        version: "1.0.0".into(),
+    };
+    let args = Value::Object(vec![("template".into(), Value::String("invoice".into()))]);
+    let intent = SubmittedIntent {
+        requesting_principal: "agent.a".into(),
+        executing_principal: "agent.a".into(),
+        action: "send_email".into(),
+        intent_class: "external_communication".into(),
+        target: "customer:123".into(),
+        arguments: args.clone(),
+        environment: "production".into(),
+        tenant: "tenant_abc".into(),
+        declared_risk: Risk::Medium,
+        data_classes: vec!["PII".into()],
+        requested_capability: "mailer.send".into(),
+        resource_scope: vec!["customer:123".into()],
+        payload_hash: None,
+        artifact_hash: None,
+        adapter: adapter.clone(),
+        request_id: "req-1".into(),
+    };
+    let authorized = AuthorizedAction {
+        requesting_principal: intent.requesting_principal.clone(),
+        executing_principal: intent.executing_principal.clone(),
+        action: intent.action.clone(),
+        target: intent.target.clone(),
+        arguments: args.clone(),
+        environment: intent.environment.clone(),
+        tenant: intent.tenant.clone(),
+        derived_risk: Risk::High,
+        effective_risk: Risk::High,
+        data_classes: intent.data_classes.clone(),
+        capability: "mailer.send".into(),
+        resource_scope: intent.resource_scope.clone(),
+        payload_hash: None,
+        artifact_hash: None,
+        policy_bundle_hash: format!("sha256:{}", "a".repeat(64)),
+        adapter: adapter.clone(),
+    };
+    authorized.effective_risk_ok().unwrap();
+    let executed = ExecutedAction {
+        executing_principal: authorized.executing_principal.clone(),
+        action: authorized.action.clone(),
+        target: authorized.target.clone(),
+        arguments: args,
+        environment: authorized.environment.clone(),
+        tenant: authorized.tenant.clone(),
+        payload_hash: None,
+        artifact_hash: None,
+        adapter,
+    };
+    let ih = intent.intent_hash().unwrap();
+    let ah = authorized.authorized_action_hash().unwrap();
+    let eh = executed.executed_action_hash().unwrap();
+    assert_hash_string(&ih).unwrap();
+    assert_ne!(ih, ah);
+    assert_ne!(ah, eh);
+}
