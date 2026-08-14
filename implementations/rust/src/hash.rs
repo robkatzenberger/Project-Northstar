@@ -1,7 +1,7 @@
 //! Domain-separated SHA-256 over Northstar JCS. Exact `sha256:` + 64 lowercase hex.
 
 use crate::error::{Error, Result};
-use crate::jcs::{canonicalize, canonicalize_json_text, Value};
+use crate::jcs::{canonicalize, canonicalize_json_text, Canonical, Value};
 use sha2::{Digest, Sha256};
 
 pub const HASH_PATTERN: &str = r"^sha256:[0-9a-f]{64}$";
@@ -33,23 +33,23 @@ pub fn assert_hash_string(value: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn digest_hex(domain: &str, canonical: &str) -> Result<String> {
+pub fn digest_hex(domain: &str, canonical: &Canonical) -> Result<String> {
     let mut h = Sha256::new();
     h.update(domain_prefix(domain)?);
-    h.update(canonical.as_bytes());
+    h.update(canonical.as_str().as_bytes());
     Ok(format!("{:x}", h.finalize()))
 }
 
-pub fn hash_string(domain: &str, canonical: &str) -> Result<String> {
+pub fn hash_canonical(domain: &str, canonical: &Canonical) -> Result<String> {
     Ok(format!("sha256:{}", digest_hex(domain, canonical)?))
 }
 
 pub fn hash_value(domain: &str, value: &Value) -> Result<String> {
-    hash_string(domain, &canonicalize(value))
+    hash_canonical(domain, &canonicalize(value)?)
 }
 
 pub fn hash_json_text(domain: &str, text: &str) -> Result<String> {
-    hash_string(domain, &canonicalize_json_text(text)?)
+    hash_canonical(domain, &canonicalize_json_text(text)?)
 }
 
 pub fn intent_hash(value: &Value) -> Result<String> {

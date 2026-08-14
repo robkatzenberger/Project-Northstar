@@ -55,6 +55,8 @@ const authorized = {
   tenant: "tenant_abc",
   derived_risk: "high",
   effective_risk: "high",
+  risk_reasons: ["policy.high_data_class"],
+  risk_source: "policy",
   data_classes: ["PII"],
   capability: "mailer.send",
   resource_scope: ["customer:123"],
@@ -246,7 +248,10 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     state: "COMPLETED"
   };
   check("execution receipt", validateV02("execution", execOk).ok);
-  check("execution ACTION_MISMATCH", !validateV02("execution", { ...execOk, executed_action_hash: H2 }).ok);
+  check(
+    "receipt may store distinct authorized vs executed hashes",
+    validateV02("execution", { ...execOk, executed_action_hash: H2 }).ok
+  );
   check("bad hash string", !validateV02("authorization", { ...authz, intent_hash: "SHA256:" + "A".repeat(64) }).ok);
 }
 

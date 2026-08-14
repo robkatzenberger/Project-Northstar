@@ -59,9 +59,5 @@ export function validateV02(kind, value) {
       }
     }
   }
-  if (kind === "execution" && value.authorized_action_hash !== value.executed_action_hash) {
-    result.ok = false;
-    result.errors.push("ACTION_MISMATCH: authorized and executed hashes differ");
-  }
   return result;
 }

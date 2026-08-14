@@ -125,10 +125,26 @@ Hash preimages (algorithm profile is slice 2.2) MUST be computed over the matchi
 ```text
 intent_hash              over Submitted Intent
 authorized_action_hash   over Authorized Action
-executed_action_hash     over Executed Action
+executed_action_hash     over Executed Action / Action Binding
 ```
 
-Before any side effect, the PEP MUST establish `authorized_action_hash == executed_action_hash`. A mismatch MUST block and MUST record `ACTION_MISMATCH`.
+Those three hashes use **different domains and different preimages**. `authorized_action_hash` MUST NOT be compared to `executed_action_hash`. Domain separation is not removed to force equality.
+
+The PEP compares an **Action Binding**: the normalized operation fields shared by Authorized Action and Executed Action:
+
+```text
+executing_principal, action, target, arguments,
+environment, tenant, payload_hash, artifact_hash, adapter
+```
+
+Before any side effect:
+
+```text
+JCS(action_binding(Authorized Action))
+  == JCS(action_binding(Executed Action))
+```
+
+Equivalently, both sides hashed under `northstar:executed-action:v1` MUST be equal. That common digest is `executed_action_hash`. A mismatch MUST block and MUST record `ACTION_MISMATCH`.
 
 ### 4.1 Submitted Intent
 
@@ -159,7 +175,7 @@ Changing any material submitted-intent field requires a new evaluation. Duplicat
 
 ### 4.2 Authorized Action
 
-After authentication, Switchboard, validation, and policy, the authority constructs a separate object. It MUST contain authenticated requester and executor identities, normalized action/target/arguments, validated payload/artifact digests, trusted environment and tenant, policy-derived capability and resource constraints, effective data classifications, `derived_risk`, `effective_risk`, risk reasons/source, policy-bundle hash, and adapter binding.
+After authentication, Switchboard, validation, and policy, the authority constructs a separate object. It MUST contain authenticated requester and executor identities, normalized action/target/arguments, validated payload/artifact digests, trusted environment and tenant, policy-derived capability and resource constraints, effective data classifications, `derived_risk`, `effective_risk`, `risk_reasons`, `risk_source`, policy-bundle hash, and adapter binding.
 
 It MUST exclude requester-only correlation fields unless a 0.2 schema (slice 2.3) explicitly includes them.
 
@@ -600,3 +616,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.2 | Northstar JCS profile, `sha256:` representation, four domain prefixes, and golden fixtures. |
 | 0.2.0-draft.2.2b | Key sort is RFC 8785 UTF-16 code units. Lone surrogates rejected. Fixtures include astral/BMP order and raw `digest_hex`. |
 | 0.2.0-draft.2.3 | Record/object schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS `validate-v02`, distinct `conformance:0.2` suite. |
+| 0.2.0-draft.2.3b | PEP compares Action Binding under `executed-action` domain. `authorized_action_hash` is not compared to `executed_action_hash`. Authorized Action requires `risk_reasons` and `risk_source`. |

@@ -17,6 +17,64 @@ pub enum Value {
     Object(Vec<(String, Value)>),
 }
 
+/// JCS text produced only after a value passes the Northstar profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Canonical(String);
+
+impl Canonical {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Canonical {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Value {
+    pub fn int(n: i64) -> Result<Self> {
+        let v = Value::Int(n);
+        v.validate()?;
+        Ok(v)
+    }
+
+    pub fn object(pairs: Vec<(String, Value)>) -> Result<Self> {
+        let v = Value::Object(pairs);
+        v.validate()?;
+        Ok(v)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Value::Int(n) => {
+                if *n > MAX_SAFE_INTEGER || *n < MIN_SAFE_INTEGER {
+                    return Err(Error::jcs(format!("integer out of safe range: {n}")));
+                }
+                Ok(())
+            }
+            Value::Array(items) => {
+                for item in items {
+                    item.validate()?;
+                }
+                Ok(())
+            }
+            Value::Object(pairs) => {
+                let mut seen = BTreeSet::new();
+                for (k, v) in pairs {
+                    if !seen.insert(k.as_str()) {
+                        return Err(Error::jcs(format!("duplicate key {:?}", k)));
+                    }
+                    v.validate()?;
+                }
+                Ok(())
+            }
+            Value::Null | Value::Bool(_) | Value::String(_) => Ok(()),
+        }
+    }
+}
+
 struct Parser<'a> {
     s: &'a str,
     i: usize,
@@ -285,31 +343,39 @@ fn encode_string(s: &str) -> String {
     out
 }
 
-pub fn canonicalize(value: &Value) -> String {
-    match value {
+fn write_canonical(value: &Value) -> Result<String> {
+    Ok(match value {
         Value::Null => "null".into(),
         Value::Bool(true) => "true".into(),
         Value::Bool(false) => "false".into(),
         Value::Int(n) => n.to_string(),
         Value::String(s) => encode_string(s),
         Value::Array(items) => {
-            let inner: Vec<String> = items.iter().map(canonicalize).collect();
+            let mut inner = Vec::with_capacity(items.len());
+            for item in items {
+                inner.push(write_canonical(item)?);
+            }
             format!("[{}]", inner.join(","))
         }
         Value::Object(pairs) => {
             let mut keys: Vec<&(String, Value)> = pairs.iter().collect();
             keys.sort_by(|a, b| cmp_utf16(&a.0, &b.0));
-            let inner: Vec<String> = keys
-                .into_iter()
-                .map(|(k, v)| format!("{}:{}", encode_string(k), canonicalize(v)))
-                .collect();
+            let mut inner = Vec::with_capacity(keys.len());
+            for (k, v) in keys {
+                inner.push(format!("{}:{}", encode_string(k), write_canonical(v)?));
+            }
             format!("{{{}}}", inner.join(","))
         }
-    }
+    })
 }
 
-pub fn canonicalize_json_text(text: &str) -> Result<String> {
-    Ok(canonicalize(&parse(text)?))
+pub fn canonicalize(value: &Value) -> Result<Canonical> {
+    value.validate()?;
+    Ok(Canonical(write_canonical(value)?))
+}
+
+pub fn canonicalize_json_text(text: &str) -> Result<Canonical> {
+    canonicalize(&parse(text)?)
 }
 
 pub fn utf8_hex(canonical: &str) -> String {

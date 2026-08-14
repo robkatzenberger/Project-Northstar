@@ -11,7 +11,9 @@ pub mod types;
 pub use error::{Error, Result};
 pub use hash::{
     approval_context_hash, assert_hash_string, authorized_action_hash, digest_hex,
-    executed_action_hash, hash_json_text, hash_string, hash_value, intent_hash,
+    executed_action_hash, hash_canonical, hash_json_text, hash_value, intent_hash,
 };
-pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Value};
-pub use types::{Adapter, AuthorizedAction, ExecutedAction, Risk, SubmittedIntent};
+pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Canonical, Value};
+pub use types::{
+    bindings_match, ActionBinding, Adapter, AuthorizedAction, ExecutedAction, Risk, SubmittedIntent,
+};

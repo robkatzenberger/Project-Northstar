@@ -441,13 +441,13 @@ Northstar must keep the following digests distinct:
 - `executed_action_hash`: the exact normalized operation presented to the PEP;
 - optional `result_hash`: a bounded result, artifact, or external confirmation digest.
 
-Before any side effect begins, the PEP must establish:
+Before any side effect begins, the PEP must compare **Action Bindings**, not the full-object hashes:
 
 ```text
-authorized_action_hash == executed_action_hash
+JCS(action_binding(authorized)) == JCS(action_binding(executed))
 ```
 
-A mismatch blocks execution and records `ACTION_MISMATCH`. An `AUTHORIZED` record is never evidence that execution occurred. An execution attempt is never evidence that the intended external effect completed successfully.
+Those bindings are hashed under `northstar:executed-action:v1` to produce `executed_action_hash`. `authorized_action_hash` remains the digest of the full Authorized Action under `northstar:authorized-action:v1` and MUST NOT be compared to `executed_action_hash`. A binding mismatch blocks and records `ACTION_MISMATCH`. An `AUTHORIZED` record is never evidence that execution occurred. An execution attempt is never evidence that the intended external effect completed successfully.
 
 For external systems, the receipt must distinguish observations such as request accepted, API response received, transaction committed, and independently confirmed settlement. Northstar must not claim a stronger result than the evidence supports.
 
