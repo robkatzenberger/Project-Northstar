@@ -15,6 +15,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | Audience | Read first |
 | --- | --- |
 | **Share with anyone (plain language)** | **[SHARE.md](./SHARE.md)** — human-readable overview + diagrams |
+| Resume project work / frontier model | [Fresh-context instructions](../NORTHSTAR-SESSION-START.md) · [Hardened build specification](./BUILD-SPEC-SHEET.md) · [2026-08-13 disposition](./reviews/build-plan-review-disposition-2026-08-13.md) |
 | New to the project | [Getting Started](./getting-started.md) |
 | Want the big idea | [Vision](./vision.md) · [Concepts](./concepts.md) |
 | Implementers / integrators | [Architecture](./architecture.md) · [API Reference](./api-reference.md) · [Integration Guide](./integration.md) |
@@ -44,6 +45,15 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [standard/README.md](./standard/README.md) | Why a minimum standard; OSS posture |
 | [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Normative MUST/SHOULD Minimum Profile |
 | [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | JSON Schemas for records |
+
+### Current build planning and reviews
+
+| Document | Description |
+| --- | --- |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline targeting future TL-PX 0.2; live scope is slices 1.1–1.2 |
+| [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
+| [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
+| [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |
 
 ### Runtime subsystems
 

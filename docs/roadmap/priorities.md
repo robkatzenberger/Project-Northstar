@@ -1,5 +1,14 @@
 # Priorities — what to build next
 
+**Status:** SUPERSEDED as current direction — 2026-08-13  
+**Retained as:** historical product thinking from 2026-08-07  
+**Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md)  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+Do not implement from this file. The live sequence is strict fail-closed policy in the JS/TS reference (slices 1.1–1.2), then a separately versioned TL-PX 0.2 contract, then a Rust authority and OS-enforced PEP. The August 7 PEP → signed `AUTHORIZED` snapshot token → expand Go → Rust-later order is no longer current.
+
+The useful historical rule of thumb remains below. It is now restated as: a portable claim ticket without transactional consumption is theater; handoff without a separately named executor authorization does not travel.
+
 ## Rule of thumb
 
 > One killer path end-to-end beats three half-finished layers.  

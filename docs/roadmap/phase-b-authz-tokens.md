@@ -1,5 +1,18 @@
 # Phase B — Signed short-lived authorization tokens
 
+**Status:** ABANDONED as a design — 2026-08-13  
+**Not:** deferred, paused, or awaiting a later MVP under these semantics  
+**Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md) §11.1  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+This document records an abandoned **AUTHORIZED snapshot** token: a bearer, minutes-long, single-actor, `intent_hash`-only artifact that treated offline signature verification as sufficient permission.
+
+That design is incompatible with one authorization, one authenticated executor, one exact action, one atomic claim. Do not implement `issueAuthzToken` / `verifyAuthzToken` against this sketch. Do not revive these field names or this lifecycle under the old meaning.
+
+A later **authorization claim ticket** may exist only if it is bound to one authenticated executor, one `authorized_action_hash`, one adapter/environment/tenant, one short claim window, and one atomic server-side consumption record. Offline verification of a ticket cannot establish global non-consumption.
+
+The text below is historical and must not be treated as a current contract.
+
 ## Goal
 
 Make **AUTHORIZED** portable: another process, service, or agent can verify permission **without** sharing the issuer’s audit file.

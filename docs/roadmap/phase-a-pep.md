@@ -1,5 +1,13 @@
 # Phase A — Policy Enforcement Point (PEP) / forced mediation
 
+**Status:** Problem statement retained; sequence and acceptance bar SUPERSEDED — 2026-08-13  
+**Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md) §14 and §14.1  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+A16 remains real: calling the library is optional, so this is not yet an enforcement boundary. That diagnosis stands.
+
+Do not implement the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as the acceptance test. An unauthenticated prototype may exist later only if labeled as such. Slice 3.9 requires separate OS identities and the eight acceptance assertions in the build sheet. Forced mediation is not the current live implementation slice; Phase 1 (strict policy) is.
+
 ## Goal
 
 Sensitive side effects **cannot complete** unless they go through Switchboard + TL-PX + fail-closed execute.

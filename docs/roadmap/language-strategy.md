@@ -1,5 +1,17 @@
 # Language strategy
 
+**Status:** SUPERSEDED as current direction — 2026-08-13  
+**Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md) §4  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+Do not grow Go `tlpxd` as a second authorization authority. The accepted split is:
+
+- **Rust** — planned authoritative security core and PEP, after the TL-PX 0.2 contract and fixtures exist
+- **TypeScript / JavaScript** — readable reference, conformance oracle, adversarial harness
+- **Java, Go, Python, TypeScript** — SDKs and adapters, not competing authorities
+
+The text below is historical language-fit thinking from 2026-08-07.
+
 ## Clarification
 
 Current primary implementation is **JavaScript (Node ES modules)**, not Java.

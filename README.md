@@ -29,6 +29,8 @@ northstar/
 | Path | Role |
 | --- | --- |
 | [`docs/README.md`](docs/README.md) | Full docs hub |
+| [`NORTHSTAR-SESSION-START.md`](NORTHSTAR-SESSION-START.md) | Fresh-context instructions and required reading order |
+| [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) | Proposed hardened build baseline targeting TL-PX 0.2 |
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Normative TL-PX spec |
@@ -66,6 +68,16 @@ var/tech-test-audit.jsonl
 4. Update [`implementations/README.md`](implementations/README.md).
 
 You do **not** need every language for the open standard — one solid reference + schemas is enough. Extra languages are ports for specific environments (JVM, Go services, Rust PEPs, etc.).
+
+## Hardened-core direction
+
+TL-PX 0.1 and the current JavaScript implementation remain the verified historical reference. The proposed hardened build targets a separately versioned TL-PX 0.2 contract rather than silently rewriting v0.1.
+
+The accepted direction is a small Rust authoritative core/PEP, a TypeScript-readable reference and conformance oracle, and other languages as SDKs/adapters. The foundational rule is:
+
+> One authorization permits one authenticated executor to perform one exact action, one time.
+
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. Planned behavior is not current implementation status.
 
 ---
 

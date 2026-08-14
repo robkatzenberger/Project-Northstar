@@ -1,0 +1,962 @@
+# Northstar Build Specification Sheet
+
+**Status:** Current hardened build baseline  
+**Date:** 2026-08-11; disposition recorded 2026-08-13  
+**Repository:** `robkatzenberger/Project-Northstar`  
+**Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
+**Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
+**Live implementation scope:** slices 1.1–1.2 only  
+**Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
+
+## 1. Purpose
+
+Northstar is a pre-execution authorization boundary for agentic and human-initiated actions. It is not an AI judge, an agent orchestrator, or a substitute for operating-system containment.
+
+Northstar must determine whether an authenticated principal may perform a declared action before that action reaches a protected capability. It must then enforce the decision, preserve a verifiable evidence trail, and fail closed when identity, policy, authorization, state, or integrity cannot be established.
+
+The system itself is part of the trusted computing base. Incorrect authorization or compromise of Northstar could enable the harm it exists to prevent. The authoritative implementation must therefore remain small, deterministic, fail-closed, independently testable, and replaceable behind language-neutral contracts.
+
+This sheet is the destination architecture, not a single implementation assignment. Specification completeness is genuine progress when it closes ambiguity before code fossilizes it. It is not enforcement progress. Do not implement beyond the live scope recorded in the header.
+
+The August 7 roadmap in `docs/roadmap/priorities.md` is superseded as current direction and retained as history. The August 7 `AUTHORIZED` snapshot token is abandoned; see §11.1.
+
+## 2. Foundational invariant
+
+> One authorization permits one authenticated executor to perform one exact action, one time.
+
+Authorization and execution are distinct security events. Authorization proves only that a precisely defined action may begin; it does not prove that the same action began, completed, or produced the intended real-world effect. Northstar must preserve and verify the complete chain from declared intent through observed execution.
+
+An authorization is not:
+
+- an open connection;
+- a reusable approval receipt;
+- session-wide permission;
+- permission for an agent group;
+- a transferable credential;
+- a temporarily open doorway for another agent.
+
+Northstar MUST prevent an agent from piggybacking on, forwarding, sharing, replaying, or holding open another agent's authorization.
+
+## 3. Initial success path
+
+The first hardened release must prove one complete path:
+
+```text
+Authenticated agent
+  -> Submitted Intent
+  -> Switchboard identity and action-scope check
+  -> strict deterministic policy evaluation
+  -> human approval when required
+  -> single-use authorization bound to one Authorized Action
+  -> atomic claim by the named executor
+  -> protected execution recorded as one Executed Action
+  -> Execution Receipt
+  -> terminal state
+  -> sealed evidence
+```
+
+Breadth comes after this path survives adversarial, concurrency, replay, mutation, expiration, bypass, and crash-recovery testing.
+
+The hardened path must preserve four distinct objects:
+
+```text
+declared intent
+  -> authorized action
+  -> claimed execution
+  -> observed terminal result
+```
+
+No later object may be inferred merely from the existence of an earlier one.
+
+## 4. System architecture
+
+```text
+Applications and agents
+Java | Go | Python | TypeScript
+             |
+             | language-neutral request protocol
+             v
+    Rust Northstar authority
+    +-------------------------------+
+    | authenticated identity        |
+    | Switchboard scope             |
+    | strict policy                 |
+    | human approval state          |
+    | one-time authorization        |
+    | atomic transactional claim    |
+    | protected execution / PEP     |
+    | durable state + sealed audit  |
+    +-------------------------------+
+             |
+             v
+       Protected capability
+```
+
+### 4.1 Authoritative Rust core
+
+The security-critical authority will be implemented in Rust and will own:
+
+- principal authentication;
+- Switchboard registration, whitelist, credibility, and action scope;
+- strict policy compilation and evaluation;
+- canonical action normalization and hashing;
+- approval state;
+- authorization issuance, expiration, and atomic claim;
+- transactional state transitions;
+- protected execution;
+- sealed audit generation and reconciliation.
+
+Requirements for the authority:
+
+- no `unsafe` Rust in the authorization path;
+- no LLM calls in the decision path;
+- no arbitrary policy code or dynamic code loading;
+- no in-process plugin system;
+- minimal, reviewed dependencies;
+- explicit error handling;
+- deterministic decisions for identical valid inputs and policy;
+- fail-closed behavior for all uncertain or invalid states.
+
+### 4.2 Language-neutral contract
+
+JSON Schemas and an API contract define interoperability. All implementations and SDKs must share:
+
+- canonical action serialization;
+- action hashing rules;
+- decision vocabulary;
+- authorization states;
+- reason codes;
+- receipt and audit record shapes;
+- conformance fixtures.
+
+### 4.3 TypeScript reference and test oracle
+
+TypeScript will remain the readable reference, conformance oracle, example client, and adversarial test harness. It is not an alternative production authorization authority.
+
+### 4.4 Client SDKs and adapters
+
+Java, Go, Python, and TypeScript components are clients and adapters. They may collect intent, submit actions, display decisions, and verify portable authorization proofs. Local proof verification does not permit execution without the required online transactional claim. They must not independently weaken or redefine authoritative authorization semantics.
+
+## 5. Decision model
+
+| Decision | Authorization state | Meaning |
+| --- | --- | --- |
+| `ALLOW` | `AUTHORIZED_UNCLAIMED` | The named executor may claim one exact action before expiration. |
+| `REQUIRE_APPROVAL` | `PENDING_APPROVAL` | A permitted authenticated human must decide. |
+| `DENY` | `DENIED` | Terminal refusal; it cannot be approved or executed. |
+
+`DENY` means Northstar successfully evaluated the exact request and refused it. It is terminal for that request and is not automatically retryable. Repeating the same idempotent request returns the same refusal; a new evaluation requires a material change such as a new action, principal scope, policy version, revocation state, or environment.
+
+Policy compilation, evaluation, or infrastructure failure produces a terminal `tlpx.evaluation_error` record, not a fourth policy decision and not `DENY`. It creates no authorization and always blocks. Error records declare `retryability` as `NEVER`, `AFTER_CONDITION`, or `IMMEDIATE`; optional `retry_after` and `required_condition` fields constrain retries and prevent retry storms.
+
+Every evaluation error still receives a receipt/correlation ID, trusted sequence number, timestamp, non-sensitive error code and stage, available policy/adapter identity, and sealed audit row. Induced errors must not create gaps in evidence.
+
+## 6. Submitted intent and canonical authorized action
+
+The requester submits an intent object containing only fields available at submission time. That object includes the proposed requester/executor, action, intent class, target, arguments, environment, tenant, `declared_risk`, declared data classes, requested capability, resource scope, payload/artifact digests, adapter identity, and requester-scoped `request_id`. The requester cannot supply trusted `derived_risk`, `effective_risk`, policy outputs, authorization constraints, or an authorization nonce.
+
+Example submitted intent:
+
+```json
+{
+  "requesting_principal": "agent.a",
+  "executing_principal": "agent.a",
+  "action": "send_email",
+  "intent_class": "external_communication",
+  "target": "customer:123",
+  "arguments": {
+    "template": "invoice-ready",
+    "invoice_id": "inv_456"
+  },
+  "environment": "production",
+  "tenant": "tenant_abc",
+  "declared_risk": "medium",
+  "data_classes": ["PII"],
+  "requested_capability": "mailer.send",
+  "resource_scope": ["customer:123"],
+  "payload_hash": "sha256:...",
+  "artifact_hash": null,
+  "adapter": {
+    "id": "adapter.mailer",
+    "version": "1.0.0"
+  },
+  "request_id": "requester-scoped-idempotency-value"
+}
+```
+
+After authentication, Switchboard, validation, and policy evaluation, Northstar constructs a separate authority-normalized authorized-action object. It contains authenticated requester/executor identities, normalized action/target/arguments, validated payload/artifact digests, trusted environment and tenant, policy-derived capability/resource constraints, effective data classifications, `derived_risk`, `effective_risk`, risk reasons/source, policy-bundle hash, adapter binding, and other execution constraints. It excludes requester-only correlation fields unless the v0.2 schema explicitly includes them.
+
+`intent_hash` is computed only over the validated submitted-intent schema. `authorized_action_hash` is computed only over the authority-normalized authorized-action schema. `executed_action_hash` is computed by the PEP over the normalized operation it is actually about to perform. These are distinct schema-defined preimages; implementations must not hash a merged convenience object containing both requester declarations and authority-derived values.
+
+Caller-declared risk is advisory only. Trusted policy derives authoritative risk from action, target, capability, data classes, environment, resource scope, and other trusted context. A requester may raise but never lower effective risk. Missing required classification fails closed; under-declaration is retained as evidence and may inform credibility.
+
+### 6.1 Canonicalization and hash representation
+
+Northstar must validate each hashable object against its schema and canonicalize it using RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoding, and the following profile:
+
+- duplicate object keys are rejected;
+- floating-point values are prohibited in security-critical envelopes;
+- integer ranges are explicitly bounded by schema;
+- absent and `null` remain distinct;
+- array order is preserved unless a field schema explicitly defines canonical sorting;
+- no implementation may hash its language's default JSON serialization.
+
+Hashes use domain-separated, versioned preimages:
+
+```text
+intent_hash =
+  SHA-256(UTF8("northstar:intent:v1\0") || JCS(intent))
+
+authorized_action_hash =
+  SHA-256(UTF8("northstar:authorized-action:v1\0") || JCS(action))
+
+executed_action_hash =
+  SHA-256(UTF8("northstar:executed-action:v1\0") || JCS(action))
+```
+
+The normative string form is ASCII `sha256:` followed by exactly 64 lowercase hexadecimal characters, with no whitespace, truncation, uppercase, base64 alternative, or `0x` prefix. Schema pattern: `^sha256:[0-9a-f]{64}$`. Implementations validate this representation before embedding a hash string in another canonical structure.
+
+Conformance must include cross-language golden fixtures for canonical bytes, raw 32-byte digests, exact hash strings, Unicode, escaping, nested objects, empty values, absent versus `null`, integer boundaries, key order, and rejected duplicate keys/floats.
+
+Changing any material submitted-intent field—including requester, proposed executor, action, intent class, target, arguments, environment, tenant, declared risk, data classes, capability, resource scope, payload/artifact digest, or adapter identity—requires a new evaluation and authorization. Every newly issued authorization independently receives a new authority-generated nonce.
+
+Executable artifacts and transferred payloads must be authorized by digest, not only by path, filename, URL, or mutable reference.
+
+## 7. Authorization record
+
+An authorization must bind at least:
+
+```json
+{
+  "authorization_id": "authz_...",
+  "receipt_id": "rcpt_...",
+  "requesting_principal": "agent.a",
+  "executing_principal": "agent.a",
+  "action": "send_email",
+  "target": "customer:123",
+  "authorized_action_hash": "sha256:...",
+  "intent_hash": "sha256:...",
+  "environment": "production",
+  "tenant": "tenant_abc",
+  "issued_at": "2026-08-11T12:00:00.000Z",
+  "claim_expires_at": "2026-08-11T12:00:05.000Z",
+  "execution_lease_seconds": 30,
+  "authorization_nonce": "authority-generated-csprng-value",
+  "idempotency_key": "...",
+  "state": "AUTHORIZED_UNCLAIMED"
+}
+```
+
+A later portable **authorization claim ticket** or **capability proof**, if issued, must additionally identify the issuer, ticket type and version, signing algorithm, key ID, trust domain, and signature. It is not a bearer `AUTHORIZED` snapshot.
+
+The authorization-signing key must be separate from audit sealing, service identity, operator authentication, and tenant keys.
+
+The requester may supply only a principal-scoped `request_id` for correlation/idempotency. Northstar generates authorization IDs, authorization nonces, and claim IDs. Duplicate caller request IDs return the existing request result within their authenticated scope and cannot collide globally.
+
+## 8. Authorization lifecycle
+
+```text
+EVALUATED
+  |-- DENIED
+  |-- PENDING_APPROVAL
+  |     |-- REJECTED
+  |     |-- APPROVAL_EXPIRED
+  |     |-- CANCELLED
+  |     `-- AUTHORIZED_UNCLAIMED
+  `-- AUTHORIZED_UNCLAIMED
+          |-- EXPIRED
+          |-- REVOKED
+          `-- CLAIMED
+                |-- COMPLETED
+                |-- FAILED
+                |-- CANCELLED
+                |-- LEASE_EXPIRED
+                `-- EXECUTION_OUTCOME_UNKNOWN
+                      `-- RECONCILIATION_REQUIRED
+                            |-- COMPLETED_CONFIRMED
+                            |-- FAILED_CONFIRMED
+                            `-- OUTCOME_UNKNOWN_FINAL
+```
+
+### 8.1 State invariants
+
+- Only `AUTHORIZED_UNCLAIMED` may transition to `CLAIMED`.
+- Claiming consumes the authorization immediately.
+- `CLAIMED` may never return to `AUTHORIZED_UNCLAIMED`.
+- `DENIED`, `REJECTED`, `APPROVAL_EXPIRED`, `EXPIRED`, `REVOKED`, `COMPLETED`, `FAILED`, `CANCELLED`, `LEASE_EXPIRED`, `COMPLETED_CONFIRMED`, `FAILED_CONFIRMED`, and `OUTCOME_UNKNOWN_FINAL` are terminal.
+- One authorization may produce at most one successful claim.
+- One receipt may have at most one terminal human outcome.
+- One one-time authorization may produce at most one terminal execution.
+- Completion, failure, cancellation, rejection, or expiration permanently closes permission.
+- Approval after `APPROVAL_EXPIRED` or `CANCELLED` requires a new evaluation.
+- `EXECUTION_OUTCOME_UNKNOWN` permanently consumes authorization and must never trigger automatic re-execution.
+
+### 8.2 Authorized cancellation
+
+While `PENDING_APPROVAL`, cancellation may be initiated only by the authenticated original requester for its own request, an authenticated operator authorized for the approval route, an authenticated revocation/emergency authority, or Northstar itself for expiry, shutdown, invalidated policy, disabled principal, or revoked scope.
+
+Cancellation and approval race atomically; exactly one transition wins. The cancellation record binds the receipt, action hash, authenticated canceller, role, stable reason, timestamp, and trusted sequence. Unauthenticated cancellation is always rejected.
+
+After claim, cancellation is a request to stop work rather than proof that an external effect was reversed. Execution evidence distinguishes `CANCELLED_BEFORE_SIDE_EFFECT`, `CANCELLATION_REQUESTED`, `CANCELLED_DURING_EXECUTION`, `CANCELLATION_UNSUPPORTED`, and `COMPLETED_BEFORE_CANCELLATION`.
+
+## 9. Timing and expiration
+
+Authorization lifetime and execution lifetime are separate.
+
+| Stage | Initial default |
+| --- | ---: |
+| Human approval request | 5-15 minutes |
+| Automatic authorization claim window | 3-5 seconds |
+| Post-approval claim window | 5 seconds |
+| Local clock-skew tolerance | approximately 1 second |
+| Execution lease | action-specific |
+
+Example execution leases:
+
+| Action | Initial lease |
+| --- | ---: |
+| Modify one file | 10 seconds |
+| Send email or make API request | 30 seconds |
+| Start deployment | 60 seconds |
+| Complete deployment workflow | 5-15 minutes |
+| Start long-running job | authorize job creation only |
+
+The short claim timer begins when authorization is issued, not while a human is deciding.
+
+## 10. Atomic claim
+
+Expiration alone does not prevent two executors from using the same permission during the valid window. Claiming must therefore be transactional and compare the authenticated executor and actual action hash.
+
+Conceptual operation:
+
+```sql
+UPDATE authorizations
+SET
+  state = 'CLAIMED',
+  claimed_by = :authenticated_executor,
+  claimed_at = :now,
+  lease_expires_at = :lease_expiration
+WHERE authorization_id = :authorization_id
+  AND executing_principal = :authenticated_executor
+  AND authorized_action_hash = :executed_action_hash
+  AND state = 'AUTHORIZED_UNCLAIMED'
+  AND claim_expires_at > :now
+  AND revoked_at IS NULL
+  AND principal_status = 'ACTIVE'
+  AND policy_status = 'ACTIVE'
+  AND signing_key_status = 'ACTIVE'
+  AND environment_status = 'ACTIVE';
+```
+
+Exactly one updated row means the claim succeeded. Zero updated rows must produce a blocking reason such as:
+
+- `AUTHORIZATION_EXPIRED`;
+- `ALREADY_CLAIMED`;
+- `EXECUTOR_MISMATCH`;
+- `ACTION_MISMATCH`;
+- `AUTHORIZATION_DENIED`;
+- `AUTHORIZATION_TERMINAL`.
+
+Authorization validation, revocation checks, identity/action comparison, and consumption occur in the same transaction. There is no separate check-then-claim gap.
+
+## 11. Idempotency and retries
+
+One-time authorization must not cause duplicate actions when a process loses a response.
+
+- Execution requests carry an idempotency key bound to the authorization ID, authenticated executor, and authorized-action hash.
+- Retrying the identical request returns the existing execution state or result.
+- A retry must not repeat the side effect.
+- A different action hash or executor is rejected.
+- Failed or completed authorization cannot be reopened.
+- A genuinely new attempt requires a new evaluation and authorization.
+
+Idempotency permits recovery; it does not make authorization reusable.
+
+## 11.1 Portable proof versus transactional consumption
+
+For Northstar’s ordinary software threat model:
+
+> Authorization proof may be portable; single-use consumption remains online and transactional.
+
+A PEP may verify a claim ticket’s signature, authenticated executor binding, `authorized_action_hash`, adapter/environment/tenant scope, and expiry locally. It must still atomically claim the authorization from authoritative state before any side effect begins. Offline verification cannot establish global non-consumption.
+
+A valid future claim ticket binds:
+
+- one authenticated executor;
+- one `authorized_action_hash`;
+- one adapter, environment, and tenant;
+- one short claim window;
+- one atomic server-side consumption record.
+
+Exotic hardware-backed non-copyable capabilities could change the consumption story someday. They must not complicate this design.
+
+### Abandoned: `AUTHORIZED` snapshot token
+
+The August 7 `tlpx.authz_token` design in `docs/roadmap/phase-b-authz-tokens.md` is **abandoned**, not deferred. Do not implement or revive:
+
+- a bearer token with a minutes-long TTL and no proof-of-possession;
+- a single `actor` field instead of requester/executor split;
+- binding only `intent_hash`;
+- treating offline signature verification as sufficient permission;
+- listing one-time use as optional because it is harder offline.
+
+## 12. Multi-agent isolation and handoff
+
+### 12.1 Invalid handoff
+
+```text
+Agent A receives authorization
+Agent A forwards it to Agent B
+Agent B attempts execution
+```
+
+This must fail with `EXECUTOR_MISMATCH`.
+
+### 12.2 Valid handoff
+
+Northstar must evaluate the handoff while explicitly naming:
+
+- Agent A as requester;
+- Agent B as executor;
+- the exact action Agent B will perform;
+- the target and normalized arguments.
+
+The resulting authorization names Agent B and may be claimed only by Agent B. Alternatively, Agent A may be authorized only to request a second evaluation for Agent B. A parent authorization never automatically authorizes a child action.
+
+Handoff evidence should link parent and child receipt IDs without making permission transitive.
+
+### 12.3 Authorization-to-execution integrity
+
+Northstar must keep the following digests distinct:
+
+- `intent_hash`: the canonical declaration submitted for evaluation;
+- `authorized_action_hash`: the exact action approved by Northstar;
+- `executed_action_hash`: the exact normalized operation presented to the PEP;
+- optional `result_hash`: a bounded result, artifact, or external confirmation digest.
+
+Before any side effect begins, the PEP must establish:
+
+```text
+authorized_action_hash == executed_action_hash
+```
+
+A mismatch blocks execution and records `ACTION_MISMATCH`. An `AUTHORIZED` record is never evidence that execution occurred. An execution attempt is never evidence that the intended external effect completed successfully.
+
+For external systems, the receipt must distinguish observations such as request accepted, API response received, transaction committed, and independently confirmed settlement. Northstar must not claim a stronger result than the evidence supports.
+
+### 12.4 Normative execution receipt
+
+Every claimed authorization must reach one durable terminal execution receipt containing at least:
+
+- execution and claim IDs;
+- authorization and decision receipt IDs;
+- authenticated requester and executor;
+- intent, authorized-action, and executed-action hashes;
+- protected target reference;
+- policy bundle identity, version, and digest;
+- adapter identity, version, and optional binary digest;
+- trusted sequence number;
+- start and terminal timestamps;
+- terminal state;
+- bounded result summary, digest, or external evidence reference;
+- audit-chain integrity and seal/signature metadata.
+
+Receipts prove what the trusted enforcement path observed. They do not prove hidden intent, internal model alignment, or unobserved effects outside the mediated boundary.
+
+If the PEP crashes after the protected system may have accepted the side effect but before a durable completion receipt exists, reconciliation assigns `EXECUTION_OUTCOME_UNKNOWN` and then `RECONCILIATION_REQUIRED`. Authorization remains consumed. The reconciler uses external idempotency keys, transaction/deployment IDs, artifact or target-state verification, protected-system confirmation, or human investigation. It may resolve to `COMPLETED_CONFIRMED`, `FAILED_CONFIRMED`, or the honest terminal `OUTCOME_UNKNOWN_FINAL`; it must never automatically repeat an irreversible action.
+
+### 12.5 Trusted time, ordering, and replay
+
+- Monotonic time controls local claim expiration and execution leases.
+- Wall-clock time is retained for human-readable and cross-system evidence.
+- Transactional sequence numbers establish authoritative local order.
+- Timestamps alone must not resolve concurrent state transitions.
+- Portable authorization profiles must define clock-skew and uncertainty limits.
+- Excessive time uncertainty fails closed.
+- Nonces, one-time state, and idempotency keys prevent replay; timestamps are not the sole replay defense.
+
+### 12.6 Revocation and emergency stop
+
+Northstar must support revocation of an unclaimed authorization, principal, policy bundle, signing key, tenant, environment, or protected capability. Revocation is checked transactionally during claim.
+
+Required behavior:
+
+- unclaimed authorization becomes unusable immediately;
+- claimed work may be cancelled only when the executor supports safe cancellation;
+- completed work cannot be undone by changing history;
+- long-running leases may require periodic validity checks;
+- emergency deny has the highest policy precedence;
+- revocation creates compensating evidence and never rewrites prior audit records.
+
+The historical revocation-storm result is prototype evidence only. It is not a current capacity target or production scalability claim.
+
+### 12.7 Policy provenance and precedence
+
+Every active policy bundle must declare:
+
+- unique ID and semantic version;
+- content digest;
+- issuer or owner;
+- activation and retirement times;
+- environment and tenant scope;
+- precedence;
+- superseded-policy reference where applicable.
+
+Initial deterministic precedence is:
+
+```text
+emergency deny
+  -> tenant/environment restriction
+  -> Switchboard principal and action scope
+  -> base policy
+  -> action-specific policy
+  -> human approval condition
+```
+
+Undefined conflicts, ambiguous precedence, or invalid policy provenance fail closed. Decision receipts record the complete effective policy-bundle digest.
+
+### 12.8 Key separation and lifecycle
+
+Cryptographic authority must be separated across:
+
+- audit sealing;
+- authorization signing;
+- service identity;
+- operator authentication;
+- tenant-specific trust domains.
+
+The design must specify secure storage, least-privilege access, rotation, revocation, key versioning, offline verification, tenant isolation, and unavailable-key behavior. Compromise of an audit-sealing key must not grant authorization-signing authority.
+
+### 12.9 Anti-gaming and bypass taxonomy
+
+The threat model must classify at least:
+
+- under-declared risk or omitted action data;
+- benign-action substitution after approval;
+- argument, target, payload, or artifact mutation;
+- requester, executor, operator, or adapter substitution;
+- approval, token, or receipt replay;
+- split-action and batch-action evasion;
+- time-of-check/time-of-use mutation;
+- approval flooding, fatigue, and rubber-stamping;
+- adapter bypass or direct tool access;
+- partial execution before authorization;
+- unmediated downstream effects triggered by an authorized first step.
+
+Each category must be labeled as prevented, detected, evidenced, or an accepted limitation. Ambiguous or incomplete executable action data must not be treated as low risk.
+
+### 12.10 Adapter integrity
+
+Adapters are part of the trusted enforcement path when they translate host operations into canonical actions. They must:
+
+- authenticate mutually with the authority;
+- identify their version in requests and receipts;
+- transmit envelopes over authenticated channels;
+- map every material host argument and target deterministically;
+- block if translation is incomplete or unsupported;
+- prohibit caller-selected downgrade to unmediated execution;
+- support binary or deployment digest verification where practical;
+- undergo mutation, omission, and mapping tests.
+
+A correct authority behind a compromised or incomplete adapter does not provide reliable enforcement.
+
+### 12.11 Human approval quality and quorum extension
+
+Approval interfaces must display the exact action, executor, target, risk, and material arguments represented by the action hash. Any material change invalidates the approval.
+
+The operator-action record must contain the `authorized_action_hash` the human saw, decision receipt ID, authenticated operator subject, approval route/quorum rule, effective policy-bundle digest, renderer identity/version, trusted sequence, outcome, and authenticated-session/signature evidence.
+
+For what-you-see-is-what-you-sign binding:
+
+```text
+approval_context_hash =
+  SHA-256(
+    UTF8("northstar:approval-context:v1\0") ||
+    JCS({
+      authorized_action_hash,
+      policy_bundle_hash,
+      approval_route,
+      material_display_fields,
+      renderer_id,
+      renderer_version
+    })
+  )
+```
+
+High-risk profiles may require MFA, rationale capture, rate limits, anti-fatigue controls, or M-of-N approval. Partial approval must produce a newly scoped action envelope and authorization; it may not mutate an existing authorization in place.
+
+M-of-N sentinels are an extension profile, not a requirement for the first hardened path. The state model must allow them later without weakening the single-action invariant.
+
+### 12.12 Privacy and data minimization
+
+- Prism, authorization, and audit records remain metadata-oriented.
+- Prompts, chain-of-thought, credentials, secrets, and unrestricted sensitive payloads are prohibited.
+- Sensitive arguments should use digests, bounded summaries, or opaque references where possible.
+- Audit retention and access are deployment-defined and separately authorized.
+- Corrections and deletion obligations use tombstones or compensating records rather than rewriting authorization history.
+
+### 12.13 Operational safety and incident response
+
+Readiness must depend on valid policy, available keys, transactional state, and a healthy audit outbox—not only process liveness. The system requires:
+
+- structured security events and stable reason codes;
+- alerts for replay, identity mismatch, action mismatch, repeated claim failure, and suspected bypass;
+- emergency deny and operational kill switch;
+- non-permissive degraded mode;
+- backup, restore, database integrity, and audit reconciliation procedures;
+- recovery that never reopens expired, claimed, or terminal authorization;
+- severity and response playbooks for trust-boundary failures.
+
+### 12.14 Deferred Glass extension profiles
+
+The following remain optional future profiles rather than initial-core promises:
+
+- M-of-N sentinel consensus;
+- anomaly and behavioral-drift scoring;
+- hybrid human/machine consensus;
+- decentralized attestations and provenance networks;
+- zero-knowledge proofs of policy alignment;
+- dual-ledger deployments;
+- dynamic integrity seals;
+- hierarchical multi-agent authorization.
+
+Extensions may add evidence or stricter authorization but must never bypass deterministic policy, exact-action binding, single-use claim, authenticated execution, or forced mediation.
+
+### 12.15 Requirements maturity and claims labels
+
+Each major requirement or feature must be labeled as one of:
+
+- **Implemented**: present and verified against a named commit;
+- **Planned**: accepted for the build but not yet implemented;
+- **Extension/experimental**: future research or optional profile.
+
+Patent and product language must not imply that Northstar observes hidden reasoning, guarantees truthful intent, universally contains autonomous processes, proves internal alignment, or prevents bypass outside capabilities actually placed behind its PEP.
+
+## 13. Strict policy requirements
+
+Policy processing is divided into parse, validate, compile, and evaluate stages. The entire policy pack is rejected if any rule is invalid.
+
+Reject at least:
+
+- malformed expressions;
+- unsupported syntax or operators;
+- unknown fields;
+- missing or duplicate rule IDs;
+- missing conditions;
+- rules without an effect;
+- invalid enums and values;
+- ambiguous or unsupported structure;
+- empty policy packs unless an explicit default is configured.
+
+Evaluation must distinguish matched, not matched, and error. An error never behaves like a non-match when the eventual default could be permissive.
+
+Policy must be validated at process startup. A malformed pack fails process start. The previously loaded policy must not remain active accidentally unless an explicitly designed, audited last-known-good mode exists. Phase 1 has no such mode: startup failure is required. Later hot reload must fully compile the replacement, then atomically activate it; never partially load it.
+
+Untrusted callers may not select arbitrary policy files per request. Each decision records policy identity, version, and digest.
+
+### 13.1 Explicit defaults and version discipline
+
+| Version | Default behavior |
+| --- | --- |
+| TL-PX 0.1 / Phase 1 | Malformed policy fails pack load or process startup and issues no authorization. It must not emit a v0.2 `EVALUATION_ERROR`. A **valid** pack retains the frozen v0.1 evaluate rule: no matching escalation rule implies `ALLOW`. |
+| TL-PX 0.2 | Every policy bundle requires an explicit default outcome. Missing or invalid default prevents bundle activation. If that state is reached at runtime, emit `EVALUATION_ERROR` and issue no authorization. |
+
+An explicit `default: ALLOW` remains legal in the minimum standard after Switchboard has authenticated and scoped the principal. The defect is implicit allowance combined with optional or bypassed scope enforcement.
+
+Hardened profiles MAY require `default: DENY` or `default: REQUIRE_APPROVAL`. The minimum standard MUST NOT assume every deployment has that posture.
+
+## 14. Forced mediation and initial PEP
+
+The first protected surface will be a shell-command policy enforcement point, provisionally named `tlpx-run`.
+
+The PEP must:
+
+- authenticate the executor;
+- require the complete authority-issued Authorized Action;
+- verify its exact `authorized_action_hash` and compare the resulting Executed Action against it;
+- atomically claim one authorization;
+- execute normalized commands and arguments without shell interpolation by default;
+- restrict executable, working directory, environment, output, and duration;
+- enforce the execution lease;
+- record a terminal result;
+- prevent secrets and unrestricted output from entering the audit.
+
+The protected test agent must not retain another route to the underlying shell. If it retains direct authority, Northstar is cooperative mediation rather than an enforcement boundary.
+
+### 14.1 Restricted-agent acceptance (slice 3.9)
+
+“The PEP identity is the only writer” is necessary and not sufficient. A caller that merely chooses to use the PEP is the already-proven cooperative gate.
+
+The acceptance environment must use separate OS identities for the restricted agent and the PEP. Separate UIDs are necessary. Socket access alone is not impersonation: the agent must be able to contact the PEP to request authorized work.
+
+The test must establish all of the following:
+
+1. The agent identity cannot write the protected target.
+2. The agent cannot acquire or impersonate the PEP identity: it cannot read PEP keys, modify PEP code or configuration, or bind a replacement service.
+3. The agent UID may connect to the PEP only through a narrowly permitted interface.
+4. The PEP service UID owns the protected capability and secrets.
+5. The PEP authenticates the caller independently rather than trusting a caller-supplied principal string.
+6. The PEP accepts only authenticated, exact, unexpired, unclaimed authorization and cannot be induced to execute an unclaimed or mismatched action.
+7. Reuse, mutation, direct access, alternate binaries, alternate paths, and alternate privileged interfaces all fail.
+8. The resulting execution and denial evidence is independently verified.
+
+If the suite runs the agent as the PEP service identity, or lets the agent replace the PEP endpoint, read PEP keys, or write the protected target directly, it has not tested impersonation resistance. Permission to connect to the narrowly scoped PEP interface does not by itself violate identity separation.
+
+## 15. Authentication
+
+Northstar derives requester, operator, and executor identity from authenticated context, not request-body strings.
+
+### 15.1 Initial local profile
+
+- Unix domain socket;
+- OS peer credentials where supported;
+- dedicated Northstar service identity;
+- explicit OS-user or workload-to-principal mapping.
+
+### 15.2 Service profile
+
+- TLS;
+- mutual TLS, OIDC, or workload identity;
+- verified human identity claims;
+- separate evaluator, operator, and executor credentials;
+- tenant-, environment-, role-, route-, and action-aware authorization.
+
+Credentials and access tokens must never be written to audit records.
+
+## 16. Transactional state and audit
+
+SQLite is the initial operational state store for the local authority. Sealed JSONL remains an evidence and interoperability format, not the unsynchronized live state machine.
+
+Database constraints must enforce:
+
+- unique receipt IDs;
+- unique authorization IDs and nonces;
+- one decision per receipt;
+- at most one terminal operator outcome;
+- at most one successful claim;
+- at most one execution for a one-time capability;
+- no reopening of terminal states;
+- exact principal and action-hash matching;
+- idempotent duplicate requests.
+
+Audit export must use a durable outbox or equivalent recovery mechanism so state commits and evidence remain reconcilable after a crash.
+
+## 17. Fail-closed requirements
+
+No permission is issued or exercised when Northstar encounters:
+
+- invalid or unavailable policy;
+- unknown or unauthenticated principal;
+- missing or ambiguous action data;
+- principal or executor mismatch;
+- action-hash mismatch;
+- expired or consumed authorization;
+- database contention or failed transaction;
+- audit integrity failure;
+- authentication failure;
+- excessive clock uncertainty;
+- internal panic, unavailable dependency, or timeout.
+
+Failures should be observable and auditable without exposing secrets.
+
+## 18. Build phases
+
+### Target contract version
+
+The hardened contract targets **TL-PX 0.2.0**. The new decision/error records, authorization states, canonical hashing, one-time claims, revocation, authenticated identity binding, and execution receipts are breaking changes under the v0.1 SemVer rule.
+
+TL-PX 0.1 remains frozen as historical evidence. Its 47 existing conformance fixtures must not be silently rewritten. Phase 2 creates `docs/standard/SPEC-v0.2.md`, `schemas/tlpx-0.2/`, and a distinct v0.2 conformance suite. Compatibility work must state whether a v0.1 artifact is read-only, explicitly upgraded, or unsupported; it must not pretend v0.1 already meant v0.2.
+
+### Phase 1: strict fail-closed policy
+
+First correct the JavaScript/TypeScript reference: build the strict policy compiler and negative suite, reject the known malformed condition `risk ==`, and issue no authorization. This phase establishes fixtures and reference semantics; it does not expand the reference into the production authority.
+
+Live scope is slices 1.1–1.2 only:
+
+```text
+parse → validate → compile → evaluate
+```
+
+- The entire pack is compiled before any decision.
+- Parse/compile errors are not treated as a non-match.
+- A malformed pack fails process startup. No accidental last-known-good remains active.
+- Negative tests sit beside the frozen 47 v0.1 fixtures and do not rewrite them.
+- This phase does not emit `DENY` or `EVALUATION_ERROR` records, introduce v0.2 schemas, start Rust, issue tokens, or build a PEP.
+
+### Phase 2: one normative contract
+
+Align the v0.2 specification, schemas, validators, error records, reason codes, corrected reference implementation, planned Rust authority, and new conformance suite around `ALLOW`, `REQUIRE_APPROVAL`, and `DENY` plus the authorization lifecycle in this document.
+
+Every emitted record, including Switchboard `DENY`, authorization claim, revocation, and execution receipt, must validate against the canonical schemas. This phase also fixes canonical hashing, trusted ordering, policy provenance, and requirements-maturity labels.
+
+### Phase 3: authenticated transactional authority and one-time execution
+
+Implement the Rust authority skeleton, distinct Submitted Intent, Authorized Action, Executed Action, and Execution Receipt types and hashes, authenticated requester/operator/executor identities, SQLite state, short claim window, atomic one-time claim, revocation check, idempotency, and adapter integrity.
+
+An unauthenticated `tlpx-run` may be built earlier only as a prototype. It is not the enforcement acceptance test and must be labeled accordingly.
+
+After authenticated identity and atomic state exist, build `tlpx-run`. Slice 3.9 is the OS-enforced acceptance test in §14.1, not a polite library wrapper. A restricted test agent must be unable to create the protected marker except through one valid authorization and must be unable to reuse, mutate, or transfer that authorization.
+
+### Phase 4: operational hardening and multi-agent profile
+
+Complete separated key roles, durable audit export, reconciliation, operational readiness, concurrency safety, crash recovery, and explicit non-transitive multi-agent handoff.
+
+Identity spoofing, replay, concurrent claims, retries, and restarts must not create a second authorized action.
+
+## 19. Assurance strategy
+
+The trust path requires:
+
+- unit and integration tests;
+- schema and cross-language conformance;
+- property-based testing;
+- model-based state-machine testing;
+- parser and API fuzzing;
+- concurrency race tests;
+- crash and recovery injection;
+- replay and identity-substitution attacks;
+- action and argument mutation tests;
+- expiration and clock-boundary tests;
+- database corruption and recovery tests;
+- two-agent requester/gate scenarios;
+- independent correctness, security, and conformance reviews.
+
+No agent should author and approve its own trust-path change.
+
+The primary safety property is:
+
+> For every possible event sequence, no protected side effect begins unless one valid authorization for the authenticated executor and exact action is atomically claimed once; the executed action must match the authorized action, and every successful claim must reach one durable terminal outcome.
+
+## 20. Defense in depth
+
+Northstar is not the only control. Production-shaped deployments should also use:
+
+- OS sandboxing and process isolation;
+- least-privilege service accounts;
+- restricted filesystem and network access;
+- external credential brokering;
+- rate limiting and resource bounds;
+- independent audit export and monitoring;
+- operational kill switches and revocation controls.
+
+If Northstar fails, these controls should still constrain the blast radius.
+
+## 21. Claims discipline
+
+Until independently reviewed and hardened, Northstar should be described as a reference implementation, experimental enforcement boundary, or security-focused preview.
+
+Passing tests alone does not justify claims such as high assurance, tamper-proof, universally secure, or production safe.
+
+Documentation must visibly distinguish implemented behavior, planned requirements, and experimental extension profiles. Historical prototypes and performance artifacts may be cited only with their original scope and methodology limitations.
+
+## 22. Required CI
+
+Changes to the trust path must run:
+
+- Rust unit, integration, property, and concurrency tests;
+- TypeScript reference tests;
+- conformance suite;
+- technical test;
+- red-team suite;
+- JSON Schema validation;
+- RFC 8785 canonical-byte and exact `sha256:` representation fixtures across languages;
+- domain-separated intent/authorized/executed/approval-context hash fixtures;
+- malformed-policy negative tests;
+- `DENY` versus `EVALUATION_ERROR` retry-semantics tests;
+- sealed evaluation-error evidence tests;
+- approval-expiry and authorized-cancellation race tests;
+- advisory declared-risk versus policy-derived-risk tests;
+- one-time claim and replay tests;
+- executor-binding and piggybacking tests;
+- intent/authorized/executed hash consistency tests;
+- action, target, payload, artifact, and adapter mutation tests;
+- expiration and idempotency tests;
+- revocation and emergency-deny tests;
+- policy precedence and provenance tests;
+- key rotation and revoked-key tests;
+- trusted-time and sequence-ordering tests;
+- execution-receipt schema and evidence tests;
+- human approval display/hash-binding tests;
+- crash-recovery tests;
+- post-side-effect/pre-receipt crash and unknown-outcome reconciliation tests;
+- audit-outbox reconciliation tests;
+- two-agent execution-gate test;
+- SDK tests where compatibility is claimed.
+
+Major phases add dated evidence under `tests/reports/` without overwriting historical reports.
+
+## 23. Delivery slices
+
+| Slice | Deliverable | Dependency |
+| --- | --- | --- |
+| 1.1 | Strict policy parser and compiler | None |
+| 1.2 | Negative policy suite and startup validation | 1.1 |
+| 2.1 | Freeze v0.1 and draft normative TL-PX 0.2 decision/error/state contract | 1.1 |
+| 2.2 | JCS profile, hash representation, domain separation, and golden fixtures | 2.1 |
+| 2.3 | v0.2 schemas, receipts, validators, reason codes, and conformance suite | 2.2 |
+| 2.4 | Policy precedence, provenance, trusted ordering, and maturity labels | 2.3 |
+| 3.1 | Rust authority skeleton and shared contract types | 2.4 |
+| 3.2 | Submitted Intent, Authorized Action, and Executed Action types plus distinct canonical hashing | 3.1 |
+| 3.3 | Authenticated local requester, operator, executor, and cancellation | 3.2 |
+| 3.4 | Authorization record, authority-generated nonce, and approval expiry | 3.3 |
+| 3.5 | SQLite state, revocation, and atomic one-time claim | 3.4 |
+| 3.6 | Idempotency, execution receipt, unknown-outcome reconciliation, and terminal state | 3.5 |
+| 3.7 | Authenticated adapter contract and integrity tests | 3.6 |
+| 3.8 | `tlpx-run` shell PEP prototype | 3.7 |
+| 3.9 | Restricted-agent authenticated enforcement acceptance test | 3.8 |
+| 4.1 | Separated key roles, rotation, and revocation | 3.5 |
+| 4.2 | Durable audit outbox and reconciliation | 4.1 |
+| 4.3 | Concurrency, trusted-time, cancellation-race, and crash-recovery suite | 4.2 |
+| 4.4 | Operational readiness and incident-response profile | 4.2 |
+| 4.5 | Explicit multi-agent handoff profile | 4.3 |
+| 4.6 | External security review readiness package | 4.4 |
+
+## 24. Completion criteria
+
+The hardened core is complete when:
+
+- invalid policy cannot authorize;
+- all emitted records conform to one normative contract;
+- TL-PX 0.1 remains frozen while 0.2 breaking changes are separately versioned and tested;
+- canonical bytes and exact hash strings match across every conforming language;
+- `DENY` and `EVALUATION_ERROR` have distinct, deterministic retry semantics;
+- every evaluation error is sealed into the evidence chain without issuing authorization;
+- every authorization names one requester and one executor;
+- every authorization binds one exact Authorized Action, payload, artifact, target, and adapter identity where applicable;
+- intent, authorized-action, and executed-action hashes remain distinct and verifiably linked;
+- authorization must be claimed within a short window;
+- pending approval expires and may be cancelled only by an authenticated authorized actor or system authority;
+- exactly one authenticated executor can claim it;
+- completion, failure, cancellation, rejection, or expiration closes it permanently;
+- agents cannot piggyback, transfer, mutate, or replay permission;
+- retries cannot duplicate the action;
+- requester-declared risk can never lower policy-derived effective risk;
+- authority-generated authorization nonces cannot be collision-gamed by callers;
+- revocation prevents every later unclaimed use;
+- policy precedence and provenance are deterministic and evidenced;
+- cryptographic roles are separated and safely rotatable;
+- every successful claim reaches one durable execution receipt and terminal outcome;
+- uncertain post-side-effect outcomes consume authorization and reconcile honestly without automatic replay;
+- a restricted agent cannot bypass the protected PEP;
+- compromised or incomplete adapters fail closed rather than silently downgrading mediation;
+- operators and executors are authenticated;
+- state remains correct through races, crashes, and restarts;
+- degraded operation never becomes permissive;
+- sealed evidence reconstructs each decision and terminal outcome;
+- independent adversarial testing confirms these properties against a named commit.
+
+## 25. Baseline evidence and related documents
+
+- [`../tests/README.md`](../tests/README.md)
+- [`../tests/reports/northstar-two-agent-test-proof.md`](../tests/reports/northstar-two-agent-test-proof.md)
+- [`reviews/build-spec-review-2026-08-11-model-2.md`](./reviews/build-spec-review-2026-08-11-model-2.md)
+- [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
+- [`standard/SPEC-v0.1.md`](./standard/SPEC-v0.1.md)
+- [`security.md`](./security.md)
+- [`architecture.md`](./architecture.md)
+- [`roadmap/priorities.md`](./roadmap/priorities.md) — superseded as current direction
+- [`roadmap/phase-a-pep.md`](./roadmap/phase-a-pep.md) — problem retained; sequence superseded
+- [`roadmap/phase-b-authz-tokens.md`](./roadmap/phase-b-authz-tokens.md) — old snapshot token abandoned
+- [`roadmap/phase-c-mm-handoff.md`](./roadmap/phase-c-mm-handoff.md) — handoff goal retained; must not use the abandoned token
+
+This sheet is the current build baseline. Changes to its security invariants require an explicit architecture decision, corresponding contract updates, and adversarial tests.

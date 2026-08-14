@@ -37,3 +37,7 @@ Thumbs.db
 
 # Test / misc
 *.local
+
+# Private local notes (not for git / collaborators)
+skills.md
+.grok/

@@ -1,10 +1,13 @@
 # Roadmap & product ideas (local)
 
-This folder captures **strategic direction** for Northstar / Trust Layer beyond the current reference implementation.  
+This folder captures **historical product thinking** for Northstar / Trust Layer beyond the current reference implementation.  
 It is design and intent — not all of it is built yet.
 
-**Last updated:** 2026-08-07  
-**Repo:** local + private GitHub `Trust-Layer-AI/Project-Northstar`
+**Last updated:** 2026-08-13  
+**Current build baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md)  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+`priorities.md` and `language-strategy.md` are superseded as current direction. The Phase B `AUTHORIZED` snapshot token is abandoned. Read the build sheet before implementing anything from this folder.
 
 ---
 
@@ -13,10 +16,10 @@ It is design and intent — not all of it is built yet.
 | File | Contents |
 | --- | --- |
 | [hm-mm-runtime.md](./hm-mm-runtime.md) | Thoughts on human↔machine and machine↔machine runtime fit |
-| [priorities.md](./priorities.md) | What to build next and in what order |
-| [phase-a-pep.md](./phase-a-pep.md) | Forced mediation / PEP adapters |
-| [phase-b-authz-tokens.md](./phase-b-authz-tokens.md) | Signed short-lived authorization tokens |
-| [phase-c-mm-handoff.md](./phase-c-mm-handoff.md) | Multi-agent receipt / token handoff |
+| [priorities.md](./priorities.md) | **Superseded** August 7 sequence (PEP → snapshot token → Go) |
+| [phase-a-pep.md](./phase-a-pep.md) | A16 problem retained; sequence/acceptance superseded |
+| [phase-b-authz-tokens.md](./phase-b-authz-tokens.md) | **Abandoned** AUTHORIZED snapshot token |
+| [phase-c-mm-handoff.md](./phase-c-mm-handoff.md) | Handoff goal retained; must not use the abandoned token |
 | [openai-hf-incident-notes.md](./openai-hf-incident-notes.md) | How TL-PX relates to containment-break incidents |
 | [enterprise-switchboard.md](./enterprise-switchboard.md) | When Switchboard becomes a dedicated service |
 | [language-strategy.md](./language-strategy.md) | Multi-language monorepo and language choices |
@@ -49,10 +52,10 @@ It is design and intent — not all of it is built yet.
 - Java: policy + Switchboard evaluate  
 - Full docs suite + shareable `docs/SHARE.md`  
 
-**Not built yet (this roadmap):**
+**Not built yet (historical list from 2026-08-07):**
 
-- Forced PEP adapters for agent frameworks  
-- Signed portable authz tokens  
+- Forced PEP / OS-enforced mediation (now destination slice 3.9, not the live slice)  
+- Portable claim ticket with transactional consumption (the old AUTHORIZED snapshot token is abandoned)  
 - Multi-agent handoff protocol  
 - Crypto operator identity / SSO  
 - Full Java audit parity  
@@ -61,6 +64,8 @@ It is design and intent — not all of it is built yet.
 
 ## Related docs (outside this folder)
 
+- [../BUILD-SPEC-SHEET.md](../BUILD-SPEC-SHEET.md) — current hardened build baseline  
+- [../reviews/build-plan-review-disposition-2026-08-13.md](../reviews/build-plan-review-disposition-2026-08-13.md) — implementation boundary  
 - [../SHARE.md](../SHARE.md) — plain-language overview for sharing  
 - [../README.md](../README.md) — docs hub  
 - [../security.md](../security.md) — threat model  

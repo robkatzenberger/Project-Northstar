@@ -1,8 +1,8 @@
 # Rust implementation
 
-**Status:** Placeholder — not started  
+**Status:** Planned authoritative core — not started
 
-Intended use: high-assurance **policy enforcement point** (PEP) / sidecar that must fail closed under load.
+Intended use: small security-critical TL-PX 0.2 authority and **policy enforcement point** (PEP) that must fail closed. Implementation begins only after the v0.2 contract, canonicalization profile, schemas, and golden conformance fixtures are accepted.
 
 ## Planned shape (draft)
 
@@ -16,9 +16,13 @@ rust/
 
 ## Requirements when implemented
 
-- Conform to [TL-PX SPEC v0.1](../../docs/standard/SPEC-v0.1.md)
-- Deterministic evaluate path; chain-verified authorize
-- Strong story for embedding next to agent runtimes
+- Follow the proposed [hardened build specification](../../docs/BUILD-SPEC-SHEET.md), not by rewriting frozen TL-PX v0.1
+- Conform to the future TL-PX v0.2 spec, schemas, JCS/hash fixtures, state model, receipts, and reason codes
+- Deterministic fail-closed policy and authenticated single-use atomic authorization
+- Preserve distinct intent, authorized-action, executed-action, and observed-result evidence
+- No `unsafe` Rust in the authorization path
+- Minimal reviewed dependencies; no in-process LLM or arbitrary policy code
+- Forced mediation and a strong embedding/sidecar story next to protected agent runtimes
 
 ## Why Rust later
 

@@ -8,9 +8,10 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | --- | --- |
 | [`../docs/`](../docs/) | Documentation suite |
 | [`../schemas/tlpx-0.1/`](../schemas/tlpx-0.1/) | JSON schemas (shared contract) |
+| [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Proposed hardened baseline for a separately versioned TL-PX 0.2 |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
-**Rule:** new languages implement the same records and semantics from the [SPEC](../docs/standard/SPEC-v0.1.md). They do not redefine Prism core fields casually.
+**Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
 
 ---
 
@@ -21,7 +22,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active reference** | Node 18+ ES modules; CLI, sealed audit, tests, tech test #1 |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | Placeholder | Hardened PEP / high-assurance runtime |
+| [`rust/`](./rust/) | **Planned authority** | Small TL-PX 0.2 authorization core + hardened PEP; not started |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---
@@ -34,3 +35,5 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 4. Link from this file and the root `README.md`.
 
 Do **not** put language-specific code under `docs/` or `schemas/`.
+
+For TL-PX 0.2, JavaScript/TypeScript remains the readable reference and conformance oracle. Rust is the planned authoritative security core. Java, Go, Python, and TypeScript integrations should be SDKs/adapters rather than independently drifting authorization authorities.

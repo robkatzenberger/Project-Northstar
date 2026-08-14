@@ -1,6 +1,16 @@
 # Phase C — Multi-agent receipt / token handoff
 
-## Goal
+**Status:** Goal retained; dependency on the abandoned snapshot token removed — 2026-08-13  
+**Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md) §12  
+**Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
+
+Handoff still requires a separately evaluated authorization that explicitly names the next executor. Parent permission is never transitive.
+
+Do not implement this phase against `docs/roadmap/phase-b-authz-tokens.md`. That snapshot token is abandoned. Any later portable artifact must be a claim ticket whose single-use consumption remains online and transactional.
+
+The remaining August 7 text below is retained only as historical design context. Its `tlpx.authz_token`, Phase B dependency, diagrams, field names, and offline-verification flow are superseded and must not be used as a current contract or implementation plan.
+
+## Historical goal
 
 **Machine B will not act** on a request from Machine A unless A presents a **valid authorization** from a trusted Trust Layer issuer (token from Phase B, bound to intent).
 
