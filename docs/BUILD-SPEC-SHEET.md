@@ -5,7 +5,7 @@
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Live implementation scope:** slices 1.1–1.2 only  
+**Live implementation scope:** slice 2.1 (v0.1 frozen; draft TL-PX 0.2 decision/error/state contract). Slices 2.2–2.4 are not open.  
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 
 ## 1. Purpose

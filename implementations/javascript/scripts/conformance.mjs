@@ -1,5 +1,7 @@
 /**
- * TL-PX 0.1 Minimum Profile — conformance suite (air-gapped audit required)
+ * TL-PX 0.1 Minimum Profile — conformance suite (air-gapped audit required).
+ * Frozen historical evidence. Do not rewrite fixtures to match TL-PX 0.2.
+ * A distinct 0.2 suite belongs in a later slice.
  */
 import fs from "node:fs";
 import path from "node:path";

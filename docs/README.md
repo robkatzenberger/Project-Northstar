@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** Trust Layer Pre-Execution Minimum Standard (**TL-PX**) v0.1  
+**Standard:** Trust Layer Pre-Execution Minimum Standard (**TL-PX**) v0.1 frozen; v0.2 draft contract in progress  
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -21,7 +21,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | Implementers / integrators | [Architecture](./architecture.md) · [API Reference](./api-reference.md) · [Integration Guide](./integration.md) |
 | Operators | [CLI Reference](./cli-reference.md) · [Configuration](./configuration.md) · [Logging](./logging.md) |
 | Security / review | [Security Model](./security.md) · [Air-Gapped Operation](./airgap.md) |
-| Standards / interop | [TL-PX Spec v0.1](./standard/SPEC-v0.1.md) · [Standard overview](./standard/README.md) |
+| Standards / interop | [TL-PX Spec v0.1 (frozen)](./standard/SPEC-v0.1.md) · [TL-PX Spec v0.2 (draft)](./standard/SPEC-v0.2.md) · [Standard overview](./standard/README.md) |
 | QA | [Testing](./testing.md) |
 | Vocabulary | [Glossary](./glossary.md) |
 
@@ -43,14 +43,16 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | Document | Description |
 | --- | --- |
 | [standard/README.md](./standard/README.md) | Why a minimum standard; OSS posture |
-| [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Normative MUST/SHOULD Minimum Profile |
-| [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | JSON Schemas for records |
+| [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 Minimum Profile |
+| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 decision/error/state/compatibility contract (slice 2.1) |
+| [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | Frozen 0.1 JSON Schemas |
+| [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Reserved for slice 2.3 |
 
 ### Current build planning and reviews
 
 | Document | Description |
 | --- | --- |
-| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline targeting future TL-PX 0.2; live scope is slices 1.1–1.2 |
+| [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; live scope is slice 2.1 |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
 | [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |

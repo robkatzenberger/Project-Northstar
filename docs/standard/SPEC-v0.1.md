@@ -1,9 +1,17 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.1.0  
-**Status:** Draft for implementers  
+**Status:** Frozen historical evidence  
 **Profile:** Minimum  
 **Date:** 2026-07-22  
+**Frozen:** 2026-08-14  
+
+This document and its 47 conformance fixtures are **frozen**. Do not silently rewrite them to match later design. Breaking changes belong in [SPEC-v0.2.md](./SPEC-v0.2.md), `schemas/tlpx-0.2/`, and a distinct v0.2 conformance suite.
+
+Known frozen defects, documented rather than patched in place:
+
+1. A malformed policy condition can fail open (closed in the JS reference by Phase 1 compile; this spec text is unchanged).
+2. Runtime Switchboard `DENY` is not a valid `decision` enum in this version’s schema or validator.
 
 This document defines a **minimum interoperable standard** for pre-execution trust checkpoints between intent and action. It is designed so that:
 
@@ -367,4 +375,4 @@ Until a public release is authorized by the project owner, this tree remains loc
 
 | Version | Notes |
 | --- | --- |
-| 0.1.0 | First Minimum Profile: parties, decisions, records, policy subset, audit, execution guard, accountability report shape. |
+| 0.1.0 | First Minimum Profile: parties, decisions, records, policy subset, audit, execution guard, accountability report shape. Frozen 2026-08-14 as historical evidence. |

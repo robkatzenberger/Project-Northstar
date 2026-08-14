@@ -16,9 +16,10 @@
 
 | Term | Values / meaning |
 | --- | --- |
-| **decision** | `ALLOW` \| `REQUIRE_APPROVAL` \| `DENY` |
-| **authorization_status** | `AUTHORIZED` \| `PENDING_HUMAN_APPROVAL` \| `DENIED` |
-| **control_mode** | `ALLOW_OR_ESCALATE` (policy default philosophy) |
+| **decision** | `ALLOW` \| `REQUIRE_APPROVAL` \| (`DENY` is runtime in 0.1, first-class in 0.2) |
+| **authorization_status (0.1)** | `AUTHORIZED` \| `PENDING_HUMAN_APPROVAL` \| `DENIED` |
+| **authorization_state (0.2)** | See [SPEC-v0.2.md](./standard/SPEC-v0.2.md) §7. `ALLOW` maps to `AUTHORIZED_UNCLAIMED`, not 0.1 `AUTHORIZED`. |
+| **control_mode** | 0.1 `ALLOW_OR_ESCALATE`; 0.2 `ALLOW_ESCALATE_OR_DENY` |
 | **operator outcome** | `APPROVE` \| `REJECT` |
 | **execution status** | `EXECUTED` \| `BLOCKED` \| `FAILED` |
 
@@ -26,11 +27,11 @@
 
 | Decision path | authorization_status |
 | --- | --- |
-| `ALLOW` | `AUTHORIZED` |
-| `REQUIRE_APPROVAL` (unresolved) | `PENDING_HUMAN_APPROVAL` |
-| Operator `APPROVE` | `AUTHORIZED` |
-| Operator `REJECT` | `DENIED` |
-| Switchboard `DENY` | `DENIED` |
+| `ALLOW` | 0.1 `AUTHORIZED` · 0.2 `AUTHORIZED_UNCLAIMED` |
+| `REQUIRE_APPROVAL` (unresolved) | 0.1 `PENDING_HUMAN_APPROVAL` · 0.2 `PENDING_APPROVAL` |
+| Operator `APPROVE` | 0.1 `AUTHORIZED` · 0.2 `AUTHORIZED_UNCLAIMED` |
+| Operator `REJECT` | 0.1 `DENIED` · 0.2 `REJECTED` |
+| Switchboard / policy `DENY` | `DENIED` |
 
 ## Records
 
