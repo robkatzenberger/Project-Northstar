@@ -5,7 +5,8 @@ This directory keeps durable reports from independent or adversarial test runs s
 ## Current baseline
 
 - [`reports/northstar-two-agent-test-proof.md`](./reports/northstar-two-agent-test-proof.md) — two-agent requester/execution-gate test of commit `ca05f6996534471e817d11f3c668e38411797fb8`.
-- [`reports/phase-1-policy-compile-2026-08-14.md`](./reports/phase-1-policy-compile-2026-08-14.md) — Phase 1 strict policy compile and negative suite (uncommitted JS working tree; does not overwrite the two-agent baseline).
+- [`reports/phase-1-policy-compile-2026-08-14.md`](./reports/phase-1-policy-compile-2026-08-14.md) — Phase 1 compile suite as first recorded; contained in `31175c5`. Do not treat its “uncommitted / no commit” line as accurate.
+- [`reports/phase-1-crosscheck-2026-08-14.md`](./reports/phase-1-crosscheck-2026-08-14.md) — independent crosscheck follow-up: WeakSet compile identity, `policy_pack_id` reject, 0.2 claim-record clarifications.
 
 ## Referencing this baseline
 

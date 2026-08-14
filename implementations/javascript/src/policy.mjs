@@ -14,7 +14,8 @@
 
 import fs from "node:fs";
 
-export const POLICY_COMPILED = Symbol("northstar.policy.compiled");
+/** Packs actually produced by compilePolicy. Caller-supplied markers are ignored. */
+const compiledPacks = new WeakSet();
 
 export const POLICY_RULE_KEYS = Object.freeze([
   "id",
@@ -84,6 +85,7 @@ export function parsePolicyText(text) {
   const rules = [];
   let currentRule = null;
   let seenRulesKey = false;
+  let seenPackId = false;
   let policyPackId = "default";
 
   for (let i = 0; i < lines.length; i++) {
@@ -93,11 +95,20 @@ export function parsePolicyText(text) {
 
     if (!trimmed || trimmed.startsWith("#")) continue;
 
-    if (/^policy_pack_id:\s+\S/.test(trimmed) && !seenRulesKey && !currentRule) {
-      policyPackId = parseScalar(trimmed.slice(trimmed.indexOf(":") + 1).trim());
-      if (typeof policyPackId !== "string" || !policyPackId) {
+    if (/^policy_pack_id:\s*/.test(trimmed) && !currentRule) {
+      if (seenRulesKey) {
+        throw policyError(`policy_pack_id after rules: at line ${lineNo}`);
+      }
+      if (seenPackId) {
+        throw policyError(`duplicate policy_pack_id at line ${lineNo}`);
+      }
+      const rawId = trimmed.slice(trimmed.indexOf(":") + 1).trim();
+      const parsedId = parseScalar(rawId);
+      if (typeof parsedId !== "string" || !parsedId) {
         throw policyError(`invalid policy_pack_id at line ${lineNo}`);
       }
+      policyPackId = parsedId;
+      seenPackId = true;
       continue;
     }
 
@@ -409,7 +420,7 @@ export function compilePolicy(policy) {
   if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
     throw policyError("pack must be an object");
   }
-  if (policy[POLICY_COMPILED]) return policy;
+  if (compiledPacks.has(policy)) return policy;
 
   for (const key of Object.keys(policy)) {
     if (!PACK_KEY_SET.has(key)) {
@@ -424,21 +435,23 @@ export function compilePolicy(policy) {
     throw policyError("empty policy pack");
   }
 
+  let packId = "default";
+  if (Object.prototype.hasOwnProperty.call(policy, "policy_pack_id")) {
+    if (typeof policy.policy_pack_id !== "string" || !policy.policy_pack_id.trim()) {
+      throw policyError("invalid policy_pack_id");
+    }
+    packId = policy.policy_pack_id;
+  }
+
   const ids = new Set();
   const rules = policy.rules.map((rule, i) => compileRule(rule, i, ids));
 
-  const compiled = {
-    policy_pack_id:
-      typeof policy.policy_pack_id === "string" && policy.policy_pack_id
-        ? policy.policy_pack_id
-        : "default",
+  const compiled = Object.freeze({
+    policy_pack_id: packId,
     rules: Object.freeze(rules)
-  };
-  Object.defineProperty(compiled, POLICY_COMPILED, {
-    value: true,
-    enumerable: false
   });
-  return Object.freeze(compiled);
+  compiledPacks.add(compiled);
+  return compiled;
 }
 
 export function evalAst(ast, intent) {

@@ -111,6 +111,18 @@ console.log("Policy compile (Phase 1)\n");
   console.log("pack structure");
   throws(() => compilePolicy({ policy_pack_id: "x", rules: [] }), "empty policy pack", "empty pack");
   throws(() => compilePolicy({ rules: [validRule()] , extra: true }), "unknown pack field", "unknown pack field");
+  throws(
+    () => compilePolicy({ policy_pack_id: 7, rules: [validRule()] }),
+    "invalid policy_pack_id",
+    "numeric pack id rejected"
+  );
+  throws(
+    () => compilePolicy({ policy_pack_id: "", rules: [validRule()] }),
+    "invalid policy_pack_id",
+    "empty pack id rejected"
+  );
+  const omittedId = compilePolicy({ rules: [validRule()] });
+  assert(omittedId.policy_pack_id === "default", "absent pack id defaults");
   throws(() => compilePolicy({ policy_pack_id: "x" }), "rules must be an array", "missing rules array");
   throws(
     () => compilePolicy(validPack([validRule({ extra: "nope" })])),
@@ -180,6 +192,19 @@ console.log("Policy compile (Phase 1)\n");
     "unsupported structure",
     "unmatched YAML line"
   );
+  throws(
+    () =>
+      parsePolicyText(
+        "policy_pack_id: one\npolicy_pack_id: two\nrules:\n  - id: x\n    if: risk == \"high\"\n    require: human_approval\n"
+      ),
+    "duplicate policy_pack_id",
+    "duplicate YAML pack id"
+  );
+  throws(
+    () => parsePolicyText("policy_pack_id: 7\nrules:\n  - id: x\n    if: risk == \"high\"\n    require: human_approval\n"),
+    "invalid policy_pack_id",
+    "numeric YAML pack id"
+  );
   const parsed = parsePolicyText(`
 rules:
   - id: rule_high
@@ -189,6 +214,33 @@ rules:
 `);
   const compiled = compilePolicy(parsed);
   assert(compiled.rules[0].id === "rule_high", "YAML compile");
+}
+
+{
+  console.log("forged compiled marker");
+  const forged = {
+    policy_pack_id: 7,
+    rules: []
+  };
+  throws(() => evaluateRules({ risk: "low" }, forged), "empty policy pack", "empty forged pack rejected");
+  const marker = Symbol("northstar.policy.compiled");
+  const stamped = {
+    [marker]: true,
+    policy_pack_id: 7,
+    rules: []
+  };
+  throws(
+    () => evaluateRules({ risk: "low" }, stamped),
+    "empty policy pack",
+    "caller-supplied compiled symbol ignored"
+  );
+  let decision = null;
+  try {
+    decision = evaluateRules({ risk: "low" }, stamped);
+  } catch {
+    decision = "threw";
+  }
+  assert(decision === "threw", "forged marker does not ALLOW");
 }
 
 {

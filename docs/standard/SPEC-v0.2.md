@@ -352,7 +352,8 @@ If the PEP may have performed the side effect but no durable completion receipt 
 | `tlpx.evaluation_error` | Evaluation could not be established |
 | `tlpx.operator_action` | Authenticated `APPROVE`, `REJECT`, or `CANCEL` |
 | `tlpx.authorization` | A claimable authorization is issued (`AUTHORIZED_UNCLAIMED`) |
-| `tlpx.execution` | Terminal or intermediate observed execution result |
+| `tlpx.authorization_claim` | Atomic consumption of one authorization (`CLAIMED`) |
+| `tlpx.execution` | Observed execution result after a successful claim |
 
 `glass.*` aliases are **not** part of 0.2 Minimum. Product aliases MAY exist as extensions; 0.2 conformance uses `tlpx.*` only.
 
@@ -384,9 +385,9 @@ A 0.2 decision MUST NOT use 0.1 field `authorization_status` as its primary stat
 
 ### 8.2 Evaluation error record (normative fields)
 
-MUST include: `record_type`, `standard`, `standard_version`, `receipt_id`, `occurred_at`, `stage`, `error_code`, `retryability`, `sequence`, non-sensitive `reason`, and a sealed audit row. MAY include `retry_after`, `required_condition`, and available policy/adapter identity.
+MUST include: `record_type`, `standard`, `standard_version`, `receipt_id`, `occurred_at`, `stage`, `error_code`, `retryability`, `sequence`, and non-sensitive `reason`. MAY include `retry_after`, `required_condition`, and available policy/adapter identity.
 
-It MUST NOT include an authorization id and MUST NOT set an authorization state other than absent/null.
+Sealing is an evidence-storage property, not a field on the record. The error record MUST be appended to the sealed evidence chain with a trusted sequence number. It MUST NOT include an authorization id and MUST NOT set an authorization state other than absent/null.
 
 ### 8.3 Authorization record (normative fields)
 
@@ -403,6 +404,8 @@ authorized_action_hash
 intent_hash
 environment
 tenant
+adapter.id
+adapter.version
 issued_at
 claim_expires_at
 execution_lease_seconds
@@ -413,7 +416,30 @@ state = AUTHORIZED_UNCLAIMED
 
 The requester MUST NOT supply `authorization_id` or `authorization_nonce`. Northstar generates authorization ids, nonces, and later claim ids.
 
-A later portable **authorization claim ticket** MAY wrap these binding facts plus issuer, ticket type/version, algorithm, key id, trust domain, and signature. It is not a bearer `AUTHORIZED` snapshot. Offline verify of a ticket is not permission. Slice 2.1 forbids implementing the abandoned August 7 `tlpx.authz_token` semantics.
+### 8.3.1 Portable claim ticket
+
+A later portable **authorization claim ticket** or **capability proof** MAY exist. It is proof of issuance, not permission to act.
+
+Every such ticket MUST:
+
+- bind one authenticated executor;
+- bind one `authorized_action_hash`;
+- bind one adapter identity and version, environment, and tenant;
+- bind one short claim window (`claim_expires_at`);
+- identify issuer, ticket type and version, signing algorithm, key id, trust domain, and signature;
+- be consumed by exactly one atomic online claim against authoritative state before any side effect begins.
+
+A PEP MAY verify signature, executor binding, `authorized_action_hash`, adapter/environment/tenant scope, and expiry locally. Local signature verification MUST NOT authorize a side effect. Offline verification cannot establish global non-consumption.
+
+The ticket MUST NOT be a bearer `AUTHORIZED` snapshot. Slice 2.1 forbids implementing the abandoned August 7 `tlpx.authz_token` semantics.
+
+### 8.3.2 Claim record
+
+Atomic consumption MUST be represented by a dedicated `tlpx.authorization_claim` record. Implementations MUST NOT invent a private consumption log and MUST NOT treat an intermediate `tlpx.execution` as the claim.
+
+A claim record MUST include at least: `record_type` = `tlpx.authorization_claim`, `standard`, `standard_version`, `claim_id` (authority-generated), `authorization_id`, linked decision `receipt_id`, authenticated `executing_principal`, `authorized_action_hash`, `executed_action_hash` presented at claim, adapter identity and version, `claimed_at`, `lease_expires_at`, `sequence`, and `state` = `CLAIMED`.
+
+Zero updated authoritative rows MUST produce a blocking reason from §9.3 and MUST NOT emit a successful claim record. A successful claim record MUST exist before `tlpx.execution` may record a side effect.
 
 ### 8.4 Operator action record
 
@@ -515,3 +541,4 @@ This document does not make the JavaScript reference a 0.2 authority. It does no
 | Version | Notes |
 | --- | --- |
 | 0.2.0-draft.2.1 | Decision/error/state/compatibility contract. `DENY` first-class. Distinct `EVALUATION_ERROR`. Lifecycle including claim and unknown-outcome. 0.1 frozen. Schemas, hashes, and conformance deferred. |
+| 0.2.0-draft.2.1b | Claim ticket restated to §11.1 (adapter binding, short window, atomic online claim). Dedicated `tlpx.authorization_claim`. Sealing described as evidence-chain property, not a record field. |

@@ -51,11 +51,13 @@ Format: newest first.
 ### Security hardening
 
 - **Strict policy compile** (Phase 1): parse → validate → compile → evaluate; malformed packs fail load and issue no authorization. `evaluateCondition` no longer treats parse errors as a non-match.
+- Compiled-pack identity is a module-private `WeakSet`. Caller-supplied markers cannot skip validation. Invalid supplied `policy_pack_id` fails compile.
 
 ### Standards
 
 - **TL-PX 0.1 frozen** as historical evidence (spec, schemas, 47 fixtures). Known `DENY` schema mismatch left in place on the 0.1 line.
 - **TL-PX 0.2 draft contract** (`docs/standard/SPEC-v0.2.md`, slice 2.1): first-class `DENY`, distinct `tlpx.evaluation_error`, authorization lifecycle including `AUTHORIZED_UNCLAIMED` / claim / unknown-outcome, and explicit 0.1 compatibility rules. Schemas, JCS fixtures, and 0.2 conformance are not in this slice.
+- Crosscheck follow-up: dedicated `tlpx.authorization_claim`; claim tickets must bind adapter and still consume online; sealing is an evidence-chain property.
 
 ### Added
 

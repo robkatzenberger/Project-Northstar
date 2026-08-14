@@ -9,7 +9,6 @@ export {
   tokenize,
   parseExpr,
   evalAst,
-  POLICY_COMPILED,
   POLICY_RULE_KEYS,
   POLICY_EXPRESSION_FIELDS,
   POLICY_ARRAY_FIELDS,
