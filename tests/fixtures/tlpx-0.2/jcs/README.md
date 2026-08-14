@@ -4,7 +4,9 @@
 **Profile:** `northstar-jcs-v1`  
 **Oracle file:** [`golden.json`](./golden.json)
 
-Language-neutral vectors for RFC 8785 JCS under the Northstar profile, plus domain-separated `sha256:` hashes.
+Language-neutral vectors for RFC 8785 JCS under the Northstar profile, plus raw `digest_hex` and `sha256:` hash strings.
+
+Keys sort by unsigned UTF-16 code units. Lone surrogates are rejected.
 
 The JavaScript reference checks this file in `implementations/javascript/scripts/test-jcs.mjs`. Other languages MUST match `canonical`, `canonical_utf8_hex`, and every `sha256[domain]` exactly. They MUST reject every `reject` vector.
 

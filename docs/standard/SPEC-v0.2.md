@@ -549,7 +549,8 @@ Canonicalization is RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoded, 
 - Integers MUST be exact JSON integer tokens in the IEEE-754 safe-integer range `[-9007199254740991, 9007199254740991]`. Slice 2.3 schemas MAY impose tighter per-field bounds; they MUST NOT widen this range.
 - Absent keys and `null` are distinct: a missing key is omitted; `null` is serialized as `null`.
 - Array order is preserved unless a field schema (slice 2.3) explicitly defines canonical sorting.
-- Object keys are sorted lexicographically by Unicode code points. Unicode is not NFC/NFD-normalized.
+- Object keys are sorted lexicographically by **unsigned UTF-16 code units** (RFC 8785 §3.2.3), not by Unicode code points and not by UTF-8/UTF-32 code units. U+10000 therefore sorts before U+E000. Unicode is not NFC/NFD-normalized.
+- Lone UTF-16 surrogates (unpaired `U+D800`–`U+DFFF`) MUST terminate canonicalization. Valid surrogate pairs remain legal.
 - Strings follow RFC 8785 escaping: `"`, `\`, and `U+0000`–`U+001F` only. Other characters, including non-ASCII, appear as UTF-8.
 
 The 0.1 audit helper `canonicalJson` is **not** this profile. 0.1 seals MUST continue to use the 0.1 function. 0.2 hashes MUST use this profile.
@@ -584,7 +585,7 @@ Implementations MUST validate this representation before embedding a hash string
 
 ### 14.4 Golden fixtures
 
-Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, and `sha256` fields, and MUST reject every `reject` vector. Those fixtures are not the 47 frozen 0.1 tests.
+Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, `digest_hex`, and `sha256` fields, and MUST reject every `reject` vector. `digest_hex` is the raw 32-byte SHA-256 as 64 lowercase hex; `sha256` is `sha256:` plus that hex. Those fixtures are not the 47 frozen 0.1 tests.
 
 ---
 
@@ -595,3 +596,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.1 | Decision/error/state/compatibility contract. `DENY` first-class. Distinct `EVALUATION_ERROR`. Lifecycle including claim and unknown-outcome. 0.1 frozen. Schemas, hashes, and conformance deferred. |
 | 0.2.0-draft.2.1b | Claim ticket restated to §11.1 (adapter binding, short window, atomic online claim). Dedicated `tlpx.authorization_claim`. Sealing described as evidence-chain property, not a record field. |
 | 0.2.0-draft.2.2 | Northstar JCS profile, `sha256:` representation, four domain prefixes, and golden fixtures. |
+| 0.2.0-draft.2.2b | Key sort is RFC 8785 UTF-16 code units. Lone surrogates rejected. Fixtures include astral/BMP order and raw `digest_hex`. |

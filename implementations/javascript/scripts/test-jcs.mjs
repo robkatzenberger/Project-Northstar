@@ -14,6 +14,7 @@ import {
 import {
   HASH_PATTERN,
   assertHashString,
+  digestHex,
   hashString,
   hashValue
 } from "../src/hash.mjs";
@@ -57,8 +58,14 @@ console.log("TL-PX 0.2 JCS / hash fixtures\n");
   const nfc = golden.accept.find((r) => r.id === "unicode-nfc");
   const esc = golden.accept.find((r) => r.id === "unicode-escape-nfc");
   const nfd = golden.accept.find((r) => r.id === "nfd-key");
+  const astral = golden.accept.find((r) => r.id === "utf16-sort-astral-before-bmp");
   assert(nfc && esc && nfc.canonical === esc.canonical, "NFC and \\u00e9 match");
   assert(nfd && nfd.canonical !== nfc.canonical, "NFD key is distinct");
+  assert(astral, "astral/BMP sort vector present");
+  assert(
+    astral.canonical.charCodeAt(2) === 0xd800,
+    "U+10000 (lead surrogate 0xD800) sorts before U+E000"
+  );
 
   for (const row of golden.accept) {
     const canonical = canonicalizeJsonText(row.input_json);
@@ -67,6 +74,8 @@ console.log("TL-PX 0.2 JCS / hash fixtures\n");
     for (const [domain, expected] of Object.entries(row.sha256)) {
       assert(HASH_PATTERN.test(expected), `${row.id} ${domain} pattern`);
       assert(hashString(domain, canonical) === expected, `${row.id} ${domain} hash`);
+      assert(row.digest_hex?.[domain] === expected.slice(7), `${row.id} ${domain} digest_hex`);
+      assert(digestHex(domain, canonical) === row.digest_hex[domain], `${row.id} ${domain} raw digest`);
     }
   }
 }
@@ -86,6 +95,10 @@ console.log("TL-PX 0.2 JCS / hash fixtures\n");
   throws(() => canonicalize(-0), "negative zero", "JS -0 rejected");
   throws(() => canonicalize(9007199254740992), "unsafe", "JS unsafe integer rejected");
   throws(() => parseRestrictedJson('{"a":1,"a":2}'), "duplicate key", "parse duplicate");
+  const astralFirst = canonicalize({ "\uE000": 1, "\u{10000}": 2 });
+  assert(astralFirst.charCodeAt(2) === 0xd800, "JS value UTF-16 sort");
+  throws(() => canonicalize({ "\uD800": 1 }), "lone surrogate", "JS lone high surrogate key");
+  throws(() => canonicalize({ a: "\uDC00" }), "lone surrogate", "JS lone low surrogate value");
 }
 
 {

@@ -9,7 +9,7 @@ import {
   canonicalizeJsonText,
   utf8Hex
 } from "../src/jcs.mjs";
-import { HASH_DOMAINS, hashString } from "../src/hash.mjs";
+import { HASH_DOMAINS, digestHex, hashString } from "../src/hash.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const outPath = path.join(root, "tests/fixtures/tlpx-0.2/jcs/golden.json");
@@ -39,6 +39,10 @@ const acceptInputs = [
     id: "approval-context",
     input_json:
       '{"authorized_action_hash":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","policy_bundle_hash":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","approval_route":["human.ops.alex"],"material_display_fields":["action","target"],"renderer_id":"glass.approval.v1","renderer_version":"1.0.0"}'
+  },
+  {
+    id: "utf16-sort-astral-before-bmp",
+    input_json: '{"\\uE000":1,"\\uD800\\uDC00":2}'
   }
 ];
 
@@ -49,17 +53,25 @@ const rejectInputs = [
   { id: "scientific", input_json: "1e2", error_contains: "floating-point" },
   { id: "negative-zero", input_json: "-0", error_contains: "negative zero" },
   { id: "unsafe-integer", input_json: "9007199254740992", error_contains: "safe range" },
-  { id: "trailing-data", input_json: "{}{}", error_contains: "trailing" }
+  { id: "trailing-data", input_json: "{}{}", error_contains: "trailing" },
+  { id: "lone-high-surrogate-key", input_json: '{"\\uD800":1}', error_contains: "lone surrogate" },
+  { id: "lone-low-surrogate-value", input_json: '{"a":"\\uDC00"}', error_contains: "lone surrogate" },
+  { id: "lone-high-then-non-low", input_json: '{"\\uD800\\u0020":1}', error_contains: "lone surrogate" }
 ];
 
 const accept = acceptInputs.map((row) => {
   const canonical = canonicalizeJsonText(row.input_json);
   const sha256 = {};
-  for (const d of domains) sha256[d] = hashString(d, canonical);
+  const digest_hex = {};
+  for (const d of domains) {
+    digest_hex[d] = digestHex(d, canonical);
+    sha256[d] = hashString(d, canonical);
+  }
   return {
     ...row,
     canonical,
     canonical_utf8_hex: utf8Hex(canonical),
+    digest_hex,
     sha256
   };
 });
@@ -75,7 +87,8 @@ const fixtures = {
   notes: [
     "Domain prefixes are UTF-8 bytes including a trailing NUL (0x00).",
     "canonical is the exact JCS Unicode string; canonical_utf8_hex is its UTF-8 encoding.",
-    "sha256[domain] = sha256: + hex(SHA-256(domain_prefix || utf8(canonical))).",
+    "digest_hex[domain] is the raw 32-byte SHA-256 as 64 lowercase hex.",
+    "sha256[domain] is exactly 'sha256:' + digest_hex[domain].",
     "Do not hash JSON.stringify output. 0.1 audit canonicalJson is a different function.",
     "unicode-nfc and unicode-escape-nfc MUST produce identical canonical bytes.",
     "nfd-key is not the same key as café (U+00E9)."

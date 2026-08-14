@@ -81,17 +81,24 @@ function parseNumber(p) {
   return n;
 }
 
+function parseHexEscape(p) {
+  const hex = p.s.slice(p.i, p.i + 4);
+  if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw jcsError("bad unicode escape");
+  p.i += 4;
+  return parseInt(hex, 16);
+}
+
 function parseString(p) {
   if (p.s[p.i] !== '"') throw jcsError("expected string");
   p.i++;
   let out = "";
   while (p.i < p.s.length) {
-    const c = p.s[p.i];
-    if (c === '"') {
+    const cu = p.s.charCodeAt(p.i);
+    if (p.s[p.i] === '"') {
       p.i++;
       return out;
     }
-    if (c === "\\") {
+    if (p.s[p.i] === "\\") {
       p.i++;
       const e = p.s[p.i];
       p.i++;
@@ -102,17 +109,35 @@ function parseString(p) {
       else if (e === "r") out += "\r";
       else if (e === "t") out += "\t";
       else if (e === "u") {
-        const hex = p.s.slice(p.i, p.i + 4);
-        if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw jcsError("bad unicode escape");
-        out += String.fromCharCode(parseInt(hex, 16));
-        p.i += 4;
+        const unit = parseHexEscape(p);
+        if (unit >= 0xd800 && unit <= 0xdbff) {
+          if (p.s[p.i] !== "\\" || p.s[p.i + 1] !== "u") {
+            throw jcsError("lone surrogate");
+          }
+          p.i += 2;
+          const low = parseHexEscape(p);
+          if (low < 0xdc00 || low > 0xdfff) throw jcsError("lone surrogate");
+          out += String.fromCharCode(unit, low);
+        } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+          throw jcsError("lone surrogate");
+        } else {
+          out += String.fromCharCode(unit);
+        }
       } else {
         throw jcsError("bad escape");
       }
       continue;
     }
-    if (c.charCodeAt(0) < 0x20) throw jcsError("unescaped control character");
-    out += c;
+    if (cu < 0x20) throw jcsError("unescaped control character");
+    if (cu >= 0xd800 && cu <= 0xdbff) {
+      const low = p.s.charCodeAt(p.i + 1);
+      if (!(low >= 0xdc00 && low <= 0xdfff)) throw jcsError("lone surrogate");
+      out += p.s[p.i] + p.s[p.i + 1];
+      p.i += 2;
+      continue;
+    }
+    if (cu >= 0xdc00 && cu <= 0xdfff) throw jcsError("lone surrogate");
+    out += p.s[p.i];
     p.i++;
   }
   throw jcsError("unterminated string");
@@ -188,31 +213,52 @@ export function parseRestrictedJson(text) {
   return value;
 }
 
-function compareCodePoints(a, b) {
-  const ca = [];
-  const cb = [];
-  for (const ch of a) ca.push(ch.codePointAt(0));
-  for (const ch of b) cb.push(ch.codePointAt(0));
-  const n = Math.min(ca.length, cb.length);
+/** RFC 8785 §3.2.3: unsigned UTF-16 code units, not Unicode code points. */
+function compareUtf16(a, b) {
+  const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
-    if (ca[i] !== cb[i]) return ca[i] - cb[i];
+    const d = a.charCodeAt(i) - b.charCodeAt(i);
+    if (d) return d;
   }
-  return ca.length - cb.length;
+  return a.length - b.length;
+}
+
+function assertValidUtf16(str, label = "string") {
+  for (let i = 0; i < str.length; i++) {
+    const cu = str.charCodeAt(i);
+    if (cu >= 0xd800 && cu <= 0xdbff) {
+      const low = str.charCodeAt(i + 1);
+      if (!(low >= 0xdc00 && low <= 0xdfff)) {
+        throw jcsError(`lone surrogate in ${label}`);
+      }
+      i++;
+      continue;
+    }
+    if (cu >= 0xdc00 && cu <= 0xdfff) {
+      throw jcsError(`lone surrogate in ${label}`);
+    }
+  }
 }
 
 function encodeString(str) {
+  assertValidUtf16(str);
   let out = '"';
-  for (const ch of str) {
-    const cp = ch.codePointAt(0);
-    if (cp === 0x22) out += '\\"';
-    else if (cp === 0x5c) out += "\\\\";
-    else if (cp === 0x08) out += "\\b";
-    else if (cp === 0x09) out += "\\t";
-    else if (cp === 0x0a) out += "\\n";
-    else if (cp === 0x0c) out += "\\f";
-    else if (cp === 0x0d) out += "\\r";
-    else if (cp < 0x20) out += `\\u${cp.toString(16).padStart(4, "0")}`;
-    else out += ch;
+  for (let i = 0; i < str.length; i++) {
+    const cu = str.charCodeAt(i);
+    if (cu === 0x22) out += '\\"';
+    else if (cu === 0x5c) out += "\\\\";
+    else if (cu === 0x08) out += "\\b";
+    else if (cu === 0x09) out += "\\t";
+    else if (cu === 0x0a) out += "\\n";
+    else if (cu === 0x0c) out += "\\f";
+    else if (cu === 0x0d) out += "\\r";
+    else if (cu < 0x20) out += `\\u${cu.toString(16).padStart(4, "0")}`;
+    else if (cu >= 0xd800 && cu <= 0xdbff) {
+      out += str[i] + str[i + 1];
+      i++;
+    } else {
+      out += str[i];
+    }
   }
   return `${out}"`;
 }
@@ -244,7 +290,7 @@ export function canonicalize(value) {
   }
   if (value && typeof value === "object") {
     assertPlainObject(value);
-    const keys = Object.keys(value).sort(compareCodePoints);
+    const keys = Object.keys(value).sort(compareUtf16);
     const seen = new Set();
     const parts = [];
     for (const key of keys) {
