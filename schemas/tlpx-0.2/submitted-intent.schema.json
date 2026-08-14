@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/submitted-intent.schema.json",
+  "title": "TL-PX 0.2 Submitted Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requesting_principal",
+    "executing_principal",
+    "action",
+    "intent_class",
+    "target",
+    "arguments",
+    "environment",
+    "tenant",
+    "declared_risk",
+    "data_classes",
+    "requested_capability",
+    "resource_scope",
+    "payload_hash",
+    "artifact_hash",
+    "adapter",
+    "request_id"
+  ],
+  "properties": {
+    "requesting_principal": { "$ref": "common.schema.json#/$defs/principalId" },
+    "executing_principal": { "$ref": "common.schema.json#/$defs/principalId" },
+    "action": { "type": "string", "minLength": 1 },
+    "intent_class": { "type": "string", "minLength": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "arguments": { "type": "object" },
+    "environment": { "type": "string", "minLength": 1 },
+    "tenant": { "type": "string", "minLength": 1 },
+    "declared_risk": { "$ref": "common.schema.json#/$defs/risk" },
+    "data_classes": { "type": "array", "items": { "type": "string" } },
+    "requested_capability": { "type": "string", "minLength": 1 },
+    "resource_scope": { "type": "array", "items": { "type": "string" } },
+    "payload_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
+    "artifact_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
+    "adapter": { "$ref": "common.schema.json#/$defs/adapter" },
+    "request_id": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/decision.schema.json",
+  "title": "TL-PX 0.2 Decision Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "control_mode",
+    "receipt_id",
+    "evaluated_at",
+    "decision",
+    "authorization_state",
+    "reason",
+    "reason_code",
+    "policy_id",
+    "policy_bundle_id",
+    "policy_bundle_version",
+    "policy_bundle_hash",
+    "intent_hash",
+    "parties",
+    "sequence"
+  ],
+  "properties": {
+    "record_type": { "const": "tlpx.decision" },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.2.0" },
+    "control_mode": { "const": "ALLOW_ESCALATE_OR_DENY" },
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "evaluated_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "decision": { "enum": ["ALLOW", "REQUIRE_APPROVAL", "DENY"] },
+    "authorization_state": {
+      "enum": ["AUTHORIZED_UNCLAIMED", "PENDING_APPROVAL", "DENIED"]
+    },
+    "reason": { "type": "string" },
+    "reason_code": { "type": "string", "minLength": 1 },
+    "policy_id": { "type": ["string", "null"] },
+    "policy_bundle_id": { "type": "string", "minLength": 1 },
+    "policy_bundle_version": { "type": "string", "minLength": 1 },
+    "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "intent_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "parties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requester", "evaluator"],
+      "properties": {
+        "requester": { "$ref": "common.schema.json#/$defs/party" },
+        "evaluator": { "$ref": "common.schema.json#/$defs/party" },
+        "router": { "$ref": "common.schema.json#/$defs/party" }
+      }
+    },
+    "sequence": { "$ref": "common.schema.json#/$defs/sequence" }
+  }
+}

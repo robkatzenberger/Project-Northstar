@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/evaluation-error.schema.json",
+  "title": "TL-PX 0.2 Evaluation Error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "receipt_id",
+    "occurred_at",
+    "stage",
+    "error_code",
+    "retryability",
+    "reason",
+    "sequence"
+  ],
+  "properties": {
+    "record_type": { "const": "tlpx.evaluation_error" },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.2.0" },
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "occurred_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "stage": { "type": "string", "minLength": 1 },
+    "error_code": { "type": "string", "minLength": 1 },
+    "retryability": { "enum": ["NEVER", "AFTER_CONDITION", "IMMEDIATE"] },
+    "reason": { "type": "string" },
+    "sequence": { "$ref": "common.schema.json#/$defs/sequence" },
+    "retry_after": { "type": "string", "minLength": 1 },
+    "required_condition": { "type": "string", "minLength": 1 },
+    "policy_bundle_id": { "type": "string", "minLength": 1 },
+    "adapter": { "$ref": "common.schema.json#/$defs/adapter" }
+  }
+}

@@ -73,121 +73,46 @@ declared intent
 
 `AUTHORIZED` is not `EXECUTED`. The protected executor must prove that the operation presented for execution matches the exact authorized action before any side effect begins.
 
-## 4. Required reading order
+## 4. Who reads what
 
-Change into the repository root, then read these files completely in order.
+| Audience | Route |
+| --- | --- |
+| Human newcomer | `README.md` → `docs/SHARE.md` |
+| Implementer | `README.md` → `docs/README.md` → the relevant guide |
+| AI collaborator | this file, then only the docs the task needs |
+| Private continuity | `skills.md` (gitignored; preferences and latest handoff only) |
 
-### Tier 1 — mandatory for every substantive session
+**Document ownership**
 
-1. `NORTHSTAR-SESSION-START.md` — this orientation file.
-2. `skills.md` — private local session memory, preferences, current status, and gotchas. It is gitignored; if absent, continue with shared docs.
-3. `AGENTS.md` — repository-wide working rules.
-4. `docs/BUILD-SPEC-SHEET.md` — current hardened build baseline and accepted security requirements.
-5. `tests/reports/northstar-two-agent-test-proof.md` — independent baseline evidence and confirmed defects.
-6. `docs/reviews/build-spec-review-2026-08-11-model-2.md` — independent specification findings and accepted dispositions.
-7. `docs/reviews/build-plan-review-disposition-2026-08-13.md` — implementation boundary: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar.
-8. `docs/vision.md` — product thesis and honest boundaries.
-9. `docs/architecture.md` — current implemented architecture.
-10. `docs/security.md` — current security model and limitations.
-11. `docs/standard/SPEC-v0.1.md` — current normative TL-PX contract; the hardened plan targets a separately versioned TL-PX 0.2.
+| File | Owns |
+| --- | --- |
+| `docs/standard/SPEC-v0.2.md` | Normative protocol: records, states, hashing, schemas |
+| `docs/BUILD-SPEC-SHEET.md` | Delivery sequence, acceptance, maturity |
+| this file | Concise status, collaboration rules, reading routes |
+| `tests/reports/` and `docs/reviews/` | Immutable point-in-time evidence |
+| `skills.md` | Private preferences and latest operational handoff |
 
-### Tier 2 — mandatory before implementation work
+Do not treat `skills.md` or this file as a parallel specification. Do not expand architecture unless slice work or implementation evidence requires it.
 
-12. `implementations/javascript/AGENTS.md`
-13. `implementations/javascript/README.md`
-14. `docs/testing.md`
-15. `docs/configuration.md`
-16. `docs/integration.md`
-17. `docs/airgap.md`
-18. `docs/switchboard.md`
-19. `tests/README.md`
+**Load next, as needed:** `AGENTS.md`, `docs/standard/SPEC-v0.2.md`, `docs/BUILD-SPEC-SHEET.md`, `docs/standard/SPEC-v0.1.md` (frozen), `tests/reports/northstar-two-agent-test-proof.md`, `docs/security.md`, `implementations/javascript/AGENTS.md`.
 
-### Tier 3 — read for roadmap, protocol, or product decisions
+## 5. Current status
 
-- `docs/roadmap/priorities.md` — superseded as current direction; history only
-- `docs/roadmap/phase-a-pep.md` — A16 problem retained; sequence superseded
-- `docs/roadmap/phase-b-authz-tokens.md` — abandoned AUTHORIZED snapshot token
-- `docs/roadmap/phase-c-mm-handoff.md` — handoff goal retained; do not use the abandoned token
-- `docs/roadmap/hm-mm-runtime.md`
-- `docs/roadmap/enterprise-switchboard.md`
-- `docs/roadmap/deferred.md`
-- `docs/roadmap/language-strategy.md` — superseded as current direction
-- `docs/concepts.md`
-- `docs/glossary.md`
-- `docs/SHARE.md`
+**Accepted:** slices 1.1–2.2. JS gate is TL-PX 0.1 + fail-closed compile + 0.2 JCS/hash oracle. It still emits `standard_version: "0.1.0"`.
 
-### Tier 4 — implementation references as relevant
+**2.3** schemas + `conformance:0.2` are in this tree. Next implementation evidence: smallest Rust authority, then OS-enforced PEP (3.9).
 
-- `implementations/README.md`
-- `implementations/go/README.md`
-- `implementations/java/README.md`
-- `implementations/rust/README.md`
-- `implementations/python/README.md`
-- `docs/api-reference.md`
-- `docs/cli-reference.md`
-- `docs/http-api.md`
-- `docs/logging.md`
-- `docs/getting-started.md`
-- `docs/changelog.md`
-- `docs/review-2026-07-22.md`
+**3.9** is the system-level claim. 1.1–2.3 are real security proofs; they are not forced mediation.
 
-Do not load every file merely to create context. Read Tier 1 first, determine the actual task, then load the relevant lower-tier documents and source files completely.
+**Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
-## 5. Current repository state
+**Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the planned authority. Go/Java/Python/TS become adapters.
 
-At the time this file was last updated (2026-08-14):
+Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-- Phase 1 slices 1.1–1.2 are implemented and accepted (`31175c5`, follow-up `b82ae1d`).
-- Slice 2.1 SPEC-v0.2 decision/error/state contract is accepted (`593439b`).
-- Slice 2.2 JCS/hash oracle and golden fixtures are accepted (`b4fb238`, Unicode follow-up `636637a`).
-- Next unopened slice is **2.3** (schemas, validators, 0.2 record conformance). Not started.
-- JavaScript is the functioning 0.1 reference plus a 0.2 fixture oracle. It still emits `standard_version: "0.1.0"`.
-- Go has a partial control-plane/service implementation.
-- Java has policy and Switchboard evaluation.
-- Rust and Python are placeholders.
-- The agreed future direction is a small Rust authoritative security core and PEP.
-- TypeScript remains the readable reference, conformance oracle, and adversarial harness.
-- Java, Go, Python, and TypeScript should become SDKs/adapters rather than competing authorization authorities.
+Evidence: `tests/reports/` (immutable). Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
-Always inspect `git status`, current branch, remote, and recent commits before acting. Preserve unrelated local work. Do not push unless Robert asks.
-
-## 6. Verified baseline and known defects
-
-The independent two-agent test of implementation commit `ca05f6996534471e817d11f3c668e38411797fb8` found:
-
-- `npm test`: 79 assertions passed.
-- conformance: 47/47 passed.
-- technical test: 29/29 passed.
-- red team: 16 PASS, 0 FAIL, 4 documented WARN.
-- sealed nine-record audit verified.
-- safe and approved actions executed.
-- pending, forged, rejected/denied, and unknown-principal actions were blocked.
-- direct action outside the gate succeeded, proving forced mediation is not yet implemented.
-
-Two concrete defects were independently reproduced:
-
-1. Malformed policy can fail open by becoming a non-match and falling through to `ALLOW`.
-2. Runtime Switchboard `DENY` does not validate against the current decision schema/validator.
-
-Do not describe the present implementation as production-ready or an unavoidable enforcement boundary.
-
-## 7. Agreed build order
-
-1. Strict policy parsing, validation, and compilation; invalid policy never authorizes. **Done (1.1–1.2).**
-2. Freeze TL-PX 0.1 and its 47 fixtures as historical evidence. **Done (2.1).**
-3. Draft TL-PX 0.2 decisions, evaluation errors, lifecycle states, receipts, reason codes, and compatibility rules. **Done (2.1).**
-4. Define separate submitted-intent and authority-normalized authorized-action schemas. **Field lists in SPEC-v0.2; JSON Schemas are 2.3.**
-5. Define RFC 8785 canonicalization, exact lowercase `sha256:` representation, domain-separated hashes, and cross-language golden fixtures. **Done (2.2, UTF-16 sort).**
-6. Build TL-PX 0.2 schemas, validators, and a distinct conformance suite. **Next, not started.**
-7. Create the Rust authority skeleton and shared language-neutral contract types.
-8. Add authenticated requester, operator, executor, canceller, and adapter identities.
-9. Add approval expiry/cancellation and SQLite transactional state.
-10. Add single-use atomic claim, 3–5 second claim window, revocation, idempotency, and unknown-outcome reconciliation.
-11. Build the `tlpx-run` PEP prototype, then run the authenticated restricted-agent enforcement acceptance test.
-12. Add operational hardening and an explicit non-transitive multi-agent handoff profile.
-13. Complete independent security and conformance review before strong production claims.
-
-## 8. Non-negotiable engineering rules
+## 6. Non-negotiable engineering rules
 
 - Switchboard runs before policy and hard-denies unknown, untrusted, or out-of-scope principals.
 - No LLM decides core `ALLOW`, `REQUIRE_APPROVAL`, or `DENY` outcomes.
@@ -211,17 +136,13 @@ Do not describe the present implementation as production-ready or an unavoidable
 - Do not weaken an invariant to make a demo pass.
 - A crash after a possible side effect creates an unknown outcome requiring reconciliation; never automatically replay an irreversible action.
 
-## 9. Historical Trust Layer context
+## 7. Historical context
 
-The original Trust Layer work included pre-execution action manifests, Truth Ping, signed consent, tamper-evident ledgers, sentinel/quorum verification, revocation, provenance, multi-agent verification, human/machine consensus, anomaly signals, and advanced cryptographic profiles.
+Use the original Trust Layer invariant to refine the core. Do not add M-of-N, anomaly scoring, ZK, dual ledgers, or hierarchical auth unless Robert changes priority. Do not invent patent or FTO claims.
 
-Use the historical invariant to refine the current core, not to indiscriminately add every speculative Glass feature. M-of-N sentinels, anomaly/drift scoring, decentralized attestations, ZK proofs, dual ledgers, and hierarchical authorization remain extension profiles unless Robert explicitly changes priority.
+## 8. Procedure at the start of a fresh session
 
-If patent, provenance, or original-design review is required, ask Robert to attach the original PDFs/DOCX/diagram artifacts in the current context. Do not invent patent claims, novelty conclusions, or freedom-to-operate opinions.
-
-## 10. Procedure at the start of a fresh session
-
-1. Read Tier 1 documents.
+1. Read this file, then only the docs the task needs.
 2. Inspect repository branch, remotes, status, recent commits, and local-only files without changing them.
 3. Summarize the current state, relevant evidence, and assumptions.
 4. Identify whether the request is review, diagnosis, planning, implementation, testing, or publication.
@@ -230,7 +151,7 @@ If patent, provenance, or original-design review is required, ask Robert to atta
 7. Use independent frontier models for bounded builder, correctness, security, architecture, and conformance roles when Robert requests or authorizes multi-model participation.
 8. Preserve every model's material disagreement and provide Robert the evidence needed to decide.
 
-## 11. Procedure before declaring work complete
+## 9. Procedure before declaring work complete
 
 - Run tests proportional to the change, including adversarial and negative cases.
 - Validate emitted records against schemas.
@@ -242,7 +163,7 @@ If patent, provenance, or original-design review is required, ask Robert to atta
 - Update private `skills.md` with durable session decisions and gotchas when the session ends.
 - Commit or push only when Robert explicitly asks.
 
-## 12. Collaboration principle
+## 10. Collaboration principle
 
 > Northstar treats trust as a disciplined relationship between humans and machines: participants may propose, question, disagree, and revise, while authority is explicit, actions are verified, evidence is preserved, and no participant is trusted beyond what the system can responsibly support.
 

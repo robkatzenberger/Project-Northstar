@@ -32,6 +32,7 @@ All tests use local Node; no network required.
 | `scripts/test-policy-compile.mjs` | Phase 1 negative compile / fail-closed load | temp files |
 | `scripts/test-jcs.mjs` | TL-PX 0.2 JCS / domain-hash golden fixtures (UTF-16 key sort, lone-surrogate reject, `digest_hex`) | `tests/fixtures/tlpx-0.2/jcs/` |
 | `scripts/conformance.mjs` | Frozen TL-PX 0.1 spec conformance (47 fixtures) | temp files |
+| `scripts/conformance-v02.mjs` | Distinct TL-PX 0.2 schema/validator suite | none |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |
 | `scripts/no-bs.mjs` | Earlier theory scoreboard | temp files |
@@ -60,7 +61,7 @@ All tests use local Node; no network required.
 
 ## Conformance
 
-`npm test` also runs `test-jcs.mjs` against `tests/fixtures/tlpx-0.2/jcs/golden.json`. That is the 0.2 hash oracle. It is not 0.1 conformance and does not make the gate 0.2-conforming.
+`npm test` also runs `test-jcs.mjs` and `conformance-v02.mjs`. Those are 0.2 oracles. They do not make the gate 0.2-conforming. `npm run conformance` remains the frozen 47.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 

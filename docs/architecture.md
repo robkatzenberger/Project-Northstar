@@ -53,6 +53,7 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 | `prism.mjs` | Create Prism-compatible signals; map to evaluation intent |
 | `switchboard.mjs` | Principal registry, routing, hard gates, credibility helpers |
 | `policy.mjs` | Strict compile then evaluate; invalid pack never authorizes |
+| `operators.mjs` | Approval-route and operator allowlist (A18) |
 | `jcs.mjs` / `hash.mjs` | 0.2 JCS oracle and domain-separated `sha256:` (not the 0.1 audit hasher) |
 | `glass.mjs` | evaluateIntent, resolveEscalation, recordExecution |
 | `chain.mjs` | Audit-derived authorization; single-outcome guards |

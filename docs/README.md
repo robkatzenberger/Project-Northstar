@@ -12,18 +12,12 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 
 ## Start here
 
-| Audience | Read first |
+| Audience | Route |
 | --- | --- |
-| **Share with anyone (plain language)** | **[SHARE.md](./SHARE.md)** — human-readable overview + diagrams |
-| Resume project work / frontier model | [Fresh-context instructions](../NORTHSTAR-SESSION-START.md) · [Hardened build specification](./BUILD-SPEC-SHEET.md) · [2026-08-13 disposition](./reviews/build-plan-review-disposition-2026-08-13.md) |
-| New to the project | [Getting Started](./getting-started.md) |
-| Want the big idea | [Vision](./vision.md) · [Concepts](./concepts.md) |
-| Implementers / integrators | [Architecture](./architecture.md) · [API Reference](./api-reference.md) · [Integration Guide](./integration.md) |
-| Operators | [CLI Reference](./cli-reference.md) · [Configuration](./configuration.md) · [Logging](./logging.md) |
-| Security / review | [Security Model](./security.md) · [Air-Gapped Operation](./airgap.md) |
-| Standards / interop | [TL-PX Spec v0.1 (frozen)](./standard/SPEC-v0.1.md) · [TL-PX Spec v0.2 (draft)](./standard/SPEC-v0.2.md) · [Standard overview](./standard/README.md) |
-| QA | [Testing](./testing.md) |
-| Vocabulary | [Glossary](./glossary.md) |
+| **Human newcomer** | [../README.md](../README.md) → **[SHARE.md](./SHARE.md)** |
+| **Implementer** | [../README.md](../README.md) → **this hub** → the relevant guide below |
+| **AI collaborator** | [../NORTHSTAR-SESSION-START.md](../NORTHSTAR-SESSION-START.md) |
+| **Private continuity** | local `skills.md` (gitignored; not a specification) |
 
 ---
 
@@ -46,7 +40,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 Minimum Profile |
 | [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract through slice 2.2 (decisions, errors, states, JCS hashes) |
 | [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | Frozen 0.1 JSON Schemas |
-| [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Reserved for slice 2.3 |
+| [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Slice 2.3 record/object schemas + reason codes |
 
 ### Current build planning and reviews
 

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/execution.schema.json",
+  "title": "TL-PX 0.2 Execution Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "execution_id",
+    "claim_id",
+    "authorization_id",
+    "receipt_id",
+    "requesting_principal",
+    "executing_principal",
+    "intent_hash",
+    "authorized_action_hash",
+    "executed_action_hash",
+    "target",
+    "policy_bundle_id",
+    "policy_bundle_version",
+    "policy_bundle_hash",
+    "adapter",
+    "sequence",
+    "started_at",
+    "ended_at",
+    "state"
+  ],
+  "properties": {
+    "record_type": { "const": "tlpx.execution" },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.2.0" },
+    "execution_id": { "type": "string", "minLength": 1 },
+    "claim_id": { "type": "string", "minLength": 1 },
+    "authorization_id": { "type": "string", "minLength": 1 },
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "requesting_principal": { "$ref": "common.schema.json#/$defs/principalId" },
+    "executing_principal": { "$ref": "common.schema.json#/$defs/principalId" },
+    "intent_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "authorized_action_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "executed_action_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "target": { "type": "string", "minLength": 1 },
+    "policy_bundle_id": { "type": "string", "minLength": 1 },
+    "policy_bundle_version": { "type": "string", "minLength": 1 },
+    "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "adapter": { "$ref": "common.schema.json#/$defs/adapter" },
+    "sequence": { "$ref": "common.schema.json#/$defs/sequence" },
+    "started_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "ended_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "state": {
+      "enum": [
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED",
+        "LEASE_EXPIRED",
+        "EXECUTION_OUTCOME_UNKNOWN",
+        "COMPLETED_CONFIRMED",
+        "FAILED_CONFIRMED",
+        "OUTCOME_UNKNOWN_FINAL"
+      ]
+    },
+    "result_summary": { "type": ["string", "null"] },
+    "result_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    }
+  }
+}

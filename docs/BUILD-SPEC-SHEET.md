@@ -5,8 +5,10 @@
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Live implementation scope:** slices 1.1–2.2 accepted. Next unopened slice is 2.3 (v0.2 schemas, validators, record conformance). No Rust, token, or PEP.  
+**Live implementation scope:** slices 1.1–2.3. Next is the smallest Rust authority, then OS-enforced PEP. No architecture expansion unless implementation evidence requires it.  
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
+
+**Document role:** delivery sequence, acceptance criteria, and maturity labels. Normative protocol semantics live in [`standard/SPEC-v0.2.md`](./standard/SPEC-v0.2.md). Do not expand architecture here unless a delivery slice or implementation evidence requires it.
 
 ## 1. Purpose
 

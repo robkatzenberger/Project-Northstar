@@ -8,6 +8,15 @@
 **License:** Apache-2.0  
 **Primary implementation today:** JavaScript (Node 18+)
 
+**Who should read what**
+
+| Audience | Start here |
+| --- | --- |
+| Human newcomer | this file → [`docs/SHARE.md`](docs/SHARE.md) |
+| Implementer | this file → [`docs/README.md`](docs/README.md) → the relevant guide |
+| AI collaborator | [`NORTHSTAR-SESSION-START.md`](NORTHSTAR-SESSION-START.md) |
+| Private continuity | local `skills.md` (gitignored) |
+
 ---
 
 ## Repository layout

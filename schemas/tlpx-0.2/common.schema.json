@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/common.schema.json",
+  "title": "TL-PX 0.2 shared definitions",
+  "$defs": {
+    "hashString": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "party": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["human", "machine"] }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "principalId": { "type": "string", "minLength": 1 },
+    "isoTime": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "standardStamp": {
+      "type": "object",
+      "required": ["standard", "standard_version"],
+      "properties": {
+        "standard": { "const": "TL-PX" },
+        "standard_version": { "const": "0.2.0" }
+      }
+    }
+  }
+}

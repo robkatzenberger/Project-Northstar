@@ -68,6 +68,8 @@ export {
   utf8Hex,
   utf8Bytes
 } from "./jcs.mjs";
+export { validateAgainst, validateSchemaFile, loadTlpx02Schemas } from "./schema.mjs";
+export { validateV02 } from "./validate-v02.mjs";
 export {
   HASH_PATTERN,
   HASH_DOMAINS,

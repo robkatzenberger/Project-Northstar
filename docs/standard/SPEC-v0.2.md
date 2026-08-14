@@ -6,12 +6,14 @@
 **Date:** 2026-08-14  
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
 
-This document is the normative TL-PX 0.2 **decision, evaluation-error, authorization-state, and compatibility** contract. It is not yet a complete 0.2 implementation specification.
+**Document role:** normative protocol semantics, records, states, hashing, and (from slice 2.3) schemas. Delivery sequence and acceptance bars live in [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md).
+
+This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime implementation.
 
 | Later slice | Still required |
 | --- | --- |
 | 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
-| 2.3 | JSON Schemas under `schemas/tlpx-0.2/`, receipt field schemas, validators, full reason-code catalog, distinct record conformance suite |
+| 2.3 | Done: `schemas/tlpx-0.2/`, `validate-v02.mjs`, `npm run conformance:0.2`. Not a 0.2 runtime. |
 | 2.4 | Policy precedence, provenance, trusted ordering, requirements-maturity labels |
 
 **Not legal advice. Not a patent claim set.** Product and protocol language only.
@@ -597,3 +599,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.1b | Claim ticket restated to §11.1 (adapter binding, short window, atomic online claim). Dedicated `tlpx.authorization_claim`. Sealing described as evidence-chain property, not a record field. |
 | 0.2.0-draft.2.2 | Northstar JCS profile, `sha256:` representation, four domain prefixes, and golden fixtures. |
 | 0.2.0-draft.2.2b | Key sort is RFC 8785 UTF-16 code units. Lone surrogates rejected. Fixtures include astral/BMP order and raw `digest_hex`. |
+| 0.2.0-draft.2.3 | Record/object schemas under `schemas/tlpx-0.2/`, reason-code catalog, JS `validate-v02`, distinct `conformance:0.2` suite. |

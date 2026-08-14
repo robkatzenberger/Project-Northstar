@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/operator-action.schema.json",
+  "title": "TL-PX 0.2 Operator Action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "standard",
+    "standard_version",
+    "receipt_id",
+    "acted_at",
+    "outcome",
+    "operator",
+    "policy_bundle_hash",
+    "sequence"
+  ],
+  "properties": {
+    "record_type": { "const": "tlpx.operator_action" },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.2.0" },
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "acted_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "outcome": { "enum": ["APPROVE", "REJECT", "CANCEL"] },
+    "operator": { "$ref": "common.schema.json#/$defs/party" },
+    "authorized_action_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "approval_route": { "type": "array", "items": { "type": "string" } },
+    "renderer_id": { "type": "string", "minLength": 1 },
+    "renderer_version": { "type": "string", "minLength": 1 },
+    "sequence": { "$ref": "common.schema.json#/$defs/sequence" }
+  }
+}

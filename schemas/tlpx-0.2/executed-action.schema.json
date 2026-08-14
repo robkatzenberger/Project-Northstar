@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/executed-action.schema.json",
+  "title": "TL-PX 0.2 Executed Action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "executing_principal",
+    "action",
+    "target",
+    "arguments",
+    "environment",
+    "tenant",
+    "payload_hash",
+    "artifact_hash",
+    "adapter"
+  ],
+  "properties": {
+    "executing_principal": { "$ref": "common.schema.json#/$defs/principalId" },
+    "action": { "type": "string", "minLength": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "arguments": { "type": "object" },
+    "environment": { "type": "string", "minLength": 1 },
+    "tenant": { "type": "string", "minLength": 1 },
+    "payload_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
+    "artifact_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
+    "adapter": { "$ref": "common.schema.json#/$defs/adapter" }
+  }
+}
