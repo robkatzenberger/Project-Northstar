@@ -17,7 +17,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit builder evidence and limits for local slice 3.1 commit `1addb5c` |
 | [`../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit evidence and limits for local slice 3.2 commit `e835c4e` |
 | [`../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.3 commit `c19b1d2` |
-| [`../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Builder matrix and limits for the uncommitted slice 3.4 approval/expiry candidate |
+| [`../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.4 commit `133cd94` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.

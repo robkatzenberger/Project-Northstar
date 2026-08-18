@@ -2,8 +2,9 @@
 
 **Date:** 2026-08-18
 **Builder:** Codex
-**Artifact under test:** uncommitted working tree based on `7bfcc4f`
-**Disposition:** builder-verified candidate; not independently reviewed or accepted
+**Initial artifact under test:** uncommitted working tree based on `7bfcc4f`
+**Named artifact:** local commit `133cd94`
+**Disposition:** full exact-commit builder matrix passed; not independently reviewed or accepted
 
 ## Scope exercised
 
@@ -70,6 +71,10 @@ The combined suite includes 68/68 TL-PX 0.2 contract checks. The Rust evidence c
 - There is no execution receipt, protected side effect, post-claim cancellation, revocation evidence, hardened service, or forced-mediation PEP.
 - Passing this matrix does not independently accept slice 3.4 or establish a conforming TL-PX 0.2 runtime.
 
+## Exact-commit rerun
+
+After local commit `133cd94`, the complete Rust and JavaScript command matrix above was rerun without working-tree changes. Results matched the pre-commit run: 63 Rust tests, clean formatting and clippy, 919 combined JavaScript checks, 47/47 TL-PX 0.1 conformance, 68/68 TL-PX 0.2 contract checks, 29/29 technical checks, 16 PASS / 0 FAIL / 4 documented WARN in the historical JavaScript red team, and 9/9 Rust evidence rows.
+
 ## Next gate
 
-Commit and exact-commit verify this bounded delta, then continue to slice 3.5 for transactional revocation/state closure around the existing one-time claim. Full Section 3 verification and independent review remain deferred until slices 3.1–3.9 are complete.
+Continue to slice 3.5 for transactional revocation/state closure around the existing one-time claim. Full Section 3 verification and independent review remain deferred until slices 3.1–3.9 are complete.

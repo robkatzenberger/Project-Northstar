@@ -16,6 +16,6 @@ Local slice 2.4 commit `a87f822` adds `policy-bundle.schema.json`, the `northsta
 
 Local slice 3.2 commit `e835c4e` makes the Authorized Action schema enforce `effective_risk >= derived_risk`, matching the Rust type invariant. Shared fixtures and strict JavaScript/Rust tests pin validation-before-hash behavior, required nullable digests, optional retry omission, the three distinct object hashes, and the exact nine-field Action Binding. Bounded exact-commit checks passed; this is not runtime acceptance.
 
-Local slice 3.3 commit `c19b1d2` uses the accepted `tlpx.operator_action` `CANCEL` shape for pending cancellation. The 3.4 working tree additionally emits schema-valid `APPROVE`/`REJECT` records with the displayed action hash, policy route, and renderer identity/version. The reason catalog includes stable approval authorization/presentation/expiry blocks. The operator-action schema has no expiry outcome, so expiry remains durable authority state without a claimed portable record.
+Local slice 3.3 commit `c19b1d2` uses the accepted `tlpx.operator_action` `CANCEL` shape for pending cancellation. Local slice 3.4 commit `133cd94` additionally emits schema-valid `APPROVE`/`REJECT` records with the displayed action hash, policy route, and renderer identity/version. The reason catalog includes stable approval authorization/presentation/expiry blocks. The operator-action schema has no expiry outcome, so expiry remains durable authority state without a claimed portable record.
 
 Do not place 0.2 documents under `../tlpx-0.1/`.

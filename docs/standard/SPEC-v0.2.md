@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1–3.3 are local commits through `c19b1d2`. Slice 3.4 is an uncommitted builder-verified approval/expiry candidate. Full Section 3 verification is deferred; none of 2.4/3.1–3.4 is independently accepted. Execution-side evidence schema closure remains deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1–3.4 are local commits through `133cd94`. Slice 3.4 passed its full exact-commit builder matrix. Full Section 3 verification is deferred; none of 2.4/3.1–3.4 is independently accepted. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-18
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -19,7 +19,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 3.1 | Local commit `1addb5c`: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Exact-commit/full Section 3 verification deferred; not accepted. |
 | 3.2 | Local commit `e835c4e`: shared schema-bound fixtures pin the three action objects, canonical strings/bytes, distinct hashes, nullable/optional semantics, and exact Action Binding across JavaScript and Rust. Bounded exact-commit checks passed; full Section 3 verification deferred; not accepted. |
 | 3.3 | Local commit `c19b1d2`: kernel-derived Unix peer identity, exact local role mapping, authenticated requester/executor facades, policy-bound approval routes, and atomic pending cancellation with sealed operator-action evidence. Full exact-commit builder matrix passed; not independently accepted. |
-| 3.4 | Uncommitted candidate based on `7bfcc4f`: human-only route approval/rejection, canonical action display binding, fresh post-approval issuance, independent approval/claim deadlines, and atomic approval expiry. Builder matrix passed; not exact-commit verified or accepted. |
+| 3.4 | Local commit `133cd94`: human-only route approval/rejection, canonical action display binding, fresh post-approval issuance, independent approval/claim deadlines, and atomic approval expiry. Full exact-commit builder matrix passed; not independently accepted. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -776,4 +776,4 @@ The slice 3.2 typed-object vectors live at `tests/fixtures/tlpx-0.2/actions/gold
 | 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Local commit `1addb5c`; exact-commit/full Section 3 verification deferred; not accepted. |
 | 0.2.0-draft.3.2 | Adds schema-bound cross-language fixtures and oracles for Submitted Intent, Authorized Action, Executed Action, exact Action Binding, nullable/optional semantics, effective-risk monotonicity, canonical bytes, and distinct domain hashes. Local commit `e835c4e`; bounded exact-commit checks passed; full Section 3 verification deferred; not accepted. |
 | 0.2.0-draft.3.3 | Adds the initial Unix peer-credential identity profile, role-scoped authenticated authority facade, policy-bound approval routes, and atomic pending cancellation with schema-valid sealed operator-action evidence. Local commit `c19b1d2`; full exact-commit builder matrix passed; not independently accepted. |
-| 0.2.0-draft.3.4 | Adds human-only route approval/rejection, canonical display-hash and renderer binding, fresh post-approval authorization/nonces, independent approval/claim deadlines, and atomic approval expiry. Working-tree builder matrix passed; not exact-commit verified or accepted. |
+| 0.2.0-draft.3.4 | Adds human-only route approval/rejection, canonical display-hash and renderer binding, fresh post-approval authorization/nonces, independent approval/claim deadlines, and atomic approval expiry. Local commit `133cd94`; full exact-commit builder matrix passed; not independently accepted. |
