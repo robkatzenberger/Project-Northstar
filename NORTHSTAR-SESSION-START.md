@@ -118,17 +118,19 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 3.6 local candidate:** commit `9028346` adds an idempotent durable execution lifecycle. The named executor starts exactly one attempt; direct or reconciled terminal state atomically emits one schema-valid, canonical, sealed `tlpx.execution` receipt with bounded result evidence. Unknown outcomes remain consumed, move through authenticated reconciliation, and never replay automatically. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md`. No protected side effect or forced mediation exists yet.
 
+**Slice 3.7 local candidate:** commit `518899a` adds a mutually authenticated local Unix adapter session and an activated contract for both principals, adapter id/version, canonical binary digest, capability/action coverage, and the exact material-field projection. Execution start re-hashes the Executed Action and verifies the consumed claim plus this contract; adapter-started terminal receipts bind principal and digest. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`. Executable measurement/configuration and process isolation remain deployment trust boundaries, and no PEP exists yet.
+
 **3.9** remains the system-level claim. The 3.3 candidate authenticates Unix peers at a bounded facade, but the Rust crate still exposes trusted-embedding string APIs and performs no side effect; there is no hardened service or OS-protected PEP. The authority work is real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** continue Section 3 from 3.7. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Authenticated adapters, active post-claim cancellation, portable revocation/expiry evidence, and the OS-enforced PEP remain open.
+**Immediate next gates:** continue Section 3 from 3.8. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. The `tlpx-run` prototype, active post-claim cancellation, portable revocation/expiry evidence, and the OS-enforced PEP remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.6 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.7 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

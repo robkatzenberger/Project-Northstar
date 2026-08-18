@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later local commits through exact-commit builder-verified 3.6 `9028346` (later increments unaccepted; full Section 3 verification deferred; not a PEP)
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later local commits through exact-commit builder-verified 3.7 `518899a` (later increments unaccepted; full Section 3 verification deferred; not a PEP)
 
 **Who should read what**
 
@@ -58,6 +58,7 @@ northstar/
 | [`tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.4 commit `133cd94` |
 | [`tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md`](tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.5 commit `ad95653` |
 | [`tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md`](tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.6 commit `9028346` |
+| [`tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`](tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.7 commit `518899a` |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -101,7 +102,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates through 3.6 add policy activation, typed hashes, local authenticated roles, approval/revocation state, and a durable terminal execution-receipt boundary. Rust commit `aed80e2` independently passes only the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Full Section 3 verification is deferred. None of the later increments is independently accepted or mediates a protected capability. The running public gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates through 3.7 add policy activation, typed hashes, local authenticated roles, approval/revocation state, a durable terminal execution-receipt boundary, and a mutually authenticated local adapter contract. Rust commit `aed80e2` independently passes only the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Full Section 3 verification is deferred. None of the later increments is independently accepted or mediates a protected capability. The running public gate is still TL-PX 0.1.
 
 ---
 
@@ -121,8 +122,9 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 3.4 human approval/rejection and expiry local commit `133cd94` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.5 transactional scoped revocation and atomic claim local commit `ad95653` (full exact-commit builder matrix passed; portable evidence deferred; not independently accepted)
 - [x] Slice 3.6 terminal execution receipt and unknown-outcome reconciliation local commit `9028346` (full exact-commit builder matrix passed; not independently accepted)
+- [x] Slice 3.7 authenticated adapter contract and integrity tests local commit `518899a` (full exact-commit builder matrix passed; not independently accepted)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
-- [ ] Rust authenticated transport, execution evidence, and protected-execution PEP
+- [ ] Rust active cancellation, portable revocation/expiry evidence, production transport, and protected-execution PEP
 - [ ] Python adapter
 - [ ] Java sealed audit / full ops parity  
 - [ ] Production HA multi-tenant control plane
