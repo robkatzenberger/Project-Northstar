@@ -3,7 +3,9 @@
 //! The TL-PX record JSON remains independent of the local storage envelope.
 //! Chain hashes and HMAC seals are outbox columns, not private record fields.
 
-use crate::authority::{CancellationRecord, ClaimRecord, IssuedAuthorization, Retryability};
+use crate::authority::{
+    ApprovalResolution, CancellationRecord, ClaimRecord, IssuedAuthorization, Retryability,
+};
 use crate::error::{Error, Result};
 use crate::jcs::{canonicalize, parse, Canonical, Value};
 use crate::policy::Decision;
@@ -141,6 +143,10 @@ pub(crate) struct CancellationEvidenceInput<'a> {
     pub party_type: PartyType,
 }
 
+pub(crate) struct ApprovalEvidenceInput<'a> {
+    pub record: &'a ApprovalResolution,
+}
+
 pub(crate) fn decision_record(input: DecisionEvidenceInput<'_>) -> Result<Canonical> {
     let authorization_state = match input.decision {
         Decision::Allow => "AUTHORIZED_UNCLAIMED",
@@ -207,6 +213,38 @@ pub(crate) fn cancellation_record(input: CancellationEvidenceInput<'_>) -> Resul
             party(&input.record.canceller, input.party_type.as_str()),
         ),
         string("policy_bundle_hash", &input.record.policy_bundle_hash),
+        ("sequence".into(), Value::Int(input.record.sequence)),
+    ]))
+}
+
+pub(crate) fn approval_record(input: ApprovalEvidenceInput<'_>) -> Result<Canonical> {
+    canonicalize(&Value::Object(vec![
+        string("record_type", "tlpx.operator_action"),
+        string("standard", "TL-PX"),
+        string("standard_version", "0.2.0"),
+        string("receipt_id", &input.record.receipt_id),
+        string("acted_at", &iso8601_from_ms(input.record.acted_at_ms)?),
+        string("outcome", input.record.outcome.as_str()),
+        ("operator".into(), party(&input.record.operator, "human")),
+        string(
+            "authorized_action_hash",
+            &input.record.authorized_action_hash,
+        ),
+        string("policy_bundle_hash", &input.record.policy_bundle_hash),
+        (
+            "approval_route".into(),
+            Value::Array(
+                input
+                    .record
+                    .approval_route
+                    .iter()
+                    .cloned()
+                    .map(Value::String)
+                    .collect(),
+            ),
+        ),
+        string("renderer_id", &input.record.renderer_id),
+        string("renderer_version", &input.record.renderer_version),
         ("sequence".into(), Value::Int(input.record.sequence)),
     ]))
 }

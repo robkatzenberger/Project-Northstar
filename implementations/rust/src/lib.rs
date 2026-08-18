@@ -14,8 +14,9 @@ pub mod policy_manifest;
 pub mod types;
 
 pub use authority::{
-    enforce_constraints, Authority, AuthorityConfig, AuthzState, CancellationReason,
-    CancellationRecord, CancellationRole, ClaimRecord, EvaluationOutcome, IssuedAuthorization,
+    enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
+    Authority, AuthorityConfig, AuthzState, CancellationReason, CancellationRecord,
+    CancellationRole, ClaimRecord, EvaluationOutcome, IssuedAuthorization, PendingApprovalView,
     Retryability,
 };
 pub use error::{Error, Result};

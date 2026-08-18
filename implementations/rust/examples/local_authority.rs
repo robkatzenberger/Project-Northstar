@@ -2,12 +2,12 @@
 
 use std::os::unix::net::UnixStream;
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
-    AuthorizationTemplate, CancellationReason, CapabilityRegistry, ConfiguredPolicyBundle,
-    EvidenceConfig, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
-    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
-    Principal, Risk, SubmittedIntent, Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE,
-    POLICY_PRECEDENCE,
+    exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation,
+    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, CancellationReason,
+    CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, LocalAuthenticator,
+    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
+    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 fn main() -> tlpx::Result<()> {
@@ -81,6 +81,21 @@ fn main() -> tlpx::Result<()> {
             &requester,
             CancellationReason::RequesterWithdrawn,
         )?;
+        let operator = pilot_authenticated_operator()?;
+        let mut approval = pilot_intent(format!("{}-approval", issued.request_id));
+        approval.action = "deploy".into();
+        let approval = authority.evaluate_authenticated(&requester, &approval)?;
+        let view = authority.pending_approval_authenticated(&approval.receipt_id, &operator)?;
+        authority.resolve_pending_authenticated(
+            &approval.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash,
+                renderer_id: "approval.example".into(),
+                renderer_version: "1.0.0".into(),
+            },
+        )?;
         for row in authority.pending_evidence(100)? {
             println!("{}", row.record_json);
         }
@@ -115,6 +130,13 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
                 action: "deploy".into(),
                 effect: PolicyEffect::require_approval(
                     "POLICY_REQUIRE_APPROVAL",
+                    AuthorizationTemplate {
+                        derived_risk: Risk::High,
+                        capability: "mailer.send".into(),
+                        resource_scope: vec!["customer:123".into()],
+                        risk_reasons: vec!["deployment_change".into()],
+                        risk_source: "policy:pilot-policy@1.0.0".into(),
+                    },
                     vec!["ops.deploy".into()],
                 ),
             },
@@ -170,6 +192,7 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             seal_key_id: "insecure-example-only".into(),
             seal_key: vec![0x42; 32],
         },
+        approval_window_ms: 600_000,
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     })
@@ -183,6 +206,22 @@ fn pilot_authenticated_requester() -> tlpx::Result<AuthenticatedIdentity> {
         party_type: PartyType::Machine,
         roles: vec![LocalRole::Requester],
         approval_routes: vec![],
+    }])?;
+    let (server, client) = UnixStream::pair()
+        .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;
+    let identity = authenticator.authenticate_stream(&server)?;
+    drop(client);
+    Ok(identity)
+}
+
+fn pilot_authenticated_operator() -> tlpx::Result<AuthenticatedIdentity> {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "operator.local".into(),
+        party_type: PartyType::Human,
+        roles: vec![LocalRole::Operator],
+        approval_routes: vec!["ops.deploy".into()],
     }])?;
     let (server, client) = UnixStream::pair()
         .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;

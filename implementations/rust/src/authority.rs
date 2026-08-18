@@ -7,10 +7,11 @@
 
 use crate::error::{Error, Result};
 use crate::evidence::{
-    self, CancellationEvidenceInput, DecisionEvidenceInput, ErrorEvidenceInput, EvidenceConfig,
-    EvidenceReconciliation, SealedEvidence,
+    self, ApprovalEvidenceInput, CancellationEvidenceInput, DecisionEvidenceInput,
+    ErrorEvidenceInput, EvidenceConfig, EvidenceReconciliation, SealedEvidence,
 };
 use crate::hash::assert_hash_string;
+use crate::jcs::canonicalize;
 use crate::local_auth::{AuthenticatedIdentity, LocalRole};
 use crate::policy::{CapabilityRegistry, Decision, PolicyEffect, Switchboard};
 use crate::policy_manifest::{ConfiguredPolicyBundle, PolicyCatalog};
@@ -83,6 +84,7 @@ pub struct AuthorityConfig {
     pub switchboard: Switchboard,
     pub capabilities: CapabilityRegistry,
     pub evidence: EvidenceConfig,
+    pub approval_window_ms: i64,
     pub claim_window_ms: i64,
     pub execution_lease_ms: i64,
 }
@@ -99,9 +101,10 @@ impl AuthorityConfig {
                 )));
             }
         }
-        if self.claim_window_ms <= 0 || self.execution_lease_ms <= 0 {
+        if self.approval_window_ms <= 0 || self.claim_window_ms <= 0 || self.execution_lease_ms <= 0
+        {
             return Err(Error::policy_compile(
-                "claim and execution windows must be positive",
+                "approval, claim, and execution windows must be positive",
             ));
         }
         if self.execution_lease_ms % 1_000 != 0 {
@@ -215,6 +218,96 @@ pub struct CancellationRecord {
     pub policy_bundle_hash: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApprovalOutcome {
+    Approve,
+    Reject,
+}
+
+impl ApprovalOutcome {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Approve => "APPROVE",
+            Self::Reject => "REJECT",
+        }
+    }
+
+    fn terminal_state(self) -> ApprovalState {
+        match self {
+            Self::Approve => ApprovalState::Approved,
+            Self::Reject => ApprovalState::Rejected,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApprovalState {
+    Pending,
+    Approved,
+    Rejected,
+    Cancelled,
+    Expired,
+}
+
+impl ApprovalState {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "PENDING_APPROVAL",
+            Self::Approved => "APPROVED",
+            Self::Rejected => "REJECTED",
+            Self::Cancelled => "CANCELLED",
+            Self::Expired => "APPROVAL_EXPIRED",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self> {
+        match value {
+            "PENDING_APPROVAL" => Ok(Self::Pending),
+            "APPROVED" => Ok(Self::Approved),
+            "REJECTED" => Ok(Self::Rejected),
+            "CANCELLED" => Ok(Self::Cancelled),
+            "APPROVAL_EXPIRED" => Ok(Self::Expired),
+            _ => Err(Error::authority(format!("unknown approval state {value}"))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApprovalPresentation {
+    pub authorized_action_hash: String,
+    pub renderer_id: String,
+    pub renderer_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingApprovalView {
+    pub receipt_id: String,
+    pub requesting_principal: String,
+    pub executing_principal: String,
+    pub action: String,
+    pub target: String,
+    pub authorized_action_json: String,
+    pub authorized_action_hash: String,
+    pub action_binding_hash: String,
+    pub approval_route: Vec<String>,
+    pub approval_expires_at_ms: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApprovalResolution {
+    pub receipt_id: String,
+    pub sequence: i64,
+    pub outcome: ApprovalOutcome,
+    pub operator: String,
+    pub acted_at_ms: i64,
+    pub authorized_action_hash: String,
+    pub policy_bundle_hash: String,
+    pub approval_route: Vec<String>,
+    pub renderer_id: String,
+    pub renderer_version: String,
+    pub authorization: Option<IssuedAuthorization>,
+}
+
 pub struct Authority {
     db: Mutex<Connection>,
     config: AuthorityConfig,
@@ -287,23 +380,53 @@ impl Authority {
                  CREATE TABLE IF NOT EXISTS tlpx_pending_approvals (
                    receipt_id TEXT PRIMARY KEY REFERENCES tlpx_evaluations(receipt_id),
                    requesting_principal TEXT NOT NULL,
+                   request_id TEXT NOT NULL,
+                   intent_hash TEXT NOT NULL,
                    policy_bundle_hash TEXT NOT NULL,
-                   state TEXT NOT NULL CHECK(state IN ('PENDING_APPROVAL','CANCELLED')),
+                   state TEXT NOT NULL CHECK(state IN (
+                     'PENDING_APPROVAL','APPROVED','REJECTED','CANCELLED','APPROVAL_EXPIRED'
+                   )),
+                   approval_expires_at_ms INTEGER NOT NULL,
                    terminal_sequence INTEGER UNIQUE,
-                   cancelled_at_ms INTEGER,
-                   cancelled_by TEXT,
-                   cancellation_role TEXT CHECK(cancellation_role IN (
+                   terminal_at_ms INTEGER,
+                   terminal_actor TEXT,
+                   terminal_actor_type TEXT CHECK(terminal_actor_type IN ('human','machine')),
+                   terminal_role TEXT CHECK(terminal_role IN (
                      'REQUESTER','OPERATOR','EMERGENCY_AUTHORITY'
                    )),
-                   cancellation_reason TEXT,
+                   terminal_reason TEXT,
+                   executing_principal TEXT NOT NULL,
+                   action TEXT NOT NULL,
+                   target TEXT NOT NULL,
+                   authorized_action_json TEXT NOT NULL,
+                   authorized_action_hash TEXT NOT NULL,
+                   action_binding_hash TEXT NOT NULL,
+                   capability TEXT NOT NULL,
+                   adapter_id TEXT NOT NULL,
+                   adapter_version TEXT NOT NULL,
+                   environment TEXT NOT NULL,
+                   tenant TEXT NOT NULL,
+                   execution_lease_ms INTEGER NOT NULL,
                    CHECK(
                      (state = 'PENDING_APPROVAL' AND terminal_sequence IS NULL
-                       AND cancelled_at_ms IS NULL AND cancelled_by IS NULL
-                       AND cancellation_role IS NULL AND cancellation_reason IS NULL)
+                       AND terminal_at_ms IS NULL AND terminal_actor IS NULL
+                       AND terminal_actor_type IS NULL AND terminal_role IS NULL
+                       AND terminal_reason IS NULL)
                      OR
                      (state = 'CANCELLED' AND terminal_sequence IS NOT NULL
-                       AND cancelled_at_ms IS NOT NULL AND cancelled_by IS NOT NULL
-                       AND cancellation_role IS NOT NULL AND cancellation_reason IS NOT NULL)
+                       AND terminal_at_ms IS NOT NULL AND terminal_actor IS NOT NULL
+                       AND terminal_actor_type IS NOT NULL AND terminal_role IS NOT NULL
+                       AND terminal_reason IS NOT NULL)
+                     OR
+                     (state IN ('APPROVED','REJECTED') AND terminal_sequence IS NOT NULL
+                       AND terminal_at_ms IS NOT NULL AND terminal_actor IS NOT NULL
+                       AND terminal_actor_type = 'human' AND terminal_role = 'OPERATOR'
+                       AND terminal_reason IS NULL)
+                     OR
+                     (state = 'APPROVAL_EXPIRED' AND terminal_sequence IS NOT NULL
+                       AND terminal_at_ms IS NOT NULL AND terminal_actor IS NULL
+                       AND terminal_actor_type IS NULL AND terminal_role IS NULL
+                       AND terminal_reason = 'APPROVAL_WINDOW_EXPIRED')
                    )
                  );
                  CREATE TABLE IF NOT EXISTS tlpx_pending_approval_routes (
@@ -313,18 +436,38 @@ impl Authority {
                    PRIMARY KEY(receipt_id, route_id),
                    UNIQUE(receipt_id, position)
                  );
+                 CREATE TABLE IF NOT EXISTS tlpx_pending_approval_scopes (
+                   receipt_id TEXT NOT NULL REFERENCES tlpx_pending_approvals(receipt_id) ON DELETE CASCADE,
+                   resource TEXT NOT NULL,
+                   position INTEGER NOT NULL CHECK(position >= 0),
+                   PRIMARY KEY(receipt_id, resource),
+                   UNIQUE(receipt_id, position)
+                 );
                  CREATE TABLE IF NOT EXISTS tlpx_operator_actions (
                    receipt_id TEXT PRIMARY KEY REFERENCES tlpx_pending_approvals(receipt_id),
                    sequence INTEGER NOT NULL UNIQUE,
-                   outcome TEXT NOT NULL CHECK(outcome = 'CANCEL'),
+                   outcome TEXT NOT NULL CHECK(outcome IN ('APPROVE','REJECT','CANCEL')),
                    actor_id TEXT NOT NULL,
                    actor_type TEXT NOT NULL CHECK(actor_type IN ('human','machine')),
                    actor_role TEXT NOT NULL CHECK(actor_role IN (
                      'REQUESTER','OPERATOR','EMERGENCY_AUTHORITY'
                    )),
-                   reason TEXT NOT NULL,
+                   reason TEXT,
                    policy_bundle_hash TEXT NOT NULL,
-                   acted_at_ms INTEGER NOT NULL
+                   acted_at_ms INTEGER NOT NULL,
+                   authorized_action_hash TEXT,
+                   renderer_id TEXT,
+                   renderer_version TEXT,
+                   CHECK(
+                     (outcome = 'CANCEL' AND reason IS NOT NULL
+                       AND authorized_action_hash IS NULL
+                       AND renderer_id IS NULL AND renderer_version IS NULL)
+                     OR
+                     (outcome IN ('APPROVE','REJECT') AND actor_type = 'human'
+                       AND actor_role = 'OPERATOR' AND reason IS NULL
+                       AND authorized_action_hash IS NOT NULL
+                       AND renderer_id IS NOT NULL AND renderer_version IS NOT NULL)
+                   )
                  );
                  CREATE TABLE IF NOT EXISTS tlpx_authorizations (
                    authorization_id TEXT PRIMARY KEY,
@@ -899,7 +1042,7 @@ impl Authority {
         evidence::reconcile(&transaction, &self.config.evidence)?;
         let pending = transaction
             .query_row(
-                "SELECT requesting_principal, policy_bundle_hash, state
+                "SELECT requesting_principal, policy_bundle_hash, state, approval_expires_at_ms
                  FROM tlpx_pending_approvals WHERE receipt_id = ?1",
                 [receipt_id],
                 |row| {
@@ -907,6 +1050,7 @@ impl Authority {
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
                     ))
                 },
             )
@@ -919,18 +1063,28 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
+        if cancelled_at_ms >= pending.3 {
+            expire_pending_transaction(&transaction, receipt_id, cancelled_at_ms)?;
+            transaction.commit().map_err(db_error)?;
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval expired before cancellation",
+            ));
+        }
         let role = cancellation_role(&transaction, receipt_id, &pending.0, canceller, reason)?;
         let sequence = next_sequence(&transaction)?;
         let updated = transaction
             .execute(
                 "UPDATE tlpx_pending_approvals
-                 SET state = 'CANCELLED', terminal_sequence = ?1, cancelled_at_ms = ?2,
-                     cancelled_by = ?3, cancellation_role = ?4, cancellation_reason = ?5
-                 WHERE receipt_id = ?6 AND state = 'PENDING_APPROVAL'",
+                 SET state = 'CANCELLED', terminal_sequence = ?1, terminal_at_ms = ?2,
+                     terminal_actor = ?3, terminal_actor_type = ?4,
+                     terminal_role = ?5, terminal_reason = ?6
+                 WHERE receipt_id = ?7 AND state = 'PENDING_APPROVAL'",
                 params![
                     sequence,
                     cancelled_at_ms,
                     canceller.principal_id(),
+                    canceller.party_type().as_str(),
                     role.as_str(),
                     reason.as_str(),
                     receipt_id,
@@ -985,6 +1139,276 @@ impl Authority {
         )?;
         transaction.commit().map_err(db_error)?;
         Ok(record)
+    }
+
+    pub fn pending_approval_authenticated(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+    ) -> Result<PendingApprovalView> {
+        self.pending_approval_authenticated_at(receipt_id, operator, now_ms()?)
+    }
+
+    pub fn pending_approval_authenticated_at(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+        viewed_at_ms: i64,
+    ) -> Result<PendingApprovalView> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let pending = load_pending_authorization(&transaction, receipt_id)?
+            .ok_or_else(|| Error::coded("APPROVAL_TERMINAL", "pending approval does not exist"))?;
+        if pending.state != ApprovalState::Pending {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        if viewed_at_ms >= pending.authorization.approval_expires_at_ms {
+            expire_pending_transaction(&transaction, receipt_id, viewed_at_ms)?;
+            transaction.commit().map_err(db_error)?;
+            return Err(Error::coded(
+                "APPROVAL_EXPIRED",
+                "pending approval window expired",
+            ));
+        }
+        require_approval_operator(operator, &pending.approval_route)?;
+        let view = pending.view();
+        transaction.commit().map_err(db_error)?;
+        Ok(view)
+    }
+
+    pub fn resolve_pending_authenticated(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+        outcome: ApprovalOutcome,
+        presentation: ApprovalPresentation,
+    ) -> Result<ApprovalResolution> {
+        self.resolve_pending_authenticated_at(
+            receipt_id,
+            operator,
+            outcome,
+            presentation,
+            now_ms()?,
+        )
+    }
+
+    pub fn resolve_pending_authenticated_at(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+        outcome: ApprovalOutcome,
+        presentation: ApprovalPresentation,
+        acted_at_ms: i64,
+    ) -> Result<ApprovalResolution> {
+        validate_approval_presentation(&presentation)?;
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let pending = load_pending_authorization(&transaction, receipt_id)?
+            .ok_or_else(|| Error::coded("APPROVAL_TERMINAL", "pending approval does not exist"))?;
+        if pending.state != ApprovalState::Pending {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        if acted_at_ms >= pending.authorization.approval_expires_at_ms {
+            expire_pending_transaction(&transaction, receipt_id, acted_at_ms)?;
+            transaction.commit().map_err(db_error)?;
+            return Err(Error::coded(
+                "APPROVAL_EXPIRED",
+                "pending approval window expired",
+            ));
+        }
+        require_approval_operator(operator, &pending.approval_route)?;
+        if presentation.authorized_action_hash != pending.authorization.authorized_action_hash {
+            return Err(Error::coded(
+                "APPROVAL_PRESENTATION_MISMATCH",
+                "operator presentation does not bind the pending authorized action",
+            ));
+        }
+
+        let authorization = if outcome == ApprovalOutcome::Approve {
+            let selected = self.config.policy.select(
+                &pending.authorization.environment,
+                &pending.authorization.tenant,
+                acted_at_ms,
+            )?;
+            if selected.policy_bundle_hash != pending.authorization.policy_bundle_hash {
+                return Err(Error::coded(
+                    "POLICY_INACTIVE",
+                    "pending approval policy is no longer active",
+                ));
+            }
+            self.config.switchboard.authorize_executor(
+                &pending.authorization.executing_principal,
+                &pending.authorization.action,
+            )?;
+            Some(issue_pending_authorization(
+                &self.config,
+                &pending.authorization,
+                acted_at_ms,
+            )?)
+        } else {
+            None
+        };
+        let sequence = next_sequence(&transaction)?;
+        let updated = transaction
+            .execute(
+                "UPDATE tlpx_pending_approvals
+                 SET state = ?1, terminal_sequence = ?2, terminal_at_ms = ?3,
+                     terminal_actor = ?4, terminal_actor_type = 'human',
+                     terminal_role = 'OPERATOR', terminal_reason = NULL
+                 WHERE receipt_id = ?5 AND state = 'PENDING_APPROVAL'",
+                params![
+                    outcome.terminal_state().as_str(),
+                    sequence,
+                    acted_at_ms,
+                    operator.principal_id(),
+                    receipt_id,
+                ],
+            )
+            .map_err(db_error)?;
+        if updated != 1 {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        transaction
+            .execute(
+                "INSERT INTO tlpx_operator_actions (
+                   receipt_id, sequence, outcome, actor_id, actor_type, actor_role,
+                   reason, policy_bundle_hash, acted_at_ms, authorized_action_hash,
+                   renderer_id, renderer_version
+                 ) VALUES (?1, ?2, ?3, ?4, 'human', 'OPERATOR', NULL, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    receipt_id,
+                    sequence,
+                    outcome.as_str(),
+                    operator.principal_id(),
+                    pending.authorization.policy_bundle_hash,
+                    acted_at_ms,
+                    pending.authorization.authorized_action_hash,
+                    presentation.renderer_id,
+                    presentation.renderer_version,
+                ],
+            )
+            .map_err(db_error)?;
+        if let Some(ref issued) = authorization {
+            insert_authorization(&transaction, issued)?;
+            let evaluation_updated = transaction
+                .execute(
+                    "UPDATE tlpx_evaluations SET authorization_id = ?1
+                     WHERE receipt_id = ?2 AND decision = 'REQUIRE_APPROVAL'
+                       AND authorization_id IS NULL",
+                    params![issued.authorization_id, receipt_id],
+                )
+                .map_err(db_error)?;
+            if evaluation_updated != 1 {
+                return Err(Error::authority(
+                    "approved authorization could not bind its decision",
+                ));
+            }
+        }
+        let resolution = ApprovalResolution {
+            receipt_id: receipt_id.to_string(),
+            sequence,
+            outcome,
+            operator: operator.principal_id().to_string(),
+            acted_at_ms,
+            authorized_action_hash: pending.authorization.authorized_action_hash.clone(),
+            policy_bundle_hash: pending.authorization.policy_bundle_hash.clone(),
+            approval_route: pending.approval_route.clone(),
+            renderer_id: presentation.renderer_id,
+            renderer_version: presentation.renderer_version,
+            authorization,
+        };
+        let operator_evidence = evidence::approval_record(ApprovalEvidenceInput {
+            record: &resolution,
+        })?;
+        evidence::enqueue(
+            &transaction,
+            &self.config.evidence,
+            sequence,
+            0,
+            "tlpx.operator_action",
+            receipt_id,
+            &operator_evidence,
+        )?;
+        if let Some(ref issued) = resolution.authorization {
+            let authorization_evidence = evidence::authorization_record(issued)?;
+            evidence::enqueue(
+                &transaction,
+                &self.config.evidence,
+                sequence,
+                1,
+                "tlpx.authorization",
+                &issued.authorization_id,
+                &authorization_evidence,
+            )?;
+        }
+        transaction.commit().map_err(db_error)?;
+        Ok(resolution)
+    }
+
+    pub fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> Result<i64> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let pending = load_pending_authorization(&transaction, receipt_id)?
+            .ok_or_else(|| Error::coded("APPROVAL_TERMINAL", "pending approval does not exist"))?;
+        if pending.state != ApprovalState::Pending {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        if expired_at_ms < pending.authorization.approval_expires_at_ms {
+            return Err(Error::coded(
+                "APPROVAL_NOT_EXPIRED",
+                "pending approval window is still open",
+            ));
+        }
+        let sequence = expire_pending_transaction(&transaction, receipt_id, expired_at_ms)?;
+        transaction.commit().map_err(db_error)?;
+        Ok(sequence)
+    }
+
+    pub fn approval_state(&self, receipt_id: &str) -> Result<Option<ApprovalState>> {
+        let connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        connection
+            .query_row(
+                "SELECT state FROM tlpx_pending_approvals WHERE receipt_id = ?1",
+                [receipt_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(db_error)?
+            .map(|state| ApprovalState::parse(&state))
+            .transpose()
     }
 
     pub fn state(&self, authorization_id: &str) -> Result<Option<AuthzState>> {
@@ -1116,6 +1540,188 @@ fn cancellation_role(
     ))
 }
 
+#[derive(Debug, Clone)]
+struct StoredPendingApproval {
+    authorization: PendingAuthorization,
+    state: ApprovalState,
+    approval_route: Vec<String>,
+}
+
+impl StoredPendingApproval {
+    fn view(&self) -> PendingApprovalView {
+        PendingApprovalView {
+            receipt_id: self.authorization.receipt_id.clone(),
+            requesting_principal: self.authorization.requesting_principal.clone(),
+            executing_principal: self.authorization.executing_principal.clone(),
+            action: self.authorization.action.clone(),
+            target: self.authorization.target.clone(),
+            authorized_action_json: self.authorization.authorized_action_json.clone(),
+            authorized_action_hash: self.authorization.authorized_action_hash.clone(),
+            action_binding_hash: self.authorization.action_binding_hash.clone(),
+            approval_route: self.approval_route.clone(),
+            approval_expires_at_ms: self.authorization.approval_expires_at_ms,
+        }
+    }
+}
+
+fn load_pending_authorization(
+    connection: &Connection,
+    receipt_id: &str,
+) -> Result<Option<StoredPendingApproval>> {
+    let base = connection
+        .query_row(
+            "SELECT requesting_principal, request_id, intent_hash, policy_bundle_hash, state,
+                    approval_expires_at_ms, executing_principal, action, target,
+                    authorized_action_json, authorized_action_hash, action_binding_hash,
+                    capability, adapter_id, adapter_version, environment, tenant,
+                    execution_lease_ms
+             FROM tlpx_pending_approvals WHERE receipt_id = ?1",
+            [receipt_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, String>(8)?,
+                    row.get::<_, String>(9)?,
+                    row.get::<_, String>(10)?,
+                    row.get::<_, String>(11)?,
+                    row.get::<_, String>(12)?,
+                    row.get::<_, String>(13)?,
+                    row.get::<_, String>(14)?,
+                    row.get::<_, String>(15)?,
+                    row.get::<_, String>(16)?,
+                    row.get::<_, i64>(17)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(db_error)?;
+    let Some(base) = base else {
+        return Ok(None);
+    };
+    let mut route_statement = connection
+        .prepare(
+            "SELECT route_id FROM tlpx_pending_approval_routes
+             WHERE receipt_id = ?1 ORDER BY position",
+        )
+        .map_err(db_error)?;
+    let approval_route = route_statement
+        .query_map([receipt_id], |row| row.get::<_, String>(0))
+        .map_err(db_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db_error)?;
+    let mut scope_statement = connection
+        .prepare(
+            "SELECT resource FROM tlpx_pending_approval_scopes
+             WHERE receipt_id = ?1 ORDER BY position",
+        )
+        .map_err(db_error)?;
+    let resource_scope = scope_statement
+        .query_map([receipt_id], |row| row.get::<_, String>(0))
+        .map_err(db_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db_error)?;
+    if approval_route.is_empty() || resource_scope.is_empty() {
+        return Err(Error::authority(
+            "pending approval is missing route or resource scope",
+        ));
+    }
+    assert_hash_string(&base.2)?;
+    assert_hash_string(&base.3)?;
+    assert_hash_string(&base.10)?;
+    assert_hash_string(&base.11)?;
+    Ok(Some(StoredPendingApproval {
+        state: ApprovalState::parse(&base.4)?,
+        authorization: PendingAuthorization {
+            receipt_id: receipt_id.to_string(),
+            requesting_principal: base.0,
+            request_id: base.1,
+            intent_hash: base.2,
+            policy_bundle_hash: base.3,
+            approval_expires_at_ms: base.5,
+            executing_principal: base.6,
+            action: base.7,
+            target: base.8,
+            authorized_action_json: base.9,
+            authorized_action_hash: base.10,
+            action_binding_hash: base.11,
+            capability: base.12,
+            resource_scope,
+            adapter_id: base.13,
+            adapter_version: base.14,
+            environment: base.15,
+            tenant: base.16,
+            execution_lease_ms: base.17,
+        },
+        approval_route,
+    }))
+}
+
+fn require_approval_operator(
+    operator: &AuthenticatedIdentity,
+    approval_route: &[String],
+) -> Result<()> {
+    if operator.party_type() != evidence::PartyType::Human
+        || !operator.has_role(LocalRole::Operator)
+        || !approval_route
+            .iter()
+            .any(|route| operator.permits_approval_route(route))
+    {
+        return Err(Error::coded(
+            "APPROVAL_UNAUTHORIZED",
+            "authenticated human operator is not authorized for the approval route",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_approval_presentation(presentation: &ApprovalPresentation) -> Result<()> {
+    assert_hash_string(&presentation.authorized_action_hash).map_err(|_| {
+        Error::coded(
+            "APPROVAL_PRESENTATION_MISMATCH",
+            "approval presentation hash is invalid",
+        )
+    })?;
+    if presentation.renderer_id.is_empty() || presentation.renderer_version.is_empty() {
+        return Err(Error::coded(
+            "APPROVAL_PRESENTATION_MISMATCH",
+            "approval renderer identity and version are required",
+        ));
+    }
+    Ok(())
+}
+
+fn expire_pending_transaction(
+    transaction: &Transaction<'_>,
+    receipt_id: &str,
+    expired_at_ms: i64,
+) -> Result<i64> {
+    let sequence = next_sequence(transaction)?;
+    let updated = transaction
+        .execute(
+            "UPDATE tlpx_pending_approvals
+             SET state = 'APPROVAL_EXPIRED', terminal_sequence = ?1, terminal_at_ms = ?2,
+                 terminal_actor = NULL, terminal_actor_type = NULL, terminal_role = NULL,
+                 terminal_reason = 'APPROVAL_WINDOW_EXPIRED'
+             WHERE receipt_id = ?3 AND state = 'PENDING_APPROVAL'",
+            params![sequence, expired_at_ms, receipt_id],
+        )
+        .map_err(db_error)?;
+    if updated != 1 {
+        return Err(Error::coded(
+            "APPROVAL_TERMINAL",
+            "pending approval already has a terminal outcome",
+        ));
+    }
+    Ok(sequence)
+}
+
 struct DecisionInput<'a> {
     authenticated_requester: &'a str,
     intent: &'a SubmittedIntent,
@@ -1159,42 +1765,55 @@ fn commit_decision(
             );
         }
     };
+    let action = if matches!(
+        input.effect.decision,
+        Decision::Allow | Decision::RequireApproval
+    ) {
+        Some(
+            match input.policy.policy.authorize(
+                input.intent,
+                &input.effect,
+                input.policy_bundle_hash,
+            ) {
+                Ok(action) => action,
+                Err(error) => {
+                    return commit_preallocated_error(
+                        transaction,
+                        &receipt_id,
+                        sequence,
+                        ErrorInput {
+                            authenticated_principal: Some(input.authenticated_requester),
+                            request_id: Some(&input.intent.request_id),
+                            intent_hash: Some(input.intent_hash),
+                            retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
+                            stage: "authorization_construction",
+                            code: "AUTHORITY_INTERNAL_ERROR",
+                            message: error.message(),
+                            retryability: Retryability::Never,
+                            required_condition: None,
+                            policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                            policy_bundle_hash: Some(input.policy_bundle_hash),
+                            evaluated_at_ms: input.evaluated_at_ms,
+                            occupies_slot: true,
+                        },
+                        config,
+                    );
+                }
+            },
+        )
+    } else {
+        None
+    };
     let mut authorization = None;
+    let mut pending_authorization = None;
     let authorization_id = if input.effect.decision == Decision::Allow {
-        let action = match input.policy.policy.authorize(
-            input.intent,
-            &input.effect,
-            input.policy_bundle_hash,
-        ) {
-            Ok(action) => action,
-            Err(error) => {
-                return commit_preallocated_error(
-                    transaction,
-                    &receipt_id,
-                    sequence,
-                    ErrorInput {
-                        authenticated_principal: Some(input.authenticated_requester),
-                        request_id: Some(&input.intent.request_id),
-                        intent_hash: Some(input.intent_hash),
-                        retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
-                        stage: "authorization_construction",
-                        code: "AUTHORITY_INTERNAL_ERROR",
-                        message: error.message(),
-                        retryability: Retryability::Never,
-                        required_condition: None,
-                        policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
-                        policy_bundle_hash: Some(input.policy_bundle_hash),
-                        evaluated_at_ms: input.evaluated_at_ms,
-                        occupies_slot: true,
-                    },
-                    config,
-                );
-            }
-        };
+        let action = action
+            .as_ref()
+            .ok_or_else(|| Error::authority("ALLOW decision has no authorized action"))?;
         let issued = match issue_authorization(
             config,
             input.intent,
-            &action,
+            action,
             input.intent_hash,
             &receipt_id,
             input.evaluated_at_ms,
@@ -1227,6 +1846,19 @@ fn commit_decision(
         let id = issued.authorization_id.clone();
         authorization = Some(issued);
         Some(id)
+    } else if input.effect.decision == Decision::RequireApproval {
+        let action = action.as_ref().ok_or_else(|| {
+            Error::authority("REQUIRE_APPROVAL decision has no authorized action")
+        })?;
+        pending_authorization = Some(pending_authorization_from_action(
+            config,
+            input.intent,
+            action,
+            input.intent_hash,
+            &receipt_id,
+            input.evaluated_at_ms,
+        )?);
+        None
     } else {
         None
     };
@@ -1287,15 +1919,10 @@ fn commit_decision(
             .approval_route
             .as_deref()
             .ok_or_else(|| Error::authority("validated approval decision has no route"))?;
-        if insert_pending_approval(
-            &transaction,
-            &receipt_id,
-            input.authenticated_requester,
-            input.policy_bundle_hash,
-            route,
-        )
-        .is_err()
-        {
+        let pending = pending_authorization.as_ref().ok_or_else(|| {
+            Error::authority("validated approval decision has no pending authorization")
+        })?;
+        if insert_pending_approval(&transaction, pending, route).is_err() {
             transaction
                 .execute(
                     "DELETE FROM tlpx_pending_approvals WHERE receipt_id = ?1",
@@ -1406,19 +2033,98 @@ fn commit_decision(
     })
 }
 
+#[derive(Debug, Clone)]
+struct PendingAuthorization {
+    receipt_id: String,
+    requesting_principal: String,
+    request_id: String,
+    intent_hash: String,
+    policy_bundle_hash: String,
+    approval_expires_at_ms: i64,
+    executing_principal: String,
+    action: String,
+    target: String,
+    authorized_action_json: String,
+    authorized_action_hash: String,
+    action_binding_hash: String,
+    capability: String,
+    resource_scope: Vec<String>,
+    adapter_id: String,
+    adapter_version: String,
+    environment: String,
+    tenant: String,
+    execution_lease_ms: i64,
+}
+
+fn pending_authorization_from_action(
+    config: &AuthorityConfig,
+    intent: &SubmittedIntent,
+    action: &AuthorizedAction,
+    intent_hash: &str,
+    receipt_id: &str,
+    evaluated_at_ms: i64,
+) -> Result<PendingAuthorization> {
+    assert_hash_string(intent_hash)?;
+    let approval_expires_at_ms = evaluated_at_ms
+        .checked_add(config.approval_window_ms)
+        .ok_or_else(|| Error::authority("approval deadline overflow"))?;
+    Ok(PendingAuthorization {
+        receipt_id: receipt_id.to_string(),
+        requesting_principal: action.requesting_principal.clone(),
+        request_id: intent.request_id.clone(),
+        intent_hash: intent_hash.to_string(),
+        policy_bundle_hash: action.policy_bundle_hash.clone(),
+        approval_expires_at_ms,
+        executing_principal: action.executing_principal.clone(),
+        action: action.action.clone(),
+        target: action.target.clone(),
+        authorized_action_json: canonicalize(&action.to_value())?.as_str().to_string(),
+        authorized_action_hash: action.authorized_action_hash()?,
+        action_binding_hash: action.binding_hash()?,
+        capability: action.capability.clone(),
+        resource_scope: action.resource_scope.clone(),
+        adapter_id: action.adapter.id.clone(),
+        adapter_version: action.adapter.version.clone(),
+        environment: action.environment.clone(),
+        tenant: action.tenant.clone(),
+        execution_lease_ms: config.execution_lease_ms,
+    })
+}
+
 fn insert_pending_approval(
     transaction: &Transaction<'_>,
-    receipt_id: &str,
-    requesting_principal: &str,
-    policy_bundle_hash: &str,
+    pending: &PendingAuthorization,
     approval_route: &[String],
 ) -> Result<()> {
     transaction
         .execute(
             "INSERT INTO tlpx_pending_approvals (
-               receipt_id, requesting_principal, policy_bundle_hash, state
-             ) VALUES (?1, ?2, ?3, 'PENDING_APPROVAL')",
-            params![receipt_id, requesting_principal, policy_bundle_hash],
+               receipt_id, requesting_principal, request_id, intent_hash, policy_bundle_hash,
+               state, approval_expires_at_ms, executing_principal, action, target,
+               authorized_action_json, authorized_action_hash, action_binding_hash, capability,
+               adapter_id, adapter_version, environment, tenant, execution_lease_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, 'PENDING_APPROVAL', ?6, ?7, ?8, ?9,
+                       ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+            params![
+                pending.receipt_id,
+                pending.requesting_principal,
+                pending.request_id,
+                pending.intent_hash,
+                pending.policy_bundle_hash,
+                pending.approval_expires_at_ms,
+                pending.executing_principal,
+                pending.action,
+                pending.target,
+                pending.authorized_action_json,
+                pending.authorized_action_hash,
+                pending.action_binding_hash,
+                pending.capability,
+                pending.adapter_id,
+                pending.adapter_version,
+                pending.environment,
+                pending.tenant,
+                pending.execution_lease_ms,
+            ],
         )
         .map_err(db_error)?;
     for (position, route_id) in approval_route.iter().enumerate() {
@@ -1428,7 +2134,18 @@ fn insert_pending_approval(
             .execute(
                 "INSERT INTO tlpx_pending_approval_routes (receipt_id, route_id, position)
                  VALUES (?1, ?2, ?3)",
-                params![receipt_id, route_id, position],
+                params![pending.receipt_id, route_id, position],
+            )
+            .map_err(db_error)?;
+    }
+    for (position, resource) in pending.resource_scope.iter().enumerate() {
+        let position = i64::try_from(position)
+            .map_err(|_| Error::authority("pending resource scope position overflow"))?;
+        transaction
+            .execute(
+                "INSERT INTO tlpx_pending_approval_scopes (receipt_id, resource, position)
+                 VALUES (?1, ?2, ?3)",
+                params![pending.receipt_id, resource, position],
             )
             .map_err(db_error)?;
     }
@@ -1527,6 +2244,40 @@ fn issue_authorization(
         issued_at_ms,
         claim_expires_at_ms,
         execution_lease_ms: config.execution_lease_ms,
+        state: AuthzState::AuthorizedUnclaimed,
+    })
+}
+
+fn issue_pending_authorization(
+    config: &AuthorityConfig,
+    pending: &PendingAuthorization,
+    issued_at_ms: i64,
+) -> Result<IssuedAuthorization> {
+    let claim_expires_at_ms = issued_at_ms
+        .checked_add(config.claim_window_ms)
+        .ok_or_else(|| Error::authority("claim deadline overflow"))?;
+    Ok(IssuedAuthorization {
+        authorization_id: random_id("authz")?,
+        receipt_id: pending.receipt_id.clone(),
+        requesting_principal: pending.requesting_principal.clone(),
+        executing_principal: pending.executing_principal.clone(),
+        request_id: pending.request_id.clone(),
+        action: pending.action.clone(),
+        target: pending.target.clone(),
+        intent_hash: pending.intent_hash.clone(),
+        authorized_action_hash: pending.authorized_action_hash.clone(),
+        action_binding_hash: pending.action_binding_hash.clone(),
+        capability: pending.capability.clone(),
+        policy_bundle_hash: pending.policy_bundle_hash.clone(),
+        resource_scope: pending.resource_scope.clone(),
+        adapter_id: pending.adapter_id.clone(),
+        adapter_version: pending.adapter_version.clone(),
+        environment: pending.environment.clone(),
+        tenant: pending.tenant.clone(),
+        authorization_nonce: random_id("nonce")?,
+        issued_at_ms,
+        claim_expires_at_ms,
+        execution_lease_ms: pending.execution_lease_ms,
         state: AuthzState::AuthorizedUnclaimed,
     })
 }
@@ -1998,6 +2749,22 @@ fn db_error(error: rusqlite::Error) -> Error {
 fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
     for (table, required_columns) in [
         ("tlpx_evaluations", &["policy_id"] as &[&str]),
+        (
+            "tlpx_pending_approvals",
+            &[
+                "request_id",
+                "intent_hash",
+                "approval_expires_at_ms",
+                "authorized_action_json",
+                "authorized_action_hash",
+                "action_binding_hash",
+                "terminal_at_ms",
+            ] as &[&str],
+        ),
+        (
+            "tlpx_operator_actions",
+            &["authorized_action_hash", "renderer_id", "renderer_version"] as &[&str],
+        ),
         ("tlpx_authorizations", &["target"] as &[&str]),
         ("tlpx_claims", &["adapter_id", "adapter_version"] as &[&str]),
         (
@@ -2067,6 +2834,20 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             if !table_sql.contains("'tlpx.operator_action'") {
                 return Err(Error::authority(
                     "incompatible pre-release authority database: evidence outbox does not permit operator-action evidence; use a fresh database",
+                ));
+            }
+        }
+        if table == "tlpx_pending_approvals" {
+            let table_sql = connection
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    [table],
+                    |row| row.get::<_, String>(0),
+                )
+                .map_err(db_error)?;
+            if !table_sql.contains("'APPROVAL_EXPIRED'") {
+                return Err(Error::authority(
+                    "incompatible pre-release authority database: pending approvals do not support approval expiry; use a fresh database",
                 ));
             }
         }

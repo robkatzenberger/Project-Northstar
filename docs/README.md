@@ -54,6 +54,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit Rust activation matrix, provenance negatives, and limits for local slice 3.1 commit `1addb5c` |
 | [../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md](../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit typed-object/hash parity checks and limits for local slice 3.2 commit `e835c4e` |
 | [../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md](../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.3 commit `c19b1d2` |
+| [../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Builder matrix and explicit limits for the uncommitted slice 3.4 approval/expiry candidate |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |

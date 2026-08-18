@@ -5,15 +5,20 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
-    AuthorizationTemplate, AuthzState, CancellationReason, CancellationRole, CapabilityRegistry,
-    ConfiguredPolicyBundle, Decision, EvidenceConfig, ExecutedAction, LocalAuthenticator,
-    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
-    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation, ApprovalState,
+    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState,
+    CancellationReason, CancellationRole, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
+    EvidenceConfig, ExecutedAction, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
+    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
+
+fn hash(ch: char) -> String {
+    format!("sha256:{}", ch.to_string().repeat(64))
+}
 
 fn authenticated_identity(
     principal_id: &str,
@@ -58,6 +63,13 @@ fn config() -> AuthorityConfig {
                 action: "deploy".into(),
                 effect: PolicyEffect::require_approval(
                     "POLICY_REQUIRE_APPROVAL",
+                    AuthorizationTemplate {
+                        derived_risk: Risk::High,
+                        capability: "mailer.send".into(),
+                        resource_scope: vec!["customer:123".into()],
+                        risk_reasons: vec!["deployment_change".into()],
+                        risk_source: "policy:mvp-policy@1.0.0".into(),
+                    },
                     vec!["ops.deploy".into()],
                 ),
             },
@@ -91,6 +103,7 @@ fn config() -> AuthorityConfig {
             seal_key_id: "audit-test-v1".into(),
             seal_key: vec![0x5a; 32],
         },
+        approval_window_ms: 600_000,
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     }
@@ -504,6 +517,406 @@ fn concurrent_pending_cancellation_has_one_terminal_winner() {
             .count(),
         1
     );
+    clean_db(&path);
+}
+
+#[test]
+fn human_approval_binds_the_rendered_action_and_issues_a_fresh_authorization() {
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let operator = authenticated_identity(
+        "operator.deploy",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let machine_operator = authenticated_identity(
+        "machine.operator",
+        PartyType::Machine,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let executor = authenticated_identity(
+        "runtime.mailer",
+        PartyType::Machine,
+        vec![LocalRole::Executor],
+        vec![],
+    );
+    let authority = Authority::in_memory(config()).unwrap();
+    let mut request = intent("req-approve");
+    request.action = "deploy".into();
+    let pending = authority
+        .evaluate_authenticated_at(&requester, &request, NOW)
+        .unwrap();
+    assert_eq!(pending.decision, Decision::RequireApproval);
+    assert!(pending.authorization.is_none());
+
+    let machine_view = authority
+        .pending_approval_authenticated_at(&pending.receipt_id, &machine_operator, NOW + 1)
+        .unwrap_err();
+    assert_eq!(machine_view.code(), "APPROVAL_UNAUTHORIZED");
+    let view = authority
+        .pending_approval_authenticated_at(&pending.receipt_id, &operator, NOW + 2)
+        .unwrap();
+    assert_eq!(view.action, "deploy");
+    assert_eq!(view.approval_route, vec!["ops.deploy"]);
+    assert_eq!(view.approval_expires_at_ms, NOW + 600_000);
+    assert!(view
+        .authorized_action_json
+        .contains("\"action\":\"deploy\""));
+
+    let wrong_display = authority
+        .resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: hash('f'),
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(wrong_display.code(), "APPROVAL_PRESENTATION_MISMATCH");
+    assert_eq!(
+        authority.approval_state(&pending.receipt_id).unwrap(),
+        Some(ApprovalState::Pending)
+    );
+
+    let resolution = authority
+        .resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash.clone(),
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            NOW + 1_000,
+        )
+        .unwrap();
+    let issued = resolution.authorization.as_ref().unwrap();
+    assert_eq!(issued.issued_at_ms, NOW + 1_000);
+    assert_eq!(issued.claim_expires_at_ms, NOW + 6_000);
+    assert!(issued.authorization_id.starts_with("authz_"));
+    assert!(issued.authorization_nonce.starts_with("nonce_"));
+    assert_eq!(issued.authorized_action_hash, view.authorized_action_hash);
+    assert_eq!(
+        authority.approval_state(&pending.receipt_id).unwrap(),
+        Some(ApprovalState::Approved)
+    );
+
+    let records = authority.pending_evidence(10).unwrap();
+    let operator_record = records
+        .iter()
+        .find(|row| row.record_type == "tlpx.operator_action")
+        .unwrap();
+    let operator_json: serde_json::Value =
+        serde_json::from_str(&operator_record.record_json).unwrap();
+    assert_eq!(operator_json["outcome"], "APPROVE");
+    assert_eq!(
+        operator_json["authorized_action_hash"],
+        view.authorized_action_hash
+    );
+    assert_eq!(operator_json["renderer_id"], "approval.terminal");
+    assert!(records.iter().any(|row| {
+        row.record_type == "tlpx.authorization" && row.source_id == issued.authorization_id
+    }));
+
+    let mut presented = executed();
+    presented.action = "deploy".into();
+    let claim = authority
+        .claim_authenticated_at(&issued.authorization_id, &executor, &presented, NOW + 2_000)
+        .unwrap();
+    assert_eq!(claim.authorization_id, issued.authorization_id);
+}
+
+#[test]
+fn human_rejection_is_terminal_and_issues_no_authorization() {
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let operator = authenticated_identity(
+        "operator.deploy",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let authority = Authority::in_memory(config()).unwrap();
+    let mut request = intent("req-reject");
+    request.action = "deploy".into();
+    let pending = authority
+        .evaluate_authenticated_at(&requester, &request, NOW)
+        .unwrap();
+    let view = authority
+        .pending_approval_authenticated_at(&pending.receipt_id, &operator, NOW + 1)
+        .unwrap();
+    let rejected = authority
+        .resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Reject,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash.clone(),
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            NOW + 2,
+        )
+        .unwrap();
+    assert!(rejected.authorization.is_none());
+    assert_eq!(
+        authority.approval_state(&pending.receipt_id).unwrap(),
+        Some(ApprovalState::Rejected)
+    );
+    let late = authority
+        .resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash,
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(late.code(), "APPROVAL_TERMINAL");
+    let evidence = authority.pending_evidence(10).unwrap();
+    assert_eq!(
+        evidence
+            .iter()
+            .filter(|row| row.record_type == "tlpx.authorization")
+            .count(),
+        0
+    );
+    let operator_json: serde_json::Value = serde_json::from_str(
+        &evidence
+            .iter()
+            .find(|row| row.record_type == "tlpx.operator_action")
+            .unwrap()
+            .record_json,
+    )
+    .unwrap();
+    assert_eq!(operator_json["outcome"], "REJECT");
+}
+
+#[test]
+fn approval_expiry_closes_the_pending_request_before_issuance() {
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let operator = authenticated_identity(
+        "operator.deploy",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let authority = Authority::in_memory(config()).unwrap();
+    let mut request = intent("req-expire-approval");
+    request.action = "deploy".into();
+    let pending = authority
+        .evaluate_authenticated_at(&requester, &request, NOW)
+        .unwrap();
+    let view = authority
+        .pending_approval_authenticated_at(&pending.receipt_id, &operator, NOW + 1)
+        .unwrap();
+    let early = authority
+        .expire_pending_at(&pending.receipt_id, NOW + 599_999)
+        .unwrap_err();
+    assert_eq!(early.code(), "APPROVAL_NOT_EXPIRED");
+    let expired = authority
+        .resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash,
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            NOW + 600_000,
+        )
+        .unwrap_err();
+    assert_eq!(expired.code(), "APPROVAL_EXPIRED");
+    assert_eq!(
+        authority.approval_state(&pending.receipt_id).unwrap(),
+        Some(ApprovalState::Expired)
+    );
+    let late_cancel = authority
+        .cancel_pending_authenticated_at(
+            &pending.receipt_id,
+            &requester,
+            CancellationReason::RequesterWithdrawn,
+            NOW + 600_001,
+        )
+        .unwrap_err();
+    assert_eq!(late_cancel.code(), "APPROVAL_TERMINAL");
+    let evidence = authority.pending_evidence(10).unwrap();
+    assert_eq!(evidence.len(), 1);
+    assert_eq!(evidence[0].record_type, "tlpx.decision");
+}
+
+#[test]
+fn concurrent_approve_and_reject_have_one_terminal_winner() {
+    let path = temp_db("approval-race");
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let operator = authenticated_identity(
+        "operator.deploy",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let (receipt_id, action_hash) = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let mut request = intent("req-approval-race");
+        request.action = "deploy".into();
+        let pending = authority
+            .evaluate_authenticated_at(&requester, &request, NOW)
+            .unwrap();
+        let view = authority
+            .pending_approval_authenticated_at(&pending.receipt_id, &operator, NOW + 1)
+            .unwrap();
+        (pending.receipt_id, view.authorized_action_hash)
+    };
+    let barrier = Arc::new(Barrier::new(3));
+    let mut handles = Vec::new();
+    for outcome in [ApprovalOutcome::Approve, ApprovalOutcome::Reject] {
+        let path = path.clone();
+        let receipt_id = receipt_id.clone();
+        let action_hash = action_hash.clone();
+        let operator = operator.clone();
+        let barrier = Arc::clone(&barrier);
+        handles.push(thread::spawn(move || {
+            let authority = Authority::open(path, config()).unwrap();
+            barrier.wait();
+            authority.resolve_pending_authenticated_at(
+                &receipt_id,
+                &operator,
+                outcome,
+                ApprovalPresentation {
+                    authorized_action_hash: action_hash,
+                    renderer_id: "approval.terminal".into(),
+                    renderer_version: "1.0.0".into(),
+                },
+                NOW + 2,
+            )
+        }));
+    }
+    barrier.wait();
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect();
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert_eq!(
+        results
+            .iter()
+            .find_map(|result| result.as_ref().err())
+            .unwrap()
+            .code(),
+        "APPROVAL_TERMINAL"
+    );
+    let authority = Authority::open(&path, config()).unwrap();
+    let evidence = authority.pending_evidence(10).unwrap();
+    assert_eq!(
+        evidence
+            .iter()
+            .filter(|row| row.record_type == "tlpx.operator_action")
+            .count(),
+        1
+    );
+    assert!(matches!(
+        authority.approval_state(&receipt_id).unwrap(),
+        Some(ApprovalState::Approved | ApprovalState::Rejected)
+    ));
+    clean_db(&path);
+}
+
+#[test]
+fn concurrent_cancellation_and_approval_expiry_have_one_terminal_winner() {
+    let path = temp_db("cancel-expiry-race");
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let receipt_id = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let mut request = intent("req-cancel-expiry-race");
+        request.action = "deploy".into();
+        authority
+            .evaluate_authenticated_at(&requester, &request, NOW)
+            .unwrap()
+            .receipt_id
+    };
+    let barrier = Arc::new(Barrier::new(3));
+    let cancel_handle = {
+        let path = path.clone();
+        let receipt_id = receipt_id.clone();
+        let requester = requester.clone();
+        let barrier = Arc::clone(&barrier);
+        thread::spawn(move || {
+            let authority = Authority::open(path, config()).unwrap();
+            barrier.wait();
+            authority
+                .cancel_pending_authenticated_at(
+                    &receipt_id,
+                    &requester,
+                    CancellationReason::RequesterWithdrawn,
+                    NOW + 599_999,
+                )
+                .map(|_| ())
+        })
+    };
+    let expiry_handle = {
+        let path = path.clone();
+        let receipt_id = receipt_id.clone();
+        let barrier = Arc::clone(&barrier);
+        thread::spawn(move || {
+            let authority = Authority::open(path, config()).unwrap();
+            barrier.wait();
+            authority
+                .expire_pending_at(&receipt_id, NOW + 600_000)
+                .map(|_| ())
+        })
+    };
+    barrier.wait();
+    let results = [cancel_handle.join().unwrap(), expiry_handle.join().unwrap()];
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert_eq!(
+        results
+            .iter()
+            .find_map(|result| result.as_ref().err())
+            .unwrap()
+            .code(),
+        "APPROVAL_TERMINAL"
+    );
+    let authority = Authority::open(&path, config()).unwrap();
+    assert!(matches!(
+        authority.approval_state(&receipt_id).unwrap(),
+        Some(ApprovalState::Cancelled | ApprovalState::Expired)
+    ));
+    assert!(authority.pending_evidence(10).is_ok());
     clean_db(&path);
 }
 

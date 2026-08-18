@@ -87,6 +87,7 @@ fn config(bundles: Vec<ConfiguredPolicyBundle>) -> AuthorityConfig {
             seal_key_id: "audit-test-v1".into(),
             seal_key: vec![0x41; 32],
         },
+        approval_window_ms: 600_000,
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     }

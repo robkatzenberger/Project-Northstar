@@ -6,8 +6,9 @@
 **Slices 2.4/3.1 local commits:** Policy contract `a87f822`; native Rust activation `1addb5c` — pre-commit builder run passed, full Section 3 verification deferred, unaccepted
 **Slice 3.2 local commit:** Shared typed-action/hash fixtures and parity tests at `e835c4e` — bounded exact-commit checks passed, not independently accepted
 **Slice 3.3 local commit:** Kernel-derived Unix peer identity, authenticated role facades, policy-bound approval routes, and atomic pending cancellation at `c19b1d2` — full exact-commit builder matrix passed, not independently accepted
+**Slice 3.4 working-tree candidate:** Human-only route approval/rejection, canonical display binding, fresh post-approval issuance, and atomic approval expiry — full builder matrix passed, not yet committed or accepted
 **Crate:** `tlpx` 0.2.0  
-**Not yet:** human approval resolution/expiry, post-claim cancellation, execution/revocation evidence, side effects, a hardened service, or a forced-mediation PEP
+**Not yet:** post-claim cancellation, execution/revocation evidence, authenticated adapter integrity, side effects, a hardened service, or a forced-mediation PEP
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
@@ -94,6 +95,8 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - `BEGIN IMMEDIATE` plus a compare-and-set update permits at most one successful claim, including across two database connections.
 - Replay, mutation, wrong executor, expiry, and revocation block without reopening authority.
 - Pending requester, route-authorized operator, and emergency-authority cancellation is reason-scoped, atomic, and coupled to one schema-valid sealed operator-action row; concurrent cancellation has one winner.
+- Human approval/rejection requires a route-authorized human, exact displayed Authorized Action hash, and renderer identity/version. Approval creates a fresh authorization/nonce and starts the claim timer at approval; rejection creates none.
+- Approval, rejection, cancellation, and approval expiry are atomic terminal transitions across SQLite connections.
 
 ## Deliberate boundary
 
@@ -117,4 +120,4 @@ There is no protected side effect in this crate. A process that can reach a capa
 
 ## Next implementation
 
-Continue with bounded slice 3.4: approval resolution, authority-generated authorization, and approval expiry. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Commit and exact-commit verify slice 3.4, then continue with bounded slice 3.5: transactional revocation/state closure around the existing atomic claim. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.

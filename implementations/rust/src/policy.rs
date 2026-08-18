@@ -61,11 +61,15 @@ impl PolicyEffect {
         }
     }
 
-    pub fn require_approval(reason_code: impl Into<String>, approval_route: Vec<String>) -> Self {
+    pub fn require_approval(
+        reason_code: impl Into<String>,
+        authorization: AuthorizationTemplate,
+        approval_route: Vec<String>,
+    ) -> Self {
         Self {
             decision: Decision::RequireApproval,
             reason_code: reason_code.into(),
-            authorization: None,
+            authorization: Some(authorization),
             approval_route: Some(approval_route),
             policy_id: None,
         }
@@ -97,12 +101,17 @@ impl PolicyEffect {
             (Decision::Allow, _, Some(_)) => Err(Error::policy_compile(
                 "ALLOW must not carry an approval route",
             )),
-            (Decision::RequireApproval, None, Some(route)) => validate_approval_route(route),
-            (Decision::RequireApproval, None, None) => Err(Error::policy_compile(
-                "REQUIRE_APPROVAL requires an approval route",
+            (Decision::RequireApproval, Some(template), Some(route)) => {
+                template.validate()?;
+                validate_approval_route(route)
+            }
+            (Decision::RequireApproval, _, _) => Err(Error::policy_compile(
+                "REQUIRE_APPROVAL requires an authorization template and approval route",
             )),
             (Decision::Deny, None, None) => Ok(()),
-            (_, Some(_), _) => Err(Error::policy_compile("non-ALLOW effect cannot authorize")),
+            (Decision::Deny, Some(_), _) => {
+                Err(Error::policy_compile("DENY effect cannot authorize"))
+            }
             (Decision::Deny, None, Some(_)) => Err(Error::policy_compile(
                 "DENY must not carry an approval route",
             )),
@@ -197,6 +206,7 @@ impl PolicyBundle {
             effect.decision = Decision::Deny;
             effect.reason_code = "POLICY_CAPABILITY_MISMATCH".into();
             effect.authorization = None;
+            effect.approval_route = None;
             return effect;
         }
         if !template
@@ -207,6 +217,7 @@ impl PolicyBundle {
             effect.decision = Decision::Deny;
             effect.reason_code = "POLICY_TARGET_OUT_OF_SCOPE".into();
             effect.authorization = None;
+            effect.approval_route = None;
             return effect;
         }
         effect

@@ -112,13 +112,15 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 3.3 local candidate:** commit `c19b1d2` maps kernel-derived Unix peer UID/GID to opaque local requester, operator, executor, and emergency-canceller roles. Authenticated requester/executor facades, policy-bound approval routes, and atomic pending cancellation fail closed and emit a schema-valid sealed `tlpx.operator_action`; a two-connection cancellation race has one winner. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`. Raw principal-string APIs remain a trusted embedding seam. This is not approval resolution, post-claim cancellation, a service, acceptance, or a PEP.
 
+**Slice 3.4 working-tree candidate:** human-only operators on the exact policy route receive canonical Authorized Action content and must bind the displayed hash plus renderer identity/version. `APPROVE` creates a fresh authority ID/nonce and starts the short claim window at approval time; `REJECT` creates no authorization. Expiry and terminal human outcomes race atomically. The full builder matrix passed on the uncommitted tree based on `7bfcc4f`; evidence and limits are in `tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`. Expiry has durable state/sequence but no portable record because the accepted schema has no expiry outcome.
+
 **3.9** remains the system-level claim. The 3.3 candidate authenticates Unix peers at a bounded facade, but the Rust crate still exposes trusted-embedding string APIs and performs no side effect; there is no hardened service or OS-protected PEP. The authority work is real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** continue Section 3 from 3.4. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Approval resolution/expiry, execution receipts, post-claim cancellation/reconciliation evidence, revocation evidence, and the OS-enforced PEP remain open.
+**Immediate next gates:** commit and exact-commit verify 3.4, then continue Section 3 from 3.5. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Execution receipts, post-claim cancellation/reconciliation evidence, revocation evidence, authenticated adapters, and the OS-enforced PEP remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 

@@ -459,6 +459,13 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     catalog.operator_action.includes("CANCELLATION_UNAUTHORIZED")
   );
   check("includes APPROVAL_TERMINAL", catalog.operator_action.includes("APPROVAL_TERMINAL"));
+  check("includes APPROVAL_UNAUTHORIZED", catalog.operator_action.includes("APPROVAL_UNAUTHORIZED"));
+  check(
+    "includes APPROVAL_PRESENTATION_MISMATCH",
+    catalog.operator_action.includes("APPROVAL_PRESENTATION_MISMATCH")
+  );
+  check("includes APPROVAL_NOT_EXPIRED", catalog.operator_action.includes("APPROVAL_NOT_EXPIRED"));
+  check("includes APPROVAL_EXPIRED", catalog.operator_action.includes("APPROVAL_EXPIRED"));
 }
 
 {

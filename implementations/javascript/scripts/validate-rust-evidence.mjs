@@ -39,6 +39,7 @@ const kindByType = new Map([
 ]);
 const lines = run.stdout.trim().split("\n").filter(Boolean);
 const seen = new Set();
+let approvals = 0;
 let failures = 0;
 
 console.log("Rust TL-PX 0.2 runtime-evidence schema crosscheck\n");
@@ -69,6 +70,9 @@ for (const [index, line] of lines.entries()) {
     continue;
   }
   seen.add(record.record_type);
+  if (record.record_type === "tlpx.operator_action" && record.outcome === "APPROVE") {
+    approvals += 1;
+  }
   console.log(`  PASS  ${record.record_type}`);
 }
 
@@ -78,8 +82,12 @@ for (const expected of kindByType.keys()) {
     failures += 1;
   }
 }
-if (lines.length !== 6) {
-  console.log(`  FAIL  expected 6 bounded records, got ${lines.length}`);
+if (approvals !== 1) {
+  console.log(`  FAIL  expected one schema-valid APPROVE record, got ${approvals}`);
+  failures += 1;
+}
+if (lines.length !== 9) {
+  console.log(`  FAIL  expected 9 bounded records, got ${lines.length}`);
   failures += 1;
 }
 
