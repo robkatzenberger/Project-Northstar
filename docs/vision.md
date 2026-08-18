@@ -74,7 +74,7 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 
 ## Status snapshot
 
-- TL-PX 0.1 frozen; 0.2 accepted evaluation/authorization contract core through 2.3 plus unaccepted local 2.4/3.1 commits and an uncommitted 3.2 typed-action/hash candidate
+- TL-PX 0.1 frozen; 0.2 accepted evaluation/authorization contract core through 2.3 plus unaccepted local 2.4/3.1 commits and bounded exact-commit verified 3.2 typed-action/hash commit `e835c4e`
 - Reference implementation: Switchboard + air-gap + fail-closed policy compile (still emits 0.1)  
 - Conformance + formal technical test #1 **passed**  
 - Local-only until public release is intentionally chosen  

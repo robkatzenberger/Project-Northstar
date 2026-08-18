@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f` (not independently accepted); local 2.4 policy-contract commit `a87f822`, 3.1 Rust manifest-activation commit `1addb5c`, and an uncommitted 3.2 typed-action/hash candidate (full Section 3 verification deferred; not accepted; not a PEP)
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f` (not independently accepted); local 2.4 policy-contract commit `a87f822`, 3.1 Rust manifest-activation commit `1addb5c`, and bounded exact-commit verified 3.2 typed-action/hash commit `e835c4e` (full Section 3 verification deferred; not accepted; not a PEP)
 
 **Who should read what**
 
@@ -53,7 +53,7 @@ northstar/
 | [`tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification for named commit `c9bdd0f` (not independently accepted) |
 | [`tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 2.4 commit `a87f822`; not exact-commit acceptance |
 | [`tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 3.1 commit `1addb5c`; not exact-commit acceptance |
-| [`tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded builder verification for the uncommitted slice 3.2 typed-action/hash candidate; not full Section 3 or acceptance |
+| [`tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit verification for local slice 3.2 commit `e835c4e`; not full Section 3 or acceptance |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -97,7 +97,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox for the accepted record core; it is not independently accepted. Local commits `a87f822` and `1addb5c` add the slice 2.4 contract and 3.1 Rust policy activation. The uncommitted 3.2 candidate adds shared schema-bound typed-action/hash fixtures and strict JavaScript/Rust parity checks over the exact Action Binding. The full exact-commit Section 3 test is intentionally deferred until Section 3 is complete. None of these increments is accepted, and none mediates a protected capability. The running gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox for the accepted record core; it is not independently accepted. Local commits `a87f822` and `1addb5c` add the slice 2.4 contract and 3.1 Rust policy activation. Local commit `e835c4e` adds shared schema-bound typed-action/hash fixtures and strict JavaScript/Rust parity checks over the exact Action Binding; its bounded exact-commit rerun passed. The full exact-commit Section 3 test is intentionally deferred until Section 3 is complete. None of these increments is accepted, and none mediates a protected capability. The running gate is still TL-PX 0.1.
 
 ---
 
@@ -112,7 +112,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Rust 0.2 types, canonical hashes, local authority MVP, and builder-verified bounded evidence outbox
 - [x] Slice 2.4 policy manifest, precedence, and ordering local commit `a87f822` (full Section 3 verification deferred; not accepted)
 - [x] Slice 3.1 Rust policy-manifest activation local commit `1addb5c` (full Section 3 verification deferred; not accepted)
-- [x] Slice 3.2 typed-action/hash working-tree candidate (bounded checks passed; uncommitted and not accepted)
+- [x] Slice 3.2 typed-action/hash local commit `e835c4e` (bounded exact-commit checks passed; not independently accepted)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust authenticated transport, execution evidence, and protected-execution PEP
 - [ ] Python adapter

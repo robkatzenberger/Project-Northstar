@@ -74,3 +74,5 @@ All listed commands ran from the local working tree and exited successfully.
 ## Next gate
 
 Commit this bounded 3.2 delta only when the owner asks. Then continue with slice 3.3: authenticated local requester, operator, executor, and cancellation boundaries. Once Section 3 is complete, run the full matrix against named 2.4/3.x commits and obtain an independent contract/security/conformance review before changing maturity or acceptance claims.
+
+**Later note (2026-08-17):** The candidate was committed locally as `e835c4e`. The dedicated 145-assertion JavaScript suite, 62-case 0.2 conformance suite, 493-assertion JCS suite, 12 targeted Rust tests, Rust formatting, and targeted Clippy all passed again with `e835c4e` checked out and a clean worktree. This exact-commit bounded rerun supports `IMPLEMENTED` maturity for slice 3.2; it is not the deferred full Section 3 matrix, independent review, or acceptance.
