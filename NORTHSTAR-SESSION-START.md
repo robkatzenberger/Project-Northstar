@@ -110,17 +110,19 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 3.2 local candidate:** commit `e835c4e` binds the existing Rust `SubmittedIntent`, `AuthorizedAction`, and `ExecutedAction` types to shared schema-valid cross-language fixtures. JavaScript and Rust agree on the exact canonical strings, UTF-8 bytes, distinct intent/authorized/executed hashes, required-null versus absent optional fields, and the nine-field Action Binding projection. The Authorized Action schema rejects `effective_risk` below `derived_risk`, matching Rust. Mutation tests cover every binding component and authority-only fields. The bounded exact-commit rerun passed; evidence and limits are in `tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`. Full Section 3 verification, independent review, acceptance, authenticated execution, and a PEP remain open.
 
-**3.9** remains the system-level claim. The Rust library trusts authenticated-context strings supplied by its embedding and performs no side effect; there is no authenticated transport or OS-protected PEP. The authority MVP is real implementation progress, not forced mediation.
+**Slice 3.3 working-tree candidate:** kernel-derived Unix peer UID/GID maps to opaque local requester, operator, executor, and emergency-canceller roles. Authenticated requester/executor facades, policy-bound approval routes, and atomic pending cancellation now fail closed and emit a schema-valid sealed `tlpx.operator_action`; a two-connection cancellation race has one winner. The full builder matrix passed on the uncommitted tree based on `0a4ddc5`; evidence and limits are in `tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`. Raw principal-string APIs remain a trusted embedding seam. This is not approval resolution, post-claim cancellation, a service, or a PEP.
+
+**3.9** remains the system-level claim. The 3.3 candidate authenticates Unix peers at a bounded facade, but the Rust crate still exposes trusted-embedding string APIs and performs no side effect; there is no hardened service or OS-protected PEP. The authority work is real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** independently inspect and rerun exact commit `c9bdd0f`; continue Section 3 from 3.3; when Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review. Do not infer acceptance from bounded builder tests or documentation. Authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, and the OS-enforced PEP remain outside the 3.2 candidate.
+**Immediate next gates:** commit and exact-commit verify 3.3, then continue Section 3 from 3.4. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Approval resolution/expiry, execution receipts, post-claim cancellation/reconciliation evidence, revocation evidence, and the OS-enforced PEP remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, `tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`, `tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`, and `tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.3 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

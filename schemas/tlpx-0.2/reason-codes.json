@@ -24,6 +24,10 @@
     "IDEMPOTENCY_CONFLICT",
     "AUTHORITY_INTERNAL_ERROR"
   ],
+  "operator_action": [
+    "CANCELLATION_UNAUTHORIZED",
+    "APPROVAL_TERMINAL"
+  ],
   "claim_and_execution": [
     "AUTHORIZATION_EXPIRED",
     "ALREADY_CLAIMED",

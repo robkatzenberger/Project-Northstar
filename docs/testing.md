@@ -24,12 +24,13 @@ Rust local authority MVP (separate toolchain):
 
 ```bash
 cd ~/projects/northstar/implementations/rust
-cargo test --all-targets --offline      # JCS/types + authority + evidence/outbox tests
+cargo fmt --all -- --check
+cargo test --all-targets --offline      # JCS/types + authority/local-auth/cancellation + evidence/outbox tests
 cargo clippy --all-targets --offline -- -D warnings
 cargo run --example local_authority -- /tmp/northstar-authority.sqlite request-1
 ```
 
-The example performs evaluation, issuance, and one durable SQLite claim. It deliberately performs no external side effect and is not a PEP test.
+The example performs evaluation, issuance, one durable SQLite claim, and—when emitting evidence—a kernel-authenticated pending cancellation. It deliberately performs no external side effect and is not a PEP test.
 
 ---
 

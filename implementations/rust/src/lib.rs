@@ -8,13 +8,15 @@ pub mod error;
 pub mod evidence;
 pub mod hash;
 pub mod jcs;
+pub mod local_auth;
 pub mod policy;
 pub mod policy_manifest;
 pub mod types;
 
 pub use authority::{
-    enforce_constraints, Authority, AuthorityConfig, AuthzState, ClaimRecord, EvaluationOutcome,
-    IssuedAuthorization, Retryability,
+    enforce_constraints, Authority, AuthorityConfig, AuthzState, CancellationReason,
+    CancellationRecord, CancellationRole, ClaimRecord, EvaluationOutcome, IssuedAuthorization,
+    Retryability,
 };
 pub use error::{Error, Result};
 pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};
@@ -24,6 +26,7 @@ pub use hash::{
     policy_bundle_hash,
 };
 pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Canonical, Value};
+pub use local_auth::{AuthenticatedIdentity, LocalAuthenticator, LocalPrincipalMapping, LocalRole};
 pub use policy::{
     AuthorizationTemplate, CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, PolicyRule,
     Principal, Switchboard,

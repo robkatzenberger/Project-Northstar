@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f` (not independently accepted); local 2.4 policy-contract commit `a87f822`, 3.1 Rust manifest-activation commit `1addb5c`, and bounded exact-commit verified 3.2 typed-action/hash commit `e835c4e` (full Section 3 verification deferred; not accepted; not a PEP)
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f`; local 2.4/3.1 commits `a87f822`/`1addb5c`; bounded exact-commit verified 3.2 commit `e835c4e`; and an uncommitted builder-verified 3.3 Unix peer-authentication/pending-cancellation candidate (later increments unaccepted; full Section 3 verification deferred; not a PEP)
 
 **Who should read what**
 
@@ -48,12 +48,13 @@ northstar/
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 spec |
-| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract; accepted 2.3/2.3d scope plus unaccepted 2.4, 3.1, and 3.2 candidates |
+| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract; accepted 2.3/2.3d scope plus unaccepted 2.4–3.3 candidates |
 | [`tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and limits |
 | [`tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification for named commit `c9bdd0f` (not independently accepted) |
 | [`tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 2.4 commit `a87f822`; not exact-commit acceptance |
 | [`tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 3.1 commit `1addb5c`; not exact-commit acceptance |
 | [`tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit verification for local slice 3.2 commit `e835c4e`; not full Section 3 or acceptance |
+| [`tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full builder matrix and limits for the uncommitted 3.3 Unix peer-authentication and pending-cancellation candidate |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -97,7 +98,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox for the accepted record core; it is not independently accepted. Local commits `a87f822` and `1addb5c` add the slice 2.4 contract and 3.1 Rust policy activation. Local commit `e835c4e` adds shared schema-bound typed-action/hash fixtures and strict JavaScript/Rust parity checks over the exact Action Binding; its bounded exact-commit rerun passed. The full exact-commit Section 3 test is intentionally deferred until Section 3 is complete. None of these increments is accepted, and none mediates a protected capability. The running gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, post-claim cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox. Local commits `a87f822`, `1addb5c`, and `e835c4e` add the 2.4 contract, 3.1 activation, and 3.2 typed hashes. The 3.3 working tree adds kernel-derived Unix peer roles and atomic pending cancellation with sealed operator evidence; its builder matrix passed. Full exact-commit Section 3 verification is deferred. None of these later increments is independently accepted, and none mediates a protected capability. The running gate is still TL-PX 0.1.
 
 ---
 
@@ -113,6 +114,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 2.4 policy manifest, precedence, and ordering local commit `a87f822` (full Section 3 verification deferred; not accepted)
 - [x] Slice 3.1 Rust policy-manifest activation local commit `1addb5c` (full Section 3 verification deferred; not accepted)
 - [x] Slice 3.2 typed-action/hash local commit `e835c4e` (bounded exact-commit checks passed; not independently accepted)
+- [ ] Slice 3.3 Unix peer authentication and pending cancellation (builder-verified working tree; commit/exact-commit check pending)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust authenticated transport, execution evidence, and protected-execution PEP
 - [ ] Python adapter

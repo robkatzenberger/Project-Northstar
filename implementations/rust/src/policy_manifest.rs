@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const EXACT_MATCH_POLICY_CONTENT_TYPE: &str =
-    "application/vnd.tlpx.rust-exact-match+json;version=1";
+    "application/vnd.tlpx.rust-exact-match+json;version=2";
 
 pub const POLICY_PRECEDENCE: [&str; 6] = [
     "EMERGENCY_DENY",
@@ -482,7 +482,7 @@ pub fn exact_match_policy_content_hash(policy: &PolicyBundle) -> Result<String> 
 
 fn policy_content_value(policy: &PolicyBundle) -> Value {
     Value::Object(vec![
-        string("profile", "tlpx.rust_exact_match.v1"),
+        string("profile", "tlpx.rust_exact_match.v2"),
         (
             "rules".into(),
             Value::Array(
@@ -541,6 +541,12 @@ fn effect_value(effect: &PolicyEffect) -> Value {
                         string("risk_source", &template.risk_source),
                     ])
                 }),
+        ),
+        (
+            "approval_route".into(),
+            effect.approval_route.as_ref().map_or(Value::Null, |route| {
+                Value::Array(route.iter().cloned().map(Value::String).collect())
+            }),
         ),
     ])
 }

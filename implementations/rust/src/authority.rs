@@ -7,10 +7,11 @@
 
 use crate::error::{Error, Result};
 use crate::evidence::{
-    self, DecisionEvidenceInput, ErrorEvidenceInput, EvidenceConfig, EvidenceReconciliation,
-    SealedEvidence,
+    self, CancellationEvidenceInput, DecisionEvidenceInput, ErrorEvidenceInput, EvidenceConfig,
+    EvidenceReconciliation, SealedEvidence,
 };
 use crate::hash::assert_hash_string;
+use crate::local_auth::{AuthenticatedIdentity, LocalRole};
 use crate::policy::{CapabilityRegistry, Decision, PolicyEffect, Switchboard};
 use crate::policy_manifest::{ConfiguredPolicyBundle, PolicyCatalog};
 use crate::types::{ActionBinding, AuthorizedAction, ExecutedAction, SubmittedIntent};
@@ -169,6 +170,51 @@ pub struct ClaimRecord {
     pub lease_expires_at_ms: i64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CancellationRole {
+    Requester,
+    Operator,
+    EmergencyAuthority,
+}
+
+impl CancellationRole {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Requester => "REQUESTER",
+            Self::Operator => "OPERATOR",
+            Self::EmergencyAuthority => "EMERGENCY_AUTHORITY",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CancellationReason {
+    RequesterWithdrawn,
+    OperatorCancelled,
+    EmergencyRevocation,
+}
+
+impl CancellationReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::RequesterWithdrawn => "REQUESTER_WITHDRAWN",
+            Self::OperatorCancelled => "OPERATOR_CANCELLED",
+            Self::EmergencyRevocation => "EMERGENCY_REVOCATION",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CancellationRecord {
+    pub receipt_id: String,
+    pub sequence: i64,
+    pub canceller: String,
+    pub canceller_role: CancellationRole,
+    pub reason: CancellationReason,
+    pub cancelled_at_ms: i64,
+    pub policy_bundle_hash: String,
+}
+
 pub struct Authority {
     db: Mutex<Connection>,
     config: AuthorityConfig,
@@ -238,6 +284,48 @@ impl Authority {
                  CREATE UNIQUE INDEX IF NOT EXISTS tlpx_evaluation_idempotency
                    ON tlpx_evaluations(authenticated_principal, request_id)
                    WHERE occupies_slot = 1;
+                 CREATE TABLE IF NOT EXISTS tlpx_pending_approvals (
+                   receipt_id TEXT PRIMARY KEY REFERENCES tlpx_evaluations(receipt_id),
+                   requesting_principal TEXT NOT NULL,
+                   policy_bundle_hash TEXT NOT NULL,
+                   state TEXT NOT NULL CHECK(state IN ('PENDING_APPROVAL','CANCELLED')),
+                   terminal_sequence INTEGER UNIQUE,
+                   cancelled_at_ms INTEGER,
+                   cancelled_by TEXT,
+                   cancellation_role TEXT CHECK(cancellation_role IN (
+                     'REQUESTER','OPERATOR','EMERGENCY_AUTHORITY'
+                   )),
+                   cancellation_reason TEXT,
+                   CHECK(
+                     (state = 'PENDING_APPROVAL' AND terminal_sequence IS NULL
+                       AND cancelled_at_ms IS NULL AND cancelled_by IS NULL
+                       AND cancellation_role IS NULL AND cancellation_reason IS NULL)
+                     OR
+                     (state = 'CANCELLED' AND terminal_sequence IS NOT NULL
+                       AND cancelled_at_ms IS NOT NULL AND cancelled_by IS NOT NULL
+                       AND cancellation_role IS NOT NULL AND cancellation_reason IS NOT NULL)
+                   )
+                 );
+                 CREATE TABLE IF NOT EXISTS tlpx_pending_approval_routes (
+                   receipt_id TEXT NOT NULL REFERENCES tlpx_pending_approvals(receipt_id) ON DELETE CASCADE,
+                   route_id TEXT NOT NULL,
+                   position INTEGER NOT NULL CHECK(position >= 0),
+                   PRIMARY KEY(receipt_id, route_id),
+                   UNIQUE(receipt_id, position)
+                 );
+                 CREATE TABLE IF NOT EXISTS tlpx_operator_actions (
+                   receipt_id TEXT PRIMARY KEY REFERENCES tlpx_pending_approvals(receipt_id),
+                   sequence INTEGER NOT NULL UNIQUE,
+                   outcome TEXT NOT NULL CHECK(outcome = 'CANCEL'),
+                   actor_id TEXT NOT NULL,
+                   actor_type TEXT NOT NULL CHECK(actor_type IN ('human','machine')),
+                   actor_role TEXT NOT NULL CHECK(actor_role IN (
+                     'REQUESTER','OPERATOR','EMERGENCY_AUTHORITY'
+                   )),
+                   reason TEXT NOT NULL,
+                   policy_bundle_hash TEXT NOT NULL,
+                   acted_at_ms INTEGER NOT NULL
+                 );
                  CREATE TABLE IF NOT EXISTS tlpx_authorizations (
                    authorization_id TEXT PRIMARY KEY,
                    receipt_id TEXT NOT NULL UNIQUE REFERENCES tlpx_evaluations(receipt_id),
@@ -293,7 +381,8 @@ impl Authority {
                    ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
                    record_type TEXT NOT NULL CHECK(record_type IN (
                      'tlpx.decision', 'tlpx.evaluation_error',
-                     'tlpx.authorization', 'tlpx.authorization_claim'
+                     'tlpx.authorization', 'tlpx.authorization_claim',
+                     'tlpx.operator_action'
                    )),
                    source_id TEXT NOT NULL,
                    record_json TEXT NOT NULL,
@@ -322,6 +411,25 @@ impl Authority {
         intent: &SubmittedIntent,
     ) -> Result<EvaluationOutcome> {
         self.evaluate_and_issue_at(authenticated_requester, intent, now_ms()?)
+    }
+
+    pub fn evaluate_authenticated(
+        &self,
+        requester: &AuthenticatedIdentity,
+        intent: &SubmittedIntent,
+    ) -> Result<EvaluationOutcome> {
+        requester.require_role(LocalRole::Requester)?;
+        self.evaluate_and_issue(requester.principal_id(), intent)
+    }
+
+    pub fn evaluate_authenticated_at(
+        &self,
+        requester: &AuthenticatedIdentity,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> Result<EvaluationOutcome> {
+        requester.require_role(LocalRole::Requester)?;
+        self.evaluate_and_issue_at(requester.principal_id(), intent, evaluated_at_ms)
     }
 
     pub fn evaluate_and_issue_at(
@@ -563,6 +671,32 @@ impl Authority {
         )
     }
 
+    pub fn claim_authenticated(
+        &self,
+        authorization_id: &str,
+        executor: &AuthenticatedIdentity,
+        executed: &ExecutedAction,
+    ) -> Result<ClaimRecord> {
+        executor.require_role(LocalRole::Executor)?;
+        self.claim(authorization_id, executor.principal_id(), executed)
+    }
+
+    pub fn claim_authenticated_at(
+        &self,
+        authorization_id: &str,
+        executor: &AuthenticatedIdentity,
+        executed: &ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> Result<ClaimRecord> {
+        executor.require_role(LocalRole::Executor)?;
+        self.claim_at(
+            authorization_id,
+            executor.principal_id(),
+            executed,
+            claimed_at_ms,
+        )
+    }
+
     pub fn claim_at(
         &self,
         authorization_id: &str,
@@ -739,6 +873,120 @@ impl Authority {
         Ok(())
     }
 
+    pub fn cancel_pending_authenticated(
+        &self,
+        receipt_id: &str,
+        canceller: &AuthenticatedIdentity,
+        reason: CancellationReason,
+    ) -> Result<CancellationRecord> {
+        self.cancel_pending_authenticated_at(receipt_id, canceller, reason, now_ms()?)
+    }
+
+    pub fn cancel_pending_authenticated_at(
+        &self,
+        receipt_id: &str,
+        canceller: &AuthenticatedIdentity,
+        reason: CancellationReason,
+        cancelled_at_ms: i64,
+    ) -> Result<CancellationRecord> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let pending = transaction
+            .query_row(
+                "SELECT requesting_principal, policy_bundle_hash, state
+                 FROM tlpx_pending_approvals WHERE receipt_id = ?1",
+                [receipt_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(db_error)?
+            .ok_or_else(|| Error::coded("APPROVAL_TERMINAL", "pending approval does not exist"))?;
+        if pending.2 != "PENDING_APPROVAL" {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        let role = cancellation_role(&transaction, receipt_id, &pending.0, canceller, reason)?;
+        let sequence = next_sequence(&transaction)?;
+        let updated = transaction
+            .execute(
+                "UPDATE tlpx_pending_approvals
+                 SET state = 'CANCELLED', terminal_sequence = ?1, cancelled_at_ms = ?2,
+                     cancelled_by = ?3, cancellation_role = ?4, cancellation_reason = ?5
+                 WHERE receipt_id = ?6 AND state = 'PENDING_APPROVAL'",
+                params![
+                    sequence,
+                    cancelled_at_ms,
+                    canceller.principal_id(),
+                    role.as_str(),
+                    reason.as_str(),
+                    receipt_id,
+                ],
+            )
+            .map_err(db_error)?;
+        if updated != 1 {
+            return Err(Error::coded(
+                "APPROVAL_TERMINAL",
+                "pending approval already has a terminal outcome",
+            ));
+        }
+        transaction
+            .execute(
+                "INSERT INTO tlpx_operator_actions (
+                   receipt_id, sequence, outcome, actor_id, actor_type, actor_role,
+                   reason, policy_bundle_hash, acted_at_ms
+                 ) VALUES (?1, ?2, 'CANCEL', ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    receipt_id,
+                    sequence,
+                    canceller.principal_id(),
+                    canceller.party_type().as_str(),
+                    role.as_str(),
+                    reason.as_str(),
+                    pending.1,
+                    cancelled_at_ms,
+                ],
+            )
+            .map_err(db_error)?;
+        let record = CancellationRecord {
+            receipt_id: receipt_id.to_string(),
+            sequence,
+            canceller: canceller.principal_id().to_string(),
+            canceller_role: role,
+            reason,
+            cancelled_at_ms,
+            policy_bundle_hash: pending.1,
+        };
+        let operator_evidence = evidence::cancellation_record(CancellationEvidenceInput {
+            record: &record,
+            party_type: canceller.party_type(),
+        })?;
+        evidence::enqueue(
+            &transaction,
+            &self.config.evidence,
+            sequence,
+            0,
+            "tlpx.operator_action",
+            receipt_id,
+            &operator_evidence,
+        )?;
+        transaction.commit().map_err(db_error)?;
+        Ok(record)
+    }
+
     pub fn state(&self, authorization_id: &str) -> Result<Option<AuthzState>> {
         let connection = self
             .db
@@ -823,6 +1071,49 @@ pub fn enforce_constraints(
         return Err(Error::claim("AUTHORIZATION_CAPABILITY_DENIED"));
     }
     Ok(())
+}
+
+fn cancellation_role(
+    transaction: &Transaction<'_>,
+    receipt_id: &str,
+    requesting_principal: &str,
+    identity: &AuthenticatedIdentity,
+    reason: CancellationReason,
+) -> Result<CancellationRole> {
+    if reason == CancellationReason::RequesterWithdrawn
+        && identity.has_role(LocalRole::Requester)
+        && identity.principal_id() == requesting_principal
+    {
+        return Ok(CancellationRole::Requester);
+    }
+    if reason == CancellationReason::OperatorCancelled && identity.has_role(LocalRole::Operator) {
+        let mut statement = transaction
+            .prepare(
+                "SELECT route_id FROM tlpx_pending_approval_routes
+                 WHERE receipt_id = ?1 ORDER BY position",
+            )
+            .map_err(db_error)?;
+        let routes = statement
+            .query_map([receipt_id], |row| row.get::<_, String>(0))
+            .map_err(db_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(db_error)?;
+        if routes
+            .iter()
+            .any(|route| identity.permits_approval_route(route))
+        {
+            return Ok(CancellationRole::Operator);
+        }
+    }
+    if reason == CancellationReason::EmergencyRevocation
+        && identity.has_role(LocalRole::EmergencyCanceller)
+    {
+        return Ok(CancellationRole::EmergencyAuthority);
+    }
+    Err(Error::coded(
+        "CANCELLATION_UNAUTHORIZED",
+        "authenticated principal is not authorized to cancel this approval",
+    ))
 }
 
 struct DecisionInput<'a> {
@@ -990,6 +1281,51 @@ fn commit_decision(
             config,
         );
     }
+    if input.effect.decision == Decision::RequireApproval {
+        let route = input
+            .effect
+            .approval_route
+            .as_deref()
+            .ok_or_else(|| Error::authority("validated approval decision has no route"))?;
+        if insert_pending_approval(
+            &transaction,
+            &receipt_id,
+            input.authenticated_requester,
+            input.policy_bundle_hash,
+            route,
+        )
+        .is_err()
+        {
+            transaction
+                .execute(
+                    "DELETE FROM tlpx_pending_approvals WHERE receipt_id = ?1",
+                    [&receipt_id],
+                )
+                .map_err(db_error)?;
+            return replace_decision_with_error(
+                transaction,
+                &receipt_id,
+                sequence,
+                "",
+                ErrorInput {
+                    authenticated_principal: Some(input.authenticated_requester),
+                    request_id: Some(&input.intent.request_id),
+                    intent_hash: Some(input.intent_hash),
+                    retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
+                    stage: "approval_persistence",
+                    code: "AUTHORITY_INTERNAL_ERROR",
+                    message: "pending approval could not be persisted",
+                    retryability: Retryability::Never,
+                    required_condition: None,
+                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_hash: Some(input.policy_bundle_hash),
+                    evaluated_at_ms: input.evaluated_at_ms,
+                    occupies_slot: true,
+                },
+                config,
+            );
+        }
+    }
     if let Some(ref issued) = authorization {
         if insert_authorization(&transaction, issued).is_err() {
             return replace_decision_with_error(
@@ -1068,6 +1404,35 @@ fn commit_decision(
         policy_bundle_hash: input.policy_bundle_hash.to_string(),
         authorization,
     })
+}
+
+fn insert_pending_approval(
+    transaction: &Transaction<'_>,
+    receipt_id: &str,
+    requesting_principal: &str,
+    policy_bundle_hash: &str,
+    approval_route: &[String],
+) -> Result<()> {
+    transaction
+        .execute(
+            "INSERT INTO tlpx_pending_approvals (
+               receipt_id, requesting_principal, policy_bundle_hash, state
+             ) VALUES (?1, ?2, ?3, 'PENDING_APPROVAL')",
+            params![receipt_id, requesting_principal, policy_bundle_hash],
+        )
+        .map_err(db_error)?;
+    for (position, route_id) in approval_route.iter().enumerate() {
+        let position = i64::try_from(position)
+            .map_err(|_| Error::authority("approval route position overflow"))?;
+        transaction
+            .execute(
+                "INSERT INTO tlpx_pending_approval_routes (receipt_id, route_id, position)
+                 VALUES (?1, ?2, ?3)",
+                params![receipt_id, route_id, position],
+            )
+            .map_err(db_error)?;
+    }
+    Ok(())
 }
 
 fn replace_decision_with_error<T>(
@@ -1690,6 +2055,20 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             return Err(Error::authority(
                 "incompatible pre-release authority database: tlpx_evaluations.policy_bundle_hash must permit unavailable-policy errors; use a fresh database",
             ));
+        }
+        if table == "tlpx_evidence_outbox" {
+            let table_sql = connection
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    [table],
+                    |row| row.get::<_, String>(0),
+                )
+                .map_err(db_error)?;
+            if !table_sql.contains("'tlpx.operator_action'") {
+                return Err(Error::authority(
+                    "incompatible pre-release authority database: evidence outbox does not permit operator-action evidence; use a fresh database",
+                ));
+            }
         }
     }
     Ok(())

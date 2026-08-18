@@ -1,17 +1,40 @@
 use rusqlite::Connection;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
-    AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, Decision, EvidenceConfig,
-    ExecutedAction, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect,
-    PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard,
-    Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
+    AuthorizationTemplate, AuthzState, CancellationReason, CancellationRole, CapabilityRegistry,
+    ConfiguredPolicyBundle, Decision, EvidenceConfig, ExecutedAction, LocalAuthenticator,
+    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
+    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
+
+fn authenticated_identity(
+    principal_id: &str,
+    party_type: PartyType,
+    roles: Vec<LocalRole>,
+    approval_routes: Vec<&str>,
+) -> AuthenticatedIdentity {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: principal_id.into(),
+        party_type,
+        roles,
+        approval_routes: approval_routes.into_iter().map(str::to_string).collect(),
+    }])
+    .unwrap();
+    let (server, client) = UnixStream::pair().unwrap();
+    let identity = authenticator.authenticate_stream(&server).unwrap();
+    drop(client);
+    identity
+}
 
 fn config() -> AuthorityConfig {
     let policy = PolicyBundle {
@@ -33,7 +56,10 @@ fn config() -> AuthorityConfig {
             PolicyRule {
                 id: "approval-deploy".into(),
                 action: "deploy".into(),
-                effect: PolicyEffect::require_approval("POLICY_REQUIRE_APPROVAL"),
+                effect: PolicyEffect::require_approval(
+                    "POLICY_REQUIRE_APPROVAL",
+                    vec!["ops.deploy".into()],
+                ),
             },
         ],
         default: PolicyEffect::deny("POLICY_DENY"),
@@ -216,6 +242,269 @@ fn deterministic_deny_and_pending_issue_no_authorization() {
         .unwrap();
     assert_eq!(pending.decision, Decision::RequireApproval);
     assert!(pending.authorization.is_none());
+}
+
+#[test]
+fn approval_routes_are_validated_and_policy_content_bound() {
+    let base = config().policy.bundles[0].policy.clone();
+    let base_hash = exact_match_policy_content_hash(&base).unwrap();
+    let mut changed = base.clone();
+    changed.rules[1].effect.approval_route = Some(vec!["security.deploy".into()]);
+    assert_ne!(
+        exact_match_policy_content_hash(&changed).unwrap(),
+        base_hash
+    );
+
+    let mut missing = base;
+    missing.rules[1].effect.approval_route = Some(vec![]);
+    let error = exact_match_policy_content_hash(&missing).unwrap_err();
+    assert_eq!(error.code(), "POLICY_COMPILE_FAILED");
+}
+
+#[test]
+fn local_peer_authentication_uses_kernel_uid_gid_and_rejects_unknown_peers() {
+    let identity = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    assert_eq!(identity.principal_id(), "agent.requester");
+    assert_eq!(identity.uid(), nix::unistd::Uid::effective().as_raw());
+    assert_eq!(identity.gid(), nix::unistd::Gid::effective().as_raw());
+    assert!(identity.has_role(LocalRole::Requester));
+    assert!(!identity.has_role(LocalRole::Executor));
+
+    let unknown = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw().wrapping_add(1),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "agent.other".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Requester],
+        approval_routes: vec![],
+    }])
+    .unwrap();
+    let (server, _client) = UnixStream::pair().unwrap();
+    let error = unknown.authenticate_stream(&server).unwrap_err();
+    assert_eq!(error.code(), "AUTHENTICATION_FAILED");
+}
+
+#[test]
+fn authenticated_facade_enforces_requester_and_executor_roles() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let executor = authenticated_identity(
+        "runtime.mailer",
+        PartyType::Machine,
+        vec![LocalRole::Executor],
+        vec![],
+    );
+    let outcome = authority
+        .evaluate_authenticated_at(&requester, &intent("req-local-auth"), NOW)
+        .unwrap();
+    let issued = outcome.authorization.unwrap();
+
+    let wrong_role = authority
+        .claim_authenticated_at(&issued.authorization_id, &requester, &executed(), NOW + 1)
+        .unwrap_err();
+    assert_eq!(wrong_role.code(), "AUTHENTICATION_FAILED");
+    assert_eq!(
+        authority.state(&issued.authorization_id).unwrap(),
+        Some(AuthzState::AuthorizedUnclaimed)
+    );
+
+    let claim = authority
+        .claim_authenticated_at(&issued.authorization_id, &executor, &executed(), NOW + 2)
+        .unwrap();
+    assert_eq!(claim.executing_principal, "runtime.mailer");
+
+    let cannot_request = authority
+        .evaluate_authenticated_at(&executor, &intent("req-wrong-role"), NOW + 3)
+        .unwrap_err();
+    assert_eq!(cannot_request.code(), "AUTHENTICATION_FAILED");
+}
+
+#[test]
+fn pending_cancellation_is_authenticated_route_scoped_atomic_and_evidenced() {
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let operator = authenticated_identity(
+        "operator.deploy",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.deploy"],
+    );
+    let wrong_operator = authenticated_identity(
+        "operator.other",
+        PartyType::Human,
+        vec![LocalRole::Operator],
+        vec!["ops.other"],
+    );
+    let emergency = authenticated_identity(
+        "authority.emergency",
+        PartyType::Machine,
+        vec![LocalRole::EmergencyCanceller],
+        vec![],
+    );
+
+    let authority = Authority::in_memory(config()).unwrap();
+    let mut pending_intent = intent("req-cancel-requester");
+    pending_intent.action = "deploy".into();
+    let pending = authority
+        .evaluate_authenticated_at(&requester, &pending_intent, NOW)
+        .unwrap();
+    assert_eq!(pending.decision, Decision::RequireApproval);
+
+    let wrong_reason = authority
+        .cancel_pending_authenticated_at(
+            &pending.receipt_id,
+            &requester,
+            CancellationReason::OperatorCancelled,
+            NOW + 1,
+        )
+        .unwrap_err();
+    assert_eq!(wrong_reason.code(), "CANCELLATION_UNAUTHORIZED");
+    let wrong_route = authority
+        .cancel_pending_authenticated_at(
+            &pending.receipt_id,
+            &wrong_operator,
+            CancellationReason::OperatorCancelled,
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(wrong_route.code(), "CANCELLATION_UNAUTHORIZED");
+
+    let cancelled = authority
+        .cancel_pending_authenticated_at(
+            &pending.receipt_id,
+            &requester,
+            CancellationReason::RequesterWithdrawn,
+            NOW + 3,
+        )
+        .unwrap();
+    assert_eq!(cancelled.canceller_role, CancellationRole::Requester);
+    assert!(cancelled.sequence > pending.sequence);
+    let repeated = authority
+        .cancel_pending_authenticated_at(
+            &pending.receipt_id,
+            &requester,
+            CancellationReason::RequesterWithdrawn,
+            NOW + 4,
+        )
+        .unwrap_err();
+    assert_eq!(repeated.code(), "APPROVAL_TERMINAL");
+    let evidence = authority.pending_evidence(10).unwrap();
+    let operator_record = evidence
+        .iter()
+        .find(|row| row.record_type == "tlpx.operator_action")
+        .unwrap();
+    let operator_json: serde_json::Value =
+        serde_json::from_str(&operator_record.record_json).unwrap();
+    assert_eq!(operator_json["outcome"], "CANCEL");
+    assert_eq!(operator_json["operator"]["id"], "agent.requester");
+
+    let operator_authority = Authority::in_memory(config()).unwrap();
+    let mut operator_intent = intent("req-cancel-operator");
+    operator_intent.action = "deploy".into();
+    let operator_pending = operator_authority
+        .evaluate_authenticated_at(&requester, &operator_intent, NOW + 10)
+        .unwrap();
+    let operator_cancel = operator_authority
+        .cancel_pending_authenticated_at(
+            &operator_pending.receipt_id,
+            &operator,
+            CancellationReason::OperatorCancelled,
+            NOW + 11,
+        )
+        .unwrap();
+    assert_eq!(operator_cancel.canceller_role, CancellationRole::Operator);
+
+    let emergency_authority = Authority::in_memory(config()).unwrap();
+    let mut emergency_intent = intent("req-cancel-emergency");
+    emergency_intent.action = "deploy".into();
+    let emergency_pending = emergency_authority
+        .evaluate_authenticated_at(&requester, &emergency_intent, NOW + 20)
+        .unwrap();
+    let emergency_cancel = emergency_authority
+        .cancel_pending_authenticated_at(
+            &emergency_pending.receipt_id,
+            &emergency,
+            CancellationReason::EmergencyRevocation,
+            NOW + 21,
+        )
+        .unwrap();
+    assert_eq!(
+        emergency_cancel.canceller_role,
+        CancellationRole::EmergencyAuthority
+    );
+}
+
+#[test]
+fn concurrent_pending_cancellation_has_one_terminal_winner() {
+    let path = temp_db("cancel-race");
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let receipt_id = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let mut request = intent("req-cancel-race");
+        request.action = "deploy".into();
+        authority
+            .evaluate_authenticated_at(&requester, &request, NOW)
+            .unwrap()
+            .receipt_id
+    };
+    let barrier = Arc::new(Barrier::new(3));
+    let mut handles = Vec::new();
+    for offset in [1_i64, 2_i64] {
+        let path = path.clone();
+        let receipt_id = receipt_id.clone();
+        let requester = requester.clone();
+        let barrier = Arc::clone(&barrier);
+        handles.push(thread::spawn(move || {
+            let authority = Authority::open(path, config()).unwrap();
+            barrier.wait();
+            authority.cancel_pending_authenticated_at(
+                &receipt_id,
+                &requester,
+                CancellationReason::RequesterWithdrawn,
+                NOW + offset,
+            )
+        }));
+    }
+    barrier.wait();
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect();
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    let loser = results
+        .iter()
+        .find_map(|result| result.as_ref().err())
+        .unwrap();
+    assert_eq!(loser.code(), "APPROVAL_TERMINAL");
+    let authority = Authority::open(&path, config()).unwrap();
+    let evidence = authority.pending_evidence(10).unwrap();
+    assert_eq!(
+        evidence
+            .iter()
+            .filter(|row| row.record_type == "tlpx.operator_action")
+            .count(),
+        1
+    );
+    clean_db(&path);
 }
 
 #[test]

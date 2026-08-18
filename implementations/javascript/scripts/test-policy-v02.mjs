@@ -46,7 +46,7 @@ function manifest(overrides = {}) {
     policy_bundle_id: "tenant-policy",
     policy_bundle_version: "1.0.0",
     issuer: { id: "security.platform", type: "human" },
-    content_type: "application/vnd.tlpx.rust-exact-match+json;version=1",
+    content_type: "application/vnd.tlpx.rust-exact-match+json;version=2",
     content_hash: H,
     activated_at: T0,
     retired_at: null,

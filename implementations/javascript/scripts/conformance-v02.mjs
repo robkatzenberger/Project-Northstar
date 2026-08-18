@@ -454,6 +454,11 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   check("includes POLICY_PROVENANCE_INVALID", catalog.evaluation_error.includes("POLICY_PROVENANCE_INVALID"));
   check("includes POLICY_PRECEDENCE_AMBIGUOUS", catalog.evaluation_error.includes("POLICY_PRECEDENCE_AMBIGUOUS"));
   check("includes TRUSTED_SEQUENCE_INVALID", catalog.evaluation_error.includes("TRUSTED_SEQUENCE_INVALID"));
+  check(
+    "includes CANCELLATION_UNAUTHORIZED",
+    catalog.operator_action.includes("CANCELLATION_UNAUTHORIZED")
+  );
+  check("includes APPROVAL_TERMINAL", catalog.operator_action.includes("APPROVAL_TERMINAL"));
 }
 
 {

@@ -1,9 +1,9 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4, 3.1, and 3.2 are local commits `a87f822`, `1addb5c`, and `e835c4e`. Slice 3.2 passed its bounded exact-commit rerun; full Section 3 verification is deferred and none of 2.4/3.1/3.2 is independently accepted. Execution-side evidence schema closure remains deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4, 3.1, and 3.2 are local commits `a87f822`, `1addb5c`, and `e835c4e`. Slice 3.3 is an uncommitted builder-verified local-authentication/cancellation candidate. Full Section 3 verification is deferred; none of 2.4/3.1/3.2/3.3 is independently accepted. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
-**Date:** 2026-08-17
+**Date:** 2026-08-18
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
 
 **Document role:** normative protocol semantics, records, states, hashing, and (from slice 2.3) schemas. Delivery sequence and acceptance bars live in [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md).
@@ -18,6 +18,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 2.4 | Local commit `a87f822`: policy-bundle manifest/schema/hash, explicit supersession and precedence, complete-stream ordering oracle, requirements-maturity labels. Exact-commit/full Section 3 verification deferred; not accepted. |
 | 3.1 | Local commit `1addb5c`: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Exact-commit/full Section 3 verification deferred; not accepted. |
 | 3.2 | Local commit `e835c4e`: shared schema-bound fixtures pin the three action objects, canonical strings/bytes, distinct hashes, nullable/optional semantics, and exact Action Binding across JavaScript and Rust. Bounded exact-commit checks passed; full Section 3 verification deferred; not accepted. |
+| 3.3 | Uncommitted candidate based on `0a4ddc5`: kernel-derived Unix peer identity, exact local role mapping, authenticated requester/executor facades, policy-bound approval routes, and atomic pending cancellation with sealed operator-action evidence. Builder matrix passed; not exact-commit verified or accepted. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -562,6 +563,13 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `AUTHORIZATION_SCOPE_DENIED` | Presented target is outside stored resource scope |
 | `AUTHORIZATION_CAPABILITY_DENIED` | Presented adapter is outside stored capability |
 
+### 9.4 Operator-action blocks
+
+| Code | Meaning |
+| --- | --- |
+| `CANCELLATION_UNAUTHORIZED` | Authenticated principal lacks requester ownership, approval-route authority, or emergency authority for this cancellation |
+| `APPROVAL_TERMINAL` | The pending approval does not exist or already has a terminal human outcome |
+
 Unknown codes MUST fail closed for authorization (do not treat as allow). Display MAY show the raw code.
 
 ---
@@ -605,7 +613,7 @@ Callers MUST NOT supply or select the active policy bundle per request. Version 
 
 Decision records MUST use the selected manifest's `policy_bundle_id`, `policy_bundle_version`, and computed `policy_bundle_hash`. A trusted arbitrary hash string is not sufficient policy provenance.
 
-The slice 3.1 Rust exact-match profile uses `content_type` = `application/vnd.tlpx.rust-exact-match+json;version=1`. Its `content_hash` is lowercase `sha256:` over the JCS bytes of the retained exact-match policy content—profile identifier, ordered rules, and explicit default—including each rule's ID, action, decision, reason code, and nullable authorization template. It has no domain prefix because `content_type` identifies the content-hash profile; the enclosing domain-separated manifest hash binds both `content_type` and `content_hash`. Rust authority startup MUST reject a content mismatch. Evaluation MUST select the unique active manifest for the intent's exact tenant/environment and trusted evaluation time. Missing or ambiguous selection produces durable `tlpx.evaluation_error` without guessed policy identity and issues no authorization. Claim MUST reselect at trusted claim time and reject `POLICY_INACTIVE` if the issuing manifest is no longer active.
+The slice 3.3 Rust exact-match profile uses `content_type` = `application/vnd.tlpx.rust-exact-match+json;version=2`. Its `content_hash` is lowercase `sha256:` over the JCS bytes of the retained exact-match policy content—profile identifier, ordered rules, and explicit default—including each rule's ID, action, decision, reason code, nullable authorization template, and nullable ordered `approval_route`. Version 2 supersedes the pre-release version 1 content profile because the policy-bound route is security material. It has no domain prefix because `content_type` identifies the content-hash profile; the enclosing domain-separated manifest hash binds both `content_type` and `content_hash`. Rust authority startup MUST reject a content mismatch. Evaluation MUST select the unique active manifest for the intent's exact tenant/environment and trusted evaluation time. Missing or ambiguous selection produces durable `tlpx.evaluation_error` without guessed policy identity and issues no authorization. Claim MUST reselect at trusted claim time and reject `POLICY_INACTIVE` if the issuing manifest is no longer active.
 
 The working-tree Rust profile treats manifest configuration and its issuer assertion as trusted local configuration. It does not yet authenticate an external manifest publisher, rotate signing keys, or provide authenticated transport; those remain later slices.
 
@@ -651,6 +659,10 @@ Maturity and acceptance are separate. `IMPLEMENTED` does not mean independently 
 
 Requester, operator, executor, and canceller identities MUST come from authenticated context.
 
+The initial Rust local profile authenticates a connected Unix-domain-socket peer from kernel-supplied UID/GID and resolves an exact, process-owned mapping to an opaque principal, party type, and allowed requester/operator/executor/emergency-canceller roles. Unknown peers, missing roles, and route mismatches fail closed. Socket ownership/mode, mapping configuration, service identity, and configuration freshness are deployment trust boundaries. A caller-supplied principal string is not authenticated merely because a library method accepts it; untrusted adapters MUST use an authenticated facade.
+
+For pending cancellation, requester authority is limited to the original authenticated requester, operator authority is limited to the exact policy-bound approval route, and emergency authority requires its explicit role. Reason and role MUST be stored transactionally with the state transition. The portable `CANCEL` operator-action record MUST remain schema-valid and MUST NOT invent renderer evidence or private fields. Post-claim cancellation remains governed by §7.4 and the deferred execution-side evidence contract.
+
 Agent B MUST NOT use Agent A’s authorization. A valid handoff is a new evaluation that names B as `executing_principal` for the exact action B will perform. Parent permission is never transitive.
 
 The abandoned August 7 snapshot token MUST NOT be used to carry handoff permission.
@@ -676,7 +688,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, typed-action, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. Local slice 3.1 commit `1addb5c` consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration. Local slice 3.2 commit `e835c4e` independently pins the existing Rust action types and hash behavior to shared cross-language fixtures; it does not add execution behavior. Full Section 3 verification and independent review are deferred, and both candidates remain unaccepted. Neither authenticates caller identity, executes a capability, or closes the deferred execution-side evidence contract.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, typed-action, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` has no execution receipt or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. Local slices 3.1 and 3.2 add manifest activation and independently reproducible action/hash behavior. The uncommitted 3.3 candidate adds a bounded kernel-authenticated Unix peer facade and pending cancellation, but retains trusted raw embedding APIs and adds no protected side effect. Full Section 3 verification and independent review are deferred, and all candidates remain unaccepted. None closes the deferred execution-side evidence contract or establishes forced mediation.
 
 ---
 
@@ -754,3 +766,4 @@ The slice 3.2 typed-object vectors live at `tests/fixtures/tlpx-0.2/actions/gold
 | 0.2.0-draft.2.4 | Adds the policy-bundle provenance manifest and domain hash, explicit supersession/precedence rules, complete authority-sequence verification semantics, and requirements-maturity labels. Local commit `a87f822`; exact-commit/full Section 3 verification deferred; not accepted. |
 | 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Local commit `1addb5c`; exact-commit/full Section 3 verification deferred; not accepted. |
 | 0.2.0-draft.3.2 | Adds schema-bound cross-language fixtures and oracles for Submitted Intent, Authorized Action, Executed Action, exact Action Binding, nullable/optional semantics, effective-risk monotonicity, canonical bytes, and distinct domain hashes. Local commit `e835c4e`; bounded exact-commit checks passed; full Section 3 verification deferred; not accepted. |
+| 0.2.0-draft.3.3 | Adds the initial Unix peer-credential identity profile, role-scoped authenticated authority facade, policy-bound approval routes, and atomic pending cancellation with schema-valid sealed operator-action evidence. Working-tree builder matrix passed; not exact-commit verified or accepted. |

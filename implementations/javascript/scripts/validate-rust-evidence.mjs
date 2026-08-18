@@ -33,6 +33,7 @@ if (run.status !== 0) {
 const kindByType = new Map([
   ["tlpx.decision", "decision"],
   ["tlpx.evaluation_error", "evaluation-error"],
+  ["tlpx.operator_action", "operator-action"],
   ["tlpx.authorization", "authorization"],
   ["tlpx.authorization_claim", "authorization-claim"]
 ]);
@@ -77,8 +78,8 @@ for (const expected of kindByType.keys()) {
     failures += 1;
   }
 }
-if (lines.length !== 4) {
-  console.log(`  FAIL  expected 4 bounded records, got ${lines.length}`);
+if (lines.length !== 6) {
+  console.log(`  FAIL  expected 6 bounded records, got ${lines.length}`);
   failures += 1;
 }
 

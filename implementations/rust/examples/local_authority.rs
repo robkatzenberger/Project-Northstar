@@ -1,8 +1,10 @@
 //! Runnable authority-only MVP. It deliberately performs no external side effect.
 
+use std::os::unix::net::UnixStream;
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
-    CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, PartyType, PolicyBundle,
+    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
+    AuthorizationTemplate, CancellationReason, CapabilityRegistry, ConfiguredPolicyBundle,
+    EvidenceConfig, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
     PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
     Principal, Risk, SubmittedIntent, Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE,
     POLICY_PRECEDENCE,
@@ -70,6 +72,15 @@ fn main() -> tlpx::Result<()> {
         if error.code() != "AUTHENTICATION_FAILED" {
             return Err(error);
         }
+        let requester = pilot_authenticated_requester()?;
+        let mut pending = pilot_intent(format!("{}-pending", issued.request_id));
+        pending.action = "deploy".into();
+        let pending = authority.evaluate_authenticated(&requester, &pending)?;
+        authority.cancel_pending_authenticated(
+            &pending.receipt_id,
+            &requester,
+            CancellationReason::RequesterWithdrawn,
+        )?;
         for row in authority.pending_evidence(100)? {
             println!("{}", row.record_json);
         }
@@ -84,20 +95,30 @@ fn main() -> tlpx::Result<()> {
 
 fn pilot_config() -> tlpx::Result<AuthorityConfig> {
     let policy = PolicyBundle {
-        rules: vec![PolicyRule {
-            id: "allow-email".into(),
-            action: "send_email".into(),
-            effect: PolicyEffect::allow(
-                "POLICY_ALLOW",
-                AuthorizationTemplate {
-                    derived_risk: Risk::High,
-                    capability: "mailer.send".into(),
-                    resource_scope: vec!["customer:123".into()],
-                    risk_reasons: vec!["external_communication".into()],
-                    risk_source: "policy:pilot-policy@1.0.0".into(),
-                },
-            ),
-        }],
+        rules: vec![
+            PolicyRule {
+                id: "allow-email".into(),
+                action: "send_email".into(),
+                effect: PolicyEffect::allow(
+                    "POLICY_ALLOW",
+                    AuthorizationTemplate {
+                        derived_risk: Risk::High,
+                        capability: "mailer.send".into(),
+                        resource_scope: vec!["customer:123".into()],
+                        risk_reasons: vec!["external_communication".into()],
+                        risk_source: "policy:pilot-policy@1.0.0".into(),
+                    },
+                ),
+            },
+            PolicyRule {
+                id: "approve-deploy".into(),
+                action: "deploy".into(),
+                effect: PolicyEffect::require_approval(
+                    "POLICY_REQUIRE_APPROVAL",
+                    vec!["ops.deploy".into()],
+                ),
+            },
+        ],
         default: PolicyEffect::deny("POLICY_DENY"),
     };
     let content_hash = exact_match_policy_content_hash(&policy)?;
@@ -129,12 +150,12 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             Principal {
                 id: "agent.requester".into(),
                 active: true,
-                allowed_actions: vec!["send_email".into()],
+                allowed_actions: vec!["send_email".into(), "deploy".into()],
             },
             Principal {
                 id: "runtime.mailer".into(),
                 active: true,
-                allowed_actions: vec!["send_email".into()],
+                allowed_actions: vec!["send_email".into(), "deploy".into()],
             },
         ])?,
         capabilities: CapabilityRegistry::new(vec![(
@@ -152,6 +173,22 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     })
+}
+
+fn pilot_authenticated_requester() -> tlpx::Result<AuthenticatedIdentity> {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "agent.requester".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Requester],
+        approval_routes: vec![],
+    }])?;
+    let (server, client) = UnixStream::pair()
+        .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;
+    let identity = authenticator.authenticate_stream(&server)?;
+    drop(client);
+    Ok(identity)
 }
 
 fn pilot_intent(request_id: String) -> SubmittedIntent {

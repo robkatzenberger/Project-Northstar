@@ -36,6 +36,7 @@ pub struct PolicyEffect {
     pub decision: Decision,
     pub reason_code: String,
     pub authorization: Option<AuthorizationTemplate>,
+    pub approval_route: Option<Vec<String>>,
     pub policy_id: Option<String>,
 }
 
@@ -45,6 +46,7 @@ impl PolicyEffect {
             decision: Decision::Allow,
             reason_code: reason_code.into(),
             authorization: Some(authorization),
+            approval_route: None,
             policy_id: None,
         }
     }
@@ -54,15 +56,17 @@ impl PolicyEffect {
             decision: Decision::Deny,
             reason_code: reason_code.into(),
             authorization: None,
+            approval_route: None,
             policy_id: None,
         }
     }
 
-    pub fn require_approval(reason_code: impl Into<String>) -> Self {
+    pub fn require_approval(reason_code: impl Into<String>, approval_route: Vec<String>) -> Self {
         Self {
             decision: Decision::RequireApproval,
             reason_code: reason_code.into(),
             authorization: None,
+            approval_route: Some(approval_route),
             policy_id: None,
         }
     }
@@ -85,15 +89,40 @@ impl PolicyEffect {
                 self.decision.as_str()
             )));
         }
-        match (self.decision, &self.authorization) {
-            (Decision::Allow, Some(template)) => template.validate(),
-            (Decision::Allow, None) => Err(Error::policy_compile(
+        match (self.decision, &self.authorization, &self.approval_route) {
+            (Decision::Allow, Some(template), None) => template.validate(),
+            (Decision::Allow, None, None) => Err(Error::policy_compile(
                 "ALLOW requires an authorization template",
             )),
-            (_, Some(_)) => Err(Error::policy_compile("non-ALLOW effect cannot authorize")),
-            (_, None) => Ok(()),
+            (Decision::Allow, _, Some(_)) => Err(Error::policy_compile(
+                "ALLOW must not carry an approval route",
+            )),
+            (Decision::RequireApproval, None, Some(route)) => validate_approval_route(route),
+            (Decision::RequireApproval, None, None) => Err(Error::policy_compile(
+                "REQUIRE_APPROVAL requires an approval route",
+            )),
+            (Decision::Deny, None, None) => Ok(()),
+            (_, Some(_), _) => Err(Error::policy_compile("non-ALLOW effect cannot authorize")),
+            (Decision::Deny, None, Some(_)) => Err(Error::policy_compile(
+                "DENY must not carry an approval route",
+            )),
         }
     }
+}
+
+fn validate_approval_route(route: &[String]) -> Result<()> {
+    if route.is_empty() || route.iter().any(|value| value.is_empty()) {
+        return Err(Error::policy_compile(
+            "approval_route must contain non-empty route identifiers",
+        ));
+    }
+    let unique: BTreeSet<_> = route.iter().collect();
+    if unique.len() != route.len() {
+        return Err(Error::policy_compile(
+            "approval_route entries must be unique",
+        ));
+    }
+    Ok(())
 }
 
 impl AuthorizationTemplate {

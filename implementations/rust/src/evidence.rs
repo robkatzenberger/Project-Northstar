@@ -3,7 +3,7 @@
 //! The TL-PX record JSON remains independent of the local storage envelope.
 //! Chain hashes and HMAC seals are outbox columns, not private record fields.
 
-use crate::authority::{ClaimRecord, IssuedAuthorization, Retryability};
+use crate::authority::{CancellationRecord, ClaimRecord, IssuedAuthorization, Retryability};
 use crate::error::{Error, Result};
 use crate::jcs::{canonicalize, parse, Canonical, Value};
 use crate::policy::Decision;
@@ -27,7 +27,7 @@ pub enum PartyType {
 }
 
 impl PartyType {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Human => "human",
             Self::Machine => "machine",
@@ -136,6 +136,11 @@ pub(crate) struct ErrorEvidenceInput<'a> {
     pub policy_bundle_id: Option<&'a str>,
 }
 
+pub(crate) struct CancellationEvidenceInput<'a> {
+    pub record: &'a CancellationRecord,
+    pub party_type: PartyType,
+}
+
 pub(crate) fn decision_record(input: DecisionEvidenceInput<'_>) -> Result<Canonical> {
     let authorization_state = match input.decision {
         Decision::Allow => "AUTHORIZED_UNCLAIMED",
@@ -187,6 +192,23 @@ pub(crate) fn decision_record(input: DecisionEvidenceInput<'_>) -> Result<Canoni
         fields.push(string("retry_of_receipt_id", receipt_id));
     }
     canonicalize(&Value::Object(fields))
+}
+
+pub(crate) fn cancellation_record(input: CancellationEvidenceInput<'_>) -> Result<Canonical> {
+    canonicalize(&Value::Object(vec![
+        string("record_type", "tlpx.operator_action"),
+        string("standard", "TL-PX"),
+        string("standard_version", "0.2.0"),
+        string("receipt_id", &input.record.receipt_id),
+        string("acted_at", &iso8601_from_ms(input.record.cancelled_at_ms)?),
+        string("outcome", "CANCEL"),
+        (
+            "operator".into(),
+            party(&input.record.canceller, input.party_type.as_str()),
+        ),
+        string("policy_bundle_hash", &input.record.policy_bundle_hash),
+        ("sequence".into(), Value::Int(input.record.sequence)),
+    ]))
 }
 
 pub(crate) fn evaluation_error_record(input: ErrorEvidenceInput<'_>) -> Result<Canonical> {
@@ -496,6 +518,7 @@ fn verify_envelope_binding(record: &Value, row: &SealedEvidence) -> Result<()> {
     }
     let source_field = match record_type.as_str() {
         "tlpx.decision" | "tlpx.evaluation_error" => "receipt_id",
+        "tlpx.operator_action" => "receipt_id",
         "tlpx.authorization" => "authorization_id",
         "tlpx.authorization_claim" => "claim_id",
         _ => return Err(Error::authority("unsupported evidence record type")),
@@ -549,7 +572,23 @@ fn verify_coverage(connection: &Connection) -> Result<()> {
             |row| row.get(0),
         )
         .map_err(db_error)?;
-    if missing_evaluations != 0 || missing_authorizations != 0 || missing_claims != 0 {
+    let missing_operator_actions: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM tlpx_operator_actions a
+             WHERE NOT EXISTS (
+               SELECT 1 FROM tlpx_evidence_outbox o
+               WHERE o.record_type = 'tlpx.operator_action'
+                 AND o.source_id = a.receipt_id
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db_error)?;
+    if missing_evaluations != 0
+        || missing_authorizations != 0
+        || missing_claims != 0
+        || missing_operator_actions != 0
+    {
         return Err(Error::authority(
             "authority state and evidence outbox are not fully reconciled",
         ));
@@ -560,6 +599,7 @@ fn verify_coverage(connection: &Connection) -> Result<()> {
 fn verify_source(connection: &Connection, row: &SealedEvidence) -> Result<()> {
     let (table, column) = match row.record_type.as_str() {
         "tlpx.decision" | "tlpx.evaluation_error" => ("tlpx_evaluations", "receipt_id"),
+        "tlpx.operator_action" => ("tlpx_operator_actions", "receipt_id"),
         "tlpx.authorization" => ("tlpx_authorizations", "authorization_id"),
         "tlpx.authorization_claim" => ("tlpx_claims", "claim_id"),
         _ => return Err(Error::authority("unsupported evidence record type")),
