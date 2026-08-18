@@ -1,9 +1,9 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`. Execution-side evidence schema closure remains deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1 are uncommitted working-tree candidates, not accepted. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
-**Date:** 2026-08-14  
+**Date:** 2026-08-17
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
 
 **Document role:** normative protocol semantics, records, states, hashing, and (from slice 2.3) schemas. Delivery sequence and acceptance bars live in [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md).
@@ -15,7 +15,8 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
 | 2.3 | Accepted core: object schemas plus decision, evaluation-error, operator-action, authorization, and authorization-claim schemas in `schemas/tlpx-0.2/`, `validate-v02.mjs`, and `npm run conformance:0.2`. The execution schema is provisional; cancellation/reconciliation and revocation evidence are deferred. Not a 0.2 runtime. |
 | 2.3d | Independently accepted at exact commit `aed80e2`: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, authority-wide sequence, and the bounded Rust local evaluate/issue/claim path. |
-| 2.4 | Policy precedence, provenance, trusted ordering, requirements-maturity labels |
+| 2.4 | Working-tree candidate: policy-bundle manifest/schema/hash, explicit supersession and precedence, complete-stream ordering oracle, requirements-maturity labels. Not accepted until named-commit review. |
+| 3.1 | Working-tree candidate: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Not accepted until named-commit review. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -27,7 +28,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** are to be interpreted as in RFC 2119.
 
-Passing the slice 2.3 record/schema suite establishes only conformance of the tested objects and validators. An implementation MUST NOT claim **“TL-PX 0.2 Minimum conforming runtime”** until it implements every applicable normative behavior, emits schema-valid evidence, and passes the eventual runtime profile. This document is the normative vocabulary for work that targets 0.2.
+Passing the slice 2.3 record/schema suite and the slice 2.4 policy/ordering oracle establishes only conformance of the tested objects, manifests, and deterministic contract helpers. An implementation MUST NOT claim **“TL-PX 0.2 Minimum conforming runtime”** until it implements every applicable normative behavior, emits schema-valid evidence, and passes the eventual runtime profile. This document is the normative vocabulary for work that targets 0.2.
 
 The current JavaScript reference remains a TL-PX **0.1** implementation plus Phase 1 fail-closed policy compile. It MUST continue to emit `standard_version: "0.1.0"` until a separately versioned 0.2 adapter exists. It MUST NOT be silently treated as 0.2-conforming.
 
@@ -534,6 +535,9 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | --- | --- |
 | `POLICY_UNAVAILABLE` | `AFTER_CONDITION` |
 | `POLICY_COMPILE_FAILED` | `NEVER` |
+| `POLICY_PROVENANCE_INVALID` | `NEVER` |
+| `POLICY_PRECEDENCE_AMBIGUOUS` | `NEVER` |
+| `TRUSTED_SEQUENCE_INVALID` | `NEVER` or `AFTER_CONDITION` after authoritative recovery |
 | `INTENT_INVALID` | `NEVER` |
 | `ACTION_DATA_AMBIGUOUS` | `NEVER` |
 | `AUTHENTICATION_FAILED` | `AFTER_CONDITION` |
@@ -571,6 +575,75 @@ An explicit `default: ALLOW` is legal in the Minimum Profile after Switchboard h
 
 0.1 valid packs keep implicit no-match → `ALLOW`. That rule remains frozen on the 0.1 line only.
 
+### 10.1 Policy-bundle provenance manifest (slice 2.4)
+
+Every activated 0.2 policy bundle MUST have one schema-valid `tlpx.policy_bundle` manifest containing:
+
+- `policy_bundle_id` and strict semantic `policy_bundle_version`;
+- authenticated issuer/owner identity;
+- `content_type` and `content_hash` for the exact activated policy content;
+- canonical UTC `activated_at` and nullable `retired_at`;
+- exact environment and tenant scope;
+- the complete normative `precedence` array;
+- an explicit `default_decision`; and
+- an explicit `supersedes` reference—predecessor ID, version, and manifest hash—when a newer active bundle replaces an older one.
+
+The manifest schema is `schemas/tlpx-0.2/policy-bundle.schema.json`. `content_type` identifies the deterministic policy-content profile that produced `content_hash`; this slice does not silently treat the JavaScript 0.1 YAML format as the universal 0.2 policy language. Authorities MUST retain the activated content, or a reproducible canonical representation of it, so `content_hash` can be verified.
+
+`policy_bundle_hash` is the domain-separated Northstar JCS digest of the complete validated manifest:
+
+```text
+policy_bundle_hash =
+  SHA-256(
+    UTF8("northstar:policy-bundle:v1\0") ||
+    JCS(Policy Bundle Manifest)
+  )
+```
+
+Callers MUST NOT supply or select the active policy bundle per request. Version numbers do not imply precedence. For one exact `(tenant, environment, trusted_time)` scope, exactly one bundle may be active. If active windows overlap, selection is valid only when one candidate has an explicit, acyclic `supersedes` chain covering every other active candidate. Each successor MUST preserve the predecessor's exact tenant/environment scope, activate later, and bind the predecessor's computed manifest hash. Missing policy, unavailable predecessor manifests, invalid provenance, duplicate identity, cycles, hash mismatch, or ambiguous overlap MUST fail closed and MUST issue no authorization.
+
+Decision records MUST use the selected manifest's `policy_bundle_id`, `policy_bundle_version`, and computed `policy_bundle_hash`. A trusted arbitrary hash string is not sufficient policy provenance.
+
+The slice 3.1 Rust exact-match profile uses `content_type` = `application/vnd.tlpx.rust-exact-match+json;version=1`. Its `content_hash` is lowercase `sha256:` over the JCS bytes of the retained exact-match policy content—profile identifier, ordered rules, and explicit default—including each rule's ID, action, decision, reason code, and nullable authorization template. It has no domain prefix because `content_type` identifies the content-hash profile; the enclosing domain-separated manifest hash binds both `content_type` and `content_hash`. Rust authority startup MUST reject a content mismatch. Evaluation MUST select the unique active manifest for the intent's exact tenant/environment and trusted evaluation time. Missing or ambiguous selection produces durable `tlpx.evaluation_error` without guessed policy identity and issues no authorization. Claim MUST reselect at trusted claim time and reject `POLICY_INACTIVE` if the issuing manifest is no longer active.
+
+The working-tree Rust profile treats manifest configuration and its issuer assertion as trusted local configuration. It does not yet authenticate an external manifest publisher, rotate signing keys, or provide authenticated transport; those remain later slices.
+
+### 10.2 Deterministic precedence (slice 2.4)
+
+Every manifest MUST declare this exact order:
+
+```text
+EMERGENCY_DENY
+  -> TENANT_ENVIRONMENT_RESTRICTION
+  -> SWITCHBOARD_SCOPE
+  -> BASE_POLICY
+  -> ACTION_POLICY
+  -> HUMAN_APPROVAL_CONDITION
+```
+
+The stages are monotone in authority: `DENY` is final; `REQUIRE_APPROVAL` may be maintained or tightened to `DENY`; a later `ALLOW` MUST NOT lower an earlier `REQUIRE_APPROVAL` or `DENY`. Emergency and tenant/environment stages are authority-wide activation/scope guards; Switchboard remains the first requester/action policy gate, and no base or action policy runs before it. Emergency and Switchboard stages may pass or deny but may not authorize. The base-policy stage MUST produce the matched result or the bundle's explicit default. Missing base outcome, unsupported or unknown stage outcomes, undefined conflicts, or reordered stages are `POLICY_PRECEDENCE_AMBIGUOUS` and fail closed.
+
+### 10.3 Trusted ordering (slice 2.4)
+
+One authority-wide transactional sequence orders committed authority transitions. Sequence scope is one authoritative state store; timestamps and per-table counters MUST NOT be used to merge independent authorities into a fabricated total order.
+
+- The sequence is a positive integer allocated in the same transaction as the transition.
+- A rolled-back transaction does not create a committed gap.
+- A complete authority-transition stream begins at sequence 1 and is strictly increasing and contiguous. A bounded complete segment MAY begin later only when its expected starting sequence is authenticated and supplied to the verifier. Duplicate, backward, undeclared-prefix, or missing values are `TRUSTED_SEQUENCE_INVALID`.
+- A filtered or partial export MAY contain gaps but MUST be labeled partial and MUST NOT be verified as a complete stream.
+- Wall-clock timestamps remain human-readable evidence; they do not resolve concurrency or override sequence order.
+- Local claim windows and execution leases require monotonic elapsed-time enforcement in the runtime slice. The slice 2.4 oracle does not claim that a JavaScript `Date` check is a production trusted clock.
+
+### 10.4 Requirements maturity and acceptance labels (slice 2.4)
+
+Project requirement claims use exactly:
+
+- **IMPLEMENTED** — present in a named commit with builder verification;
+- **PLANNED** — accepted direction without a named, builder-verified implementation;
+- **EXTENSION_EXPERIMENTAL** — optional future profile or research.
+
+Maturity and acceptance are separate. `IMPLEMENTED` does not mean independently accepted, production-safe, or forced mediation. Acceptance evidence MUST separately say `builder-verified` or `independently accepted` and name the reviewed commit. An uncommitted working-tree candidate remains `PLANNED` in public maturity tables until deliberately committed and verified.
+
 ---
 
 ## 11. Identity and handoff (contract level)
@@ -602,7 +675,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema validators and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit still has no authenticated transport, schema-valid sealed runtime evidence, execution receipt, or PEP. A later builder-verified working-tree delta emits the bounded evaluation/authorization record core into a sealed outbox, but it is not part of the accepted named-commit baseline yet.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. The slice 3.1 working tree consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration, but it remains uncommitted, builder-authored, and unaccepted. It does not authenticate caller identity, execute a capability, or close the deferred execution-side evidence contract.
 
 ---
 
@@ -639,6 +712,9 @@ executed_action_hash =
 
 approval_context_hash =
   SHA-256(UTF8("northstar:approval-context:v1\0") || JCS(approval context))
+
+policy_bundle_hash =
+  SHA-256(UTF8("northstar:policy-bundle:v1\0") || JCS(Policy Bundle Manifest))
 ```
 
 Each prefix includes a trailing NUL (`U+0000`). Implementations MUST hash the prefix bytes and the JCS UTF-8 bytes as a single SHA-256 input. They MUST NOT hash a merged object that mixes requester declarations with authority-derived values.
@@ -655,7 +731,7 @@ Implementations MUST validate this representation before embedding a hash string
 
 ### 14.4 Golden fixtures
 
-Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, `digest_hex`, and `sha256` fields, and MUST reject every `reject` vector. `digest_hex` is the raw 32-byte SHA-256 as 64 lowercase hex; `sha256` is `sha256:` plus that hex. Those fixtures are not the 47 frozen 0.1 tests.
+Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, `digest_hex`, and `sha256` fields, and MUST reject every `reject` vector. `digest_hex` is the raw 32-byte SHA-256 as 64 lowercase hex; `sha256` is `sha256:` plus that hex. The exact policy-manifest vector is `tests/fixtures/tlpx-0.2/policy/manifest-golden.json`. Those fixtures are not the 47 frozen 0.1 tests.
 
 ---
 
@@ -672,3 +748,5 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.3c | Authorization stores `action_binding_hash`. Claim compares presented binding to that value. `capability`/`resource_scope` stay PEP constraints, not binding fields. |
 | 0.2.0-draft.2.3d | Authenticated idempotency slots are immutable; retries use successor ids and same-principal evidence links; request refusals are distinguished from activation/runtime errors; operator context is conditional; committed decisions, errors, and claims share one authority sequence. Independently accepted at exact commit `aed80e2`. |
 | 0.2.0-draft.2.3e | Records the accepted 2.3 evaluation/authorization schema scope, defers execution/cancellation/reconciliation/revocation evidence closure, and requires human authorizers for `APPROVE`/`REJECT`. |
+| 0.2.0-draft.2.4 | Adds the policy-bundle provenance manifest and domain hash, explicit supersession/precedence rules, complete authority-sequence verification semantics, and requirements-maturity labels. Working-tree candidate; not accepted. |
+| 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Working-tree candidate; not accepted. |

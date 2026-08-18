@@ -1,6 +1,6 @@
 # TL-PX 0.2 JCS golden fixtures
 
-**Slice:** 2.2  
+**Slice:** 2.2 JCS profile; slice 2.4 adds the `policy-bundle` domain
 **Profile:** `northstar-jcs-v1`  
 **Oracle file:** [`golden.json`](./golden.json)
 

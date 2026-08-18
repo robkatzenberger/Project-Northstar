@@ -12,6 +12,7 @@ pub fn domain_prefix(name: &str) -> Result<&'static [u8]> {
         "authorized-action" => b"northstar:authorized-action:v1\0",
         "executed-action" => b"northstar:executed-action:v1\0",
         "approval-context" => b"northstar:approval-context:v1\0",
+        "policy-bundle" => b"northstar:policy-bundle:v1\0",
         _ => return Err(Error::hash(format!("unknown domain {name}"))),
     })
 }
@@ -66,4 +67,8 @@ pub fn executed_action_hash(value: &Value) -> Result<String> {
 
 pub fn approval_context_hash(value: &Value) -> Result<String> {
     hash_value("approval-context", value)
+}
+
+pub fn policy_bundle_hash(value: &Value) -> Result<String> {
+    hash_value("policy-bundle", value)
 }

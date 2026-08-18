@@ -1,8 +1,8 @@
 /**
  * Tiny JSON Schema subset for TL-PX 0.2.
  * Supports: type, const, enum, required, properties, additionalProperties,
- * minLength, minItems, pattern, minimum, items, anyOf, allOf, not,
- * if/then/else, $ref.
+ * minLength, minItems, maxItems, pattern, minimum, items, prefixItems,
+ * anyOf, allOf, not, if/then/else, $ref.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -66,6 +66,10 @@ export function validateAgainst(schema, value, root = schema) {
 }
 
 function walk(schema, value, root, path, errors) {
+  if (schema === false) {
+    errors.push(`${path}: forbidden by schema`);
+    return;
+  }
   if (!schema || typeof schema !== "object") return;
   if (schema.$ref) {
     walk(resolveRef(schema.$ref, schema, root), value, root, path, errors);
@@ -120,11 +124,24 @@ function walk(schema, value, root, path, errors) {
   if (typeof value === "number" && schema.minimum != null && value < schema.minimum) {
     errors.push(`${path}: below minimum ${schema.minimum}`);
   }
-  if (Array.isArray(value) && schema.items) {
-    value.forEach((item, i) => walk(schema.items, item, root, `${path}[${i}]`, errors));
-  }
-  if (Array.isArray(value) && schema.minItems != null && value.length < schema.minItems) {
-    errors.push(`${path}: fewer than ${schema.minItems} items`);
+  if (Array.isArray(value)) {
+    const prefixLength = Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
+    if (prefixLength > 0) {
+      schema.prefixItems.forEach((sub, i) => {
+        if (i < value.length) walk(sub, value[i], root, `${path}[${i}]`, errors);
+      });
+    }
+    if (schema.items !== undefined) {
+      for (let i = prefixLength; i < value.length; i += 1) {
+        walk(schema.items, value[i], root, `${path}[${i}]`, errors);
+      }
+    }
+    if (schema.minItems != null && value.length < schema.minItems) {
+      errors.push(`${path}: fewer than ${schema.minItems} items`);
+    }
+    if (schema.maxItems != null && value.length > schema.maxItems) {
+      errors.push(`${path}: more than ${schema.maxItems} items`);
+    }
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
     if (Array.isArray(schema.required)) {

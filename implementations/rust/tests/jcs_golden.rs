@@ -31,6 +31,12 @@ struct Reject {
     error_contains: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct PolicyManifestGolden {
+    manifest: serde_json::Value,
+    policy_bundle_hash: String,
+}
+
 fn golden_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/tlpx-0.2/jcs/golden.json")
 }
@@ -38,6 +44,20 @@ fn golden_path() -> PathBuf {
 fn load() -> Golden {
     let raw = fs::read_to_string(golden_path()).expect("golden.json");
     serde_json::from_str(&raw).expect("parse golden.json")
+}
+
+fn policy_manifest_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/tlpx-0.2/policy/manifest-golden.json")
+}
+
+#[test]
+fn policy_manifest_hash_matches_js_oracle() {
+    let raw = fs::read_to_string(policy_manifest_path()).expect("manifest-golden.json");
+    let golden: PolicyManifestGolden = serde_json::from_str(&raw).expect("parse policy fixture");
+    let manifest = serde_json::to_string(&golden.manifest).expect("serialize manifest");
+    let got = hash_json_text("policy-bundle", &manifest).expect("hash policy manifest");
+    assert_eq!(got, golden.policy_bundle_hash);
 }
 
 #[test]
@@ -103,7 +123,8 @@ fn domains_are_distinct() {
     let b = hash_json_text("authorized-action", c).unwrap();
     let d = hash_json_text("executed-action", c).unwrap();
     let e = hash_json_text("approval-context", c).unwrap();
-    let set = [a, b, d, e];
+    let f = hash_json_text("policy-bundle", c).unwrap();
+    let set = [a, b, d, e, f];
     for i in 0..set.len() {
         for j in 0..set.len() {
             if i != j {

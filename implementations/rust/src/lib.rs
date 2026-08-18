@@ -20,6 +20,7 @@ pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvid
 pub use hash::{
     approval_context_hash, assert_hash_string, authorized_action_hash, digest_hex,
     executed_action_hash, hash_canonical, hash_json_text, hash_value, intent_hash,
+    policy_bundle_hash,
 };
 pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Canonical, Value};
 pub use policy::{

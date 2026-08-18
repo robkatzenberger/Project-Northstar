@@ -1,5 +1,6 @@
 /**
- * TL-PX 0.2 JCS / domain-hash golden fixtures (slice 2.2).
+ * TL-PX 0.2 JCS / domain-hash golden fixtures (slice 2.2 profile,
+ * extended with the slice 2.4 policy-bundle domain).
  * Distinct from the frozen TL-PX 0.1 conformance suite.
  */
 import fs from "node:fs";

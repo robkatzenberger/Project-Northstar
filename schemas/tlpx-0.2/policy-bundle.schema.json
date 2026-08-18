@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trust-layer.local/schemas/tlpx-0.2/policy-bundle.schema.json",
+  "title": "TL-PX 0.2 Policy Bundle Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_type",
+    "standard",
+    "standard_version",
+    "policy_bundle_id",
+    "policy_bundle_version",
+    "issuer",
+    "content_type",
+    "content_hash",
+    "activated_at",
+    "retired_at",
+    "environment",
+    "tenant",
+    "precedence",
+    "default_decision"
+  ],
+  "properties": {
+    "manifest_type": { "const": "tlpx.policy_bundle" },
+    "standard": { "const": "TL-PX" },
+    "standard_version": { "const": "0.2.0" },
+    "policy_bundle_id": { "type": "string", "minLength": 1 },
+    "policy_bundle_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "issuer": { "$ref": "common.schema.json#/$defs/party" },
+    "content_type": { "type": "string", "minLength": 1 },
+    "content_hash": { "$ref": "common.schema.json#/$defs/hashString" },
+    "activated_at": { "$ref": "common.schema.json#/$defs/isoTime" },
+    "retired_at": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/isoTime" },
+        { "type": "null" }
+      ]
+    },
+    "environment": { "type": "string", "minLength": 1 },
+    "tenant": { "type": "string", "minLength": 1 },
+    "precedence": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        { "const": "EMERGENCY_DENY" },
+        { "const": "TENANT_ENVIRONMENT_RESTRICTION" },
+        { "const": "SWITCHBOARD_SCOPE" },
+        { "const": "BASE_POLICY" },
+        { "const": "ACTION_POLICY" },
+        { "const": "HUMAN_APPROVAL_CONDITION" }
+      ],
+      "items": false
+    },
+    "default_decision": {
+      "enum": ["ALLOW", "REQUIRE_APPROVAL", "DENY"]
+    },
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_bundle_id", "policy_bundle_version", "policy_bundle_hash"],
+      "properties": {
+        "policy_bundle_id": { "type": "string", "minLength": 1 },
+        "policy_bundle_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+        },
+        "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" }
+      }
+    }
+  }
+}

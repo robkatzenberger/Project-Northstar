@@ -80,5 +80,15 @@ export {
   intentHash,
   authorizedActionHash,
   executedActionHash,
-  approvalContextHash
+  approvalContextHash,
+  policyBundleHash
 } from "./hash.mjs";
+export {
+  POLICY_PRECEDENCE,
+  REQUIREMENT_MATURITY,
+  validatedPolicyBundleHash,
+  resolvePolicyDecision,
+  selectActivePolicyBundle,
+  validatePolicyBundleManifest,
+  verifyCompleteAuthoritySequence
+} from "./policy-v02.mjs";

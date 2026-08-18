@@ -14,7 +14,7 @@ import { HASH_DOMAINS, digestHex, hashString } from "../src/hash.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const outPath = path.join(root, "tests/fixtures/tlpx-0.2/jcs/golden.json");
 
-const domains = ["intent", "authorized-action", "executed-action", "approval-context"];
+const domains = ["intent", "authorized-action", "executed-action", "approval-context", "policy-bundle"];
 
 const acceptInputs = [
   { id: "empty-object", input_json: "{}" },

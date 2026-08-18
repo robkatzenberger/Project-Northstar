@@ -16,6 +16,20 @@
 
 **2.3 acceptance clarification (2026-08-14):** accepted 2.3 coverage is the object schemas plus decision, evaluation-error, operator-action, authorization, and authorization-claim records, validators, and reason-code catalog. The existing execution-receipt schema is provisional. Execution receipt, cancellation/reconciliation, and revocation evidence schema closure was not exercised by the 2.3 conformance suite and remains deferred. This clarification records the gap; it does not rewrite the earlier evidence or block the accepted 2.3d Rust evaluate/claim path.
 
+**Current requirements maturity**
+
+| Requirement area | Maturity | Acceptance evidence |
+| --- | --- | --- |
+| Slices 1.1–2.3 evaluation/authorization contract core | **IMPLEMENTED** | Accepted reports and named commits through `03d293b` plus follow-up contract commits |
+| 2.3d bounded Rust evaluate/issue/claim authority | **IMPLEMENTED** | Independently accepted at `aed80e2` |
+| Bounded Rust schema evidence and sealed local outbox | **IMPLEMENTED** | Builder-verified at `c9bdd0f`; independent acceptance pending |
+| Slice 2.4 policy provenance/precedence/ordering contract | **PLANNED** | Working-tree candidate is builder-verified; remains PLANNED until an exact named commit is builder-verified |
+| Slice 3.1 Rust policy-manifest activation boundary | **PLANNED** | Working-tree candidate is builder-verified; remains PLANNED until an exact named commit is builder-verified |
+| Authenticated transport, approval lifecycle, execution/revocation evidence, and PEP | **PLANNED** | No accepted implementation |
+| M-of-N, anomaly scoring, ZK, dual ledgers, hierarchical authorization | **EXTENSION_EXPERIMENTAL** | Deferred profiles only |
+
+Maturity is not acceptance. `IMPLEMENTED` says a named builder-verified artifact exists; the evidence column separately states whether that artifact is independently accepted.
+
 ## 1. Purpose
 
 Northstar is a pre-execution authorization boundary for agentic and human-initiated actions. It is not an AI judge, an agent orchestrator, or a substitute for operating-system containment.
@@ -532,6 +546,19 @@ emergency deny
 
 Undefined conflicts, ambiguous precedence, or invalid policy provenance fail closed. Decision receipts record the complete effective policy-bundle digest.
 
+Slice 2.4 makes this executable as a language-neutral contract:
+
+- one schema-valid manifest binds bundle identity/version, authenticated issuer, exact content type/hash, active interval, exact tenant/environment, the fixed precedence order, explicit default, and optional predecessor ID/version/hash;
+- `policy_bundle_hash` is JCS plus `northstar:policy-bundle:v1\0` over that complete manifest;
+- one exact tenant/environment/time scope selects one active bundle; overlap is legal only when one acyclic explicit supersession chain names a unique later-activated same-scope winner and binds every predecessor hash;
+- semantic version numbers never decide precedence implicitly;
+- stages are monotone: later `ALLOW` cannot weaken earlier `REQUIRE_APPROVAL` or `DENY`; and
+- absence, invalid provenance, ambiguous overlap, or invalid stage outcomes block without authorization.
+
+The complete-stream ordering oracle starts at sequence 1 by default. Verification of a bounded complete segment must receive its authenticated expected starting sequence; it must not infer that start from the first event and thereby hide a missing prefix. Partial exports remain separately labeled and may not use the complete-stream claim.
+
+The Phase 2 JavaScript helper is an oracle for these rules, not the production authority. At the accepted `aed80e2` and named `c9bdd0f` baselines, Rust still receives a trusted format-valid policy hash. The uncommitted 3.1 candidate replaces that input with a validated policy catalog and performs exact-scope/trusted-time manifest selection inside the authority.
+
 ### 12.8 Key separation and lifecycle
 
 Cryptographic authority must be separated across:
@@ -643,9 +670,11 @@ Extensions may add evidence or stricter authorization but must never bypass dete
 
 Each major requirement or feature must be labeled as one of:
 
-- **Implemented**: present and verified against a named commit;
-- **Planned**: accepted for the build but not yet implemented;
-- **Extension/experimental**: future research or optional profile.
+- **IMPLEMENTED**: present and builder-verified against a named commit;
+- **PLANNED**: accepted for the build but without a named, builder-verified implementation;
+- **EXTENSION_EXPERIMENTAL**: future research or optional profile.
+
+These labels do not encode acceptance. Builder verification and independent acceptance must be reported separately with the exact commit. An uncommitted implementation candidate remains `PLANNED` in the maturity table.
 
 Patent and product language must not imply that Northstar observes hidden reasoning, guarantees truthful intent, universally contains autonomous processes, proves internal alignment, or prevents bypass outside capabilities actually placed behind its PEP.
 
@@ -804,11 +833,13 @@ parse → validate → compile → evaluate
 
 Align the v0.2 specification, schemas, validators, error records, reason codes, corrected reference implementation, planned Rust authority, and new conformance suite around `ALLOW`, `REQUIRE_APPROVAL`, and `DENY` plus the authorization lifecycle in this document.
 
-Every emitted record, including Switchboard `DENY`, authorization claim, revocation, and execution receipt, must eventually validate against the canonical schemas. Accepted 2.3 conformance currently establishes this for the object and evaluation/authorization record core, not for the provisional execution receipt or as-yet-unspecified revocation evidence. No revocation or execution emitter may claim 0.2 conformance until that contract closes. This phase also fixes canonical hashing, trusted ordering, policy provenance, and requirements-maturity labels.
+Every emitted record, including Switchboard `DENY`, authorization claim, revocation, and execution receipt, must eventually validate against the canonical schemas. Accepted 2.3 conformance currently establishes this for the object and evaluation/authorization record core, not for the provisional execution receipt or as-yet-unspecified revocation evidence. No revocation or execution emitter may claim 0.2 conformance until that contract closes. The slice 2.4 working-tree candidate adds policy-manifest/hash, deterministic selection/precedence, complete-stream sequence, and maturity-label oracles; it remains unaccepted until deliberately committed, builder-verified, and independently reviewed.
 
 ### Phase 3: authenticated transactional authority and one-time execution
 
 Complete the Rust authority around distinct Submitted Intent, Authorized Action, Executed Action, and Execution Receipt types and hashes, authenticated requester/operator/executor identities, SQLite state, short claim window, atomic one-time claim, revocation check, idempotency, and adapter integrity. The local library MVP supplies part of this path, but trusted embedding strings are not acceptance of authenticated identity and an atomic claim is not an execution receipt.
+
+The slice 3.1 working-tree candidate makes the existing skeleton consume the 2.4 policy contract. Rust computes the manifest hash, verifies a reproducible JCS hash of its exact-match policy content, validates all configured supersession chains at startup, selects one active bundle by exact tenant/environment/trusted evaluation time, records missing or ambiguous selection as durable evaluation error, and rechecks activity at claim. The authority no longer accepts an arbitrary policy hash in `AuthorityConfig`. Manifest issuer identity is still trusted local configuration rather than an authenticated publisher assertion.
 
 An unauthenticated `tlpx-run` may be built earlier only as a prototype. It is not the enforcement acceptance test and must be labeled accordingly.
 

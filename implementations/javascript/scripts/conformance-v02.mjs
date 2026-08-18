@@ -3,6 +3,13 @@
  */
 import { validateV02 } from "../src/validate-v02.mjs";
 import { loadTlpx02Schemas } from "../src/schema.mjs";
+import {
+  POLICY_PRECEDENCE,
+  validatedPolicyBundleHash,
+  resolvePolicyDecision,
+  selectActivePolicyBundle,
+  verifyCompleteAuthoritySequence
+} from "../src/policy-v02.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -415,6 +422,70 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   check("includes IDEMPOTENCY_CONFLICT", catalog.evaluation_error.includes("IDEMPOTENCY_CONFLICT"));
   check("includes ACTION_MISMATCH", catalog.claim_and_execution.includes("ACTION_MISMATCH"));
   check("includes POLICY_INACTIVE", catalog.claim_and_execution.includes("POLICY_INACTIVE"));
+  check("includes POLICY_PROVENANCE_INVALID", catalog.evaluation_error.includes("POLICY_PROVENANCE_INVALID"));
+  check("includes POLICY_PRECEDENCE_AMBIGUOUS", catalog.evaluation_error.includes("POLICY_PRECEDENCE_AMBIGUOUS"));
+  check("includes TRUSTED_SEQUENCE_INVALID", catalog.evaluation_error.includes("TRUSTED_SEQUENCE_INVALID"));
+}
+
+{
+  console.log("C7  Slice 2.4 policy provenance, precedence, and ordering");
+  const bundle = {
+    manifest_type: "tlpx.policy_bundle",
+    standard: "TL-PX",
+    standard_version: "0.2.0",
+    policy_bundle_id: "pack",
+    policy_bundle_version: "1.0.0",
+    issuer: { id: "security.platform", type: "human" },
+    content_type: "application/vnd.tlpx.policy+json;version=1",
+    content_hash: H,
+    activated_at: T,
+    retired_at: null,
+    environment: "production",
+    tenant: "tenant_abc",
+    precedence: [...POLICY_PRECEDENCE],
+    default_decision: "DENY"
+  };
+  check("policy bundle manifest", validateV02("policy-bundle", bundle).ok);
+  check("policy bundle hash", /^sha256:[0-9a-f]{64}$/.test(validatedPolicyBundleHash(bundle)));
+  check(
+    "policy provenance required",
+    !validateV02("policy-bundle", { ...bundle, issuer: undefined }).ok
+  );
+  check(
+    "precedence order fixed",
+    !validateV02("policy-bundle", { ...bundle, precedence: [...POLICY_PRECEDENCE].reverse() }).ok
+  );
+  check(
+    "single active exact-scope bundle",
+    selectActivePolicyBundle([bundle], {
+      environment: "production",
+      tenant: "tenant_abc",
+      at: "2026-08-14T12:00:01.000Z"
+    }).manifest === bundle
+  );
+  check(
+    "Switchboard DENY remains final",
+    resolvePolicyDecision({ SWITCHBOARD_SCOPE: "DENY", BASE_POLICY: "ALLOW" }).decision === "DENY"
+  );
+  check(
+    "approval floor cannot be lowered",
+    resolvePolicyDecision({
+      TENANT_ENVIRONMENT_RESTRICTION: "REQUIRE_APPROVAL",
+      BASE_POLICY: "ALLOW",
+      ACTION_POLICY: "ALLOW"
+    }).decision === "REQUIRE_APPROVAL"
+  );
+  check(
+    "trusted sequence uses authority order",
+    verifyCompleteAuthoritySequence([{ sequence: 9 }, { sequence: 10 }, { sequence: 11 }], 9)
+  );
+  let gapRejected = false;
+  try {
+    verifyCompleteAuthoritySequence([{ sequence: 9 }, { sequence: 11 }], 9);
+  } catch (error) {
+    gapRejected = error.code === "TRUSTED_SEQUENCE_INVALID";
+  }
+  check("complete-stream gap rejected", gapRejected);
 }
 
 console.log(`\n────────────────────────────────────────────────`);
@@ -423,4 +494,4 @@ if (failed) {
   console.log("TL-PX 0.2 record suite: NOT CONFORMING");
   process.exit(1);
 }
-console.log("TL-PX 0.2 record suite: CONFORMING (schemas + validators; not a 0.2 runtime)");
+console.log("TL-PX 0.2 contract suite: CONFORMING (schemas + oracles; not a 0.2 runtime)");

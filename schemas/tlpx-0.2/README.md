@@ -1,13 +1,16 @@
 # TL-PX 0.2 schemas
 
-**Status:** Accepted slice 2.3 object and evaluation/authorization record schema core. The execution-receipt schema is provisional; cancellation/reconciliation and revocation evidence closure is deferred. Not a 0.2 runtime.
+**Status:** Accepted slice 2.3 object and evaluation/authorization record schema core plus an unaccepted slice 2.4 policy-bundle manifest candidate. The execution-receipt schema is provisional; cancellation/reconciliation and revocation evidence closure is deferred. Not a 0.2 runtime.
 
 Normative semantics: [`../../docs/standard/SPEC-v0.2.md`](../../docs/standard/SPEC-v0.2.md).  
 JCS/hash fixtures: [`../../tests/fixtures/tlpx-0.2/jcs/`](../../tests/fixtures/tlpx-0.2/jcs/).  
 Reason codes: [`reason-codes.json`](./reason-codes.json).
+Policy manifest fixture: [`../../tests/fixtures/tlpx-0.2/policy/manifest-golden.json`](../../tests/fixtures/tlpx-0.2/policy/manifest-golden.json).
 
 These schemas are the contract Rust and other languages must implement. The JS `validate-v02.mjs` oracle checks them. The 0.1 gate must not emit these records until a separately versioned 0.2 adapter exists.
 
 Accepted 2.3 conformance covers Submitted Intent, Authorized Action, Executed Action, decision, evaluation error, operator action, authorization, and authorization claim. It does not establish a complete execution receipt, cancellation/reconciliation evidence, or revocation record. See the 2026-08-14 acceptance clarification in the normative specification before implementing those surfaces.
+
+The slice 2.4 candidate adds `policy-bundle.schema.json`, the `northstar:policy-bundle:v1\0` hash domain, strict provenance/active-window/supersession rules, and a deterministic JavaScript contract oracle. The uncommitted 3.1 candidate consumes that schema in Rust and binds it to the configured exact-match policy content. Neither candidate standardizes the JavaScript 0.1 YAML language or makes either implementation a conforming 0.2 runtime.
 
 Do not place 0.2 documents under `../tlpx-0.1/`.

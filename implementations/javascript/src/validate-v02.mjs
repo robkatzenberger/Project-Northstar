@@ -3,6 +3,7 @@
  * The 0.1 gate must keep using validate.mjs.
  */
 import { validateSchemaFile } from "./schema.mjs";
+import { validatePolicyBundleManifest } from "./policy-v02.mjs";
 
 const DECISION_STATE = {
   ALLOW: "AUTHORIZED_UNCLAIMED",
@@ -20,10 +21,12 @@ export function validateV02(kind, value) {
     "operator-action": "operator-action.schema.json",
     authorization: "authorization.schema.json",
     "authorization-claim": "authorization-claim.schema.json",
-    execution: "execution.schema.json"
+    execution: "execution.schema.json",
+    "policy-bundle": "policy-bundle.schema.json"
   };
   const file = files[kind];
   if (!file) return { ok: false, errors: [`unknown 0.2 kind ${kind}`] };
+  if (kind === "policy-bundle") return validatePolicyBundleManifest(value);
   const result = validateSchemaFile(file, value);
   if (!result.ok) return result;
 

@@ -13,7 +13,8 @@ export const HASH_DOMAINS = Object.freeze({
   intent: "northstar:intent:v1\0",
   "authorized-action": "northstar:authorized-action:v1\0",
   "executed-action": "northstar:executed-action:v1\0",
-  "approval-context": "northstar:approval-context:v1\0"
+  "approval-context": "northstar:approval-context:v1\0",
+  "policy-bundle": "northstar:policy-bundle:v1\0"
 });
 
 export function assertHashString(value) {
@@ -70,4 +71,8 @@ export function executedActionHash(value) {
 
 export function approvalContextHash(value) {
   return hashValue("approval-context", value);
+}
+
+export function policyBundleHash(value) {
+  return hashValue("policy-bundle", value);
 }

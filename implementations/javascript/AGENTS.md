@@ -16,7 +16,7 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 Normative 0.1: `docs/standard/SPEC-v0.1.md` (frozen)  
-Draft 0.2: `docs/standard/SPEC-v0.2.md` (accepted evaluation/authorization schema core through 2.3; accepted Rust 2.3d at `aed80e2`)
+Draft 0.2: `docs/standard/SPEC-v0.2.md` (accepted evaluation/authorization schema core through 2.3; accepted Rust 2.3d at `aed80e2`; builder-verified evidence/outbox at `c9bdd0f`, not independently accepted; uncommitted/unaccepted working-tree 2.4 policy-contract and 3.1 Rust activation candidates)
 Full documentation hub: `docs/README.md`
 
 ## Non-negotiables
@@ -39,7 +39,7 @@ Full documentation hub: `docs/README.md`
 
 ## Stack guidance
 
-- The authoritative 0.2 core is being built in **Rust**. Keep this JavaScript tree as the frozen 0.1 reference, Phase 1 compiler evidence, and 0.2 schema/JCS/hash oracle; do not grow it into the production authority.
+- The authoritative 0.2 core is being built in **Rust**. Keep this JavaScript tree as the frozen 0.1 reference, Phase 1 compiler evidence, and 0.2 schema/policy/JCS/hash oracle; do not grow it into the production authority.
 - Config and examples stay plain: **JSON / YAML**, readable by operators without a build step.
 - Tests should cover policy decisions deterministically (fixtures in, receipt out).
 
@@ -49,9 +49,10 @@ Full documentation hub: `docs/README.md`
 cd implementations/javascript   # from monorepo root
 # or: cd ~/projects/northstar/implementations/javascript
 npm run conformance   # frozen TL-PX 0.1 pass/fail
-npm run conformance:0.2 # draft 0.2 schemas/validators only
+npm run conformance:0.2 # draft 0.2 schemas + contract oracles only
 npm test              # unit + compile + 0.2 JCS/schema oracle
 npm run test:jcs      # 0.2 hash oracle only
+npm run test:policy:0.2 # 0.2 slice 2.4 policy/ordering oracle only
 npm run demo          # 3 scenarios + accountability report
 node bin/glass.mjs help
 ```

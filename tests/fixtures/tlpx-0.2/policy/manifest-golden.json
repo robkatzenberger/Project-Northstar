@@ -1,0 +1,33 @@
+{
+  "profile": "tlpx-policy-bundle-v1",
+  "standard": "TL-PX",
+  "standard_version": "0.2.0",
+  "hash_domain": "northstar:policy-bundle:v1\u0000",
+  "manifest": {
+    "manifest_type": "tlpx.policy_bundle",
+    "standard": "TL-PX",
+    "standard_version": "0.2.0",
+    "policy_bundle_id": "pack",
+    "policy_bundle_version": "1.0.0",
+    "issuer": {
+      "id": "security.platform",
+      "type": "human"
+    },
+    "content_type": "application/vnd.tlpx.policy+json;version=1",
+    "content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "activated_at": "2026-08-14T12:00:00.000Z",
+    "retired_at": null,
+    "environment": "production",
+    "tenant": "tenant_abc",
+    "precedence": [
+      "EMERGENCY_DENY",
+      "TENANT_ENVIRONMENT_RESTRICTION",
+      "SWITCHBOARD_SCOPE",
+      "BASE_POLICY",
+      "ACTION_POLICY",
+      "HUMAN_APPROVAL_CONDITION"
+    ],
+    "default_decision": "DENY"
+  },
+  "policy_bundle_hash": "sha256:b56371b4cf8dab70cfc05c2e9f07d0c31dd5a055b74a437bc5cbc79b2f390718"
+}
