@@ -1,0 +1,274 @@
+{
+  "profile": "tlpx-action-types-v1",
+  "standard": "TL-PX",
+  "standard_version": "0.2.0",
+  "notes": [
+    "Each source object validates against its distinct TL-PX 0.2 schema before canonicalization.",
+    "payload_hash and artifact_hash are required fields whose values may be null; retry_of_receipt_id is optional and absence differs from null.",
+    "authorized_action_hash covers the complete Authorized Action under its own domain.",
+    "action_binding_hash and executed_action_hash use the executed-action domain over the exact shared Action Binding projection.",
+    "A matching Action Binding does not make authorized_action_hash equal executed_action_hash."
+  ],
+  "cases": [
+    {
+      "id": "null-digests-no-retry",
+      "submitted_intent": {
+        "requesting_principal": "agent.a",
+        "executing_principal": "agent.a",
+        "action": "send_email",
+        "intent_class": "external_communication",
+        "target": "customer:123",
+        "arguments": {
+          "template": "invoice-ready",
+          "invoice_id": "inv_456"
+        },
+        "environment": "production",
+        "tenant": "tenant_abc",
+        "declared_risk": "medium",
+        "data_classes": [
+          "PII",
+          "FINANCIAL"
+        ],
+        "requested_capability": "mailer.send",
+        "resource_scope": [
+          "customer:123"
+        ],
+        "payload_hash": null,
+        "artifact_hash": null,
+        "adapter": {
+          "id": "adapter.mailer",
+          "version": "1.0.0"
+        },
+        "request_id": "req-typed-1"
+      },
+      "authorized_action": {
+        "requesting_principal": "agent.a",
+        "executing_principal": "agent.a",
+        "action": "send_email",
+        "target": "customer:123",
+        "arguments": {
+          "template": "invoice-ready",
+          "invoice_id": "inv_456"
+        },
+        "environment": "production",
+        "tenant": "tenant_abc",
+        "derived_risk": "medium",
+        "effective_risk": "high",
+        "risk_reasons": [
+          "policy.external_communication",
+          "policy.financial_data"
+        ],
+        "risk_source": "policy",
+        "data_classes": [
+          "PII",
+          "FINANCIAL"
+        ],
+        "capability": "mailer.send",
+        "resource_scope": [
+          "customer:123"
+        ],
+        "payload_hash": null,
+        "artifact_hash": null,
+        "policy_bundle_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "adapter": {
+          "id": "adapter.mailer",
+          "version": "1.0.0"
+        }
+      },
+      "executed_action": {
+        "executing_principal": "agent.a",
+        "action": "send_email",
+        "target": "customer:123",
+        "arguments": {
+          "template": "invoice-ready",
+          "invoice_id": "inv_456"
+        },
+        "environment": "production",
+        "tenant": "tenant_abc",
+        "payload_hash": null,
+        "artifact_hash": null,
+        "adapter": {
+          "id": "adapter.mailer",
+          "version": "1.0.0"
+        }
+      },
+      "action_binding": {
+        "executing_principal": "agent.a",
+        "action": "send_email",
+        "target": "customer:123",
+        "arguments": {
+          "template": "invoice-ready",
+          "invoice_id": "inv_456"
+        },
+        "environment": "production",
+        "tenant": "tenant_abc",
+        "payload_hash": null,
+        "artifact_hash": null,
+        "adapter": {
+          "id": "adapter.mailer",
+          "version": "1.0.0"
+        }
+      },
+      "canonical": {
+        "submitted_intent": "{\"action\":\"send_email\",\"adapter\":{\"id\":\"adapter.mailer\",\"version\":\"1.0.0\"},\"arguments\":{\"invoice_id\":\"inv_456\",\"template\":\"invoice-ready\"},\"artifact_hash\":null,\"data_classes\":[\"PII\",\"FINANCIAL\"],\"declared_risk\":\"medium\",\"environment\":\"production\",\"executing_principal\":\"agent.a\",\"intent_class\":\"external_communication\",\"payload_hash\":null,\"request_id\":\"req-typed-1\",\"requested_capability\":\"mailer.send\",\"requesting_principal\":\"agent.a\",\"resource_scope\":[\"customer:123\"],\"target\":\"customer:123\",\"tenant\":\"tenant_abc\"}",
+        "authorized_action": "{\"action\":\"send_email\",\"adapter\":{\"id\":\"adapter.mailer\",\"version\":\"1.0.0\"},\"arguments\":{\"invoice_id\":\"inv_456\",\"template\":\"invoice-ready\"},\"artifact_hash\":null,\"capability\":\"mailer.send\",\"data_classes\":[\"PII\",\"FINANCIAL\"],\"derived_risk\":\"medium\",\"effective_risk\":\"high\",\"environment\":\"production\",\"executing_principal\":\"agent.a\",\"payload_hash\":null,\"policy_bundle_hash\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"requesting_principal\":\"agent.a\",\"resource_scope\":[\"customer:123\"],\"risk_reasons\":[\"policy.external_communication\",\"policy.financial_data\"],\"risk_source\":\"policy\",\"target\":\"customer:123\",\"tenant\":\"tenant_abc\"}",
+        "executed_action": "{\"action\":\"send_email\",\"adapter\":{\"id\":\"adapter.mailer\",\"version\":\"1.0.0\"},\"arguments\":{\"invoice_id\":\"inv_456\",\"template\":\"invoice-ready\"},\"artifact_hash\":null,\"environment\":\"production\",\"executing_principal\":\"agent.a\",\"payload_hash\":null,\"target\":\"customer:123\",\"tenant\":\"tenant_abc\"}",
+        "action_binding": "{\"action\":\"send_email\",\"adapter\":{\"id\":\"adapter.mailer\",\"version\":\"1.0.0\"},\"arguments\":{\"invoice_id\":\"inv_456\",\"template\":\"invoice-ready\"},\"artifact_hash\":null,\"environment\":\"production\",\"executing_principal\":\"agent.a\",\"payload_hash\":null,\"target\":\"customer:123\",\"tenant\":\"tenant_abc\"}"
+      },
+      "canonical_utf8_hex": {
+        "submitted_intent": "7b22616374696f6e223a2273656e645f656d61696c222c2261646170746572223a7b226964223a22616461707465722e6d61696c6572222c2276657273696f6e223a22312e302e30227d2c22617267756d656e7473223a7b22696e766f6963655f6964223a22696e765f343536222c2274656d706c617465223a22696e766f6963652d7265616479227d2c2261727469666163745f68617368223a6e756c6c2c22646174615f636c6173736573223a5b22504949222c2246494e414e4349414c225d2c226465636c617265645f7269736b223a226d656469756d222c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c22657865637574696e675f7072696e636970616c223a226167656e742e61222c22696e74656e745f636c617373223a2265787465726e616c5f636f6d6d756e69636174696f6e222c227061796c6f61645f68617368223a6e756c6c2c22726571756573745f6964223a227265712d74797065642d31222c227265717565737465645f6361706162696c697479223a226d61696c65722e73656e64222c2272657175657374696e675f7072696e636970616c223a226167656e742e61222c227265736f757263655f73636f7065223a5b22637573746f6d65723a313233225d2c22746172676574223a22637573746f6d65723a313233222c2274656e616e74223a2274656e616e745f616263227d",
+        "authorized_action": "7b22616374696f6e223a2273656e645f656d61696c222c2261646170746572223a7b226964223a22616461707465722e6d61696c6572222c2276657273696f6e223a22312e302e30227d2c22617267756d656e7473223a7b22696e766f6963655f6964223a22696e765f343536222c2274656d706c617465223a22696e766f6963652d7265616479227d2c2261727469666163745f68617368223a6e756c6c2c226361706162696c697479223a226d61696c65722e73656e64222c22646174615f636c6173736573223a5b22504949222c2246494e414e4349414c225d2c22646572697665645f7269736b223a226d656469756d222c226566666563746976655f7269736b223a2268696768222c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c22657865637574696e675f7072696e636970616c223a226167656e742e61222c227061796c6f61645f68617368223a6e756c6c2c22706f6c6963795f62756e646c655f68617368223a227368613235363a65656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565222c2272657175657374696e675f7072696e636970616c223a226167656e742e61222c227265736f757263655f73636f7065223a5b22637573746f6d65723a313233225d2c227269736b5f726561736f6e73223a5b22706f6c6963792e65787465726e616c5f636f6d6d756e69636174696f6e222c22706f6c6963792e66696e616e6369616c5f64617461225d2c227269736b5f736f75726365223a22706f6c696379222c22746172676574223a22637573746f6d65723a313233222c2274656e616e74223a2274656e616e745f616263227d",
+        "executed_action": "7b22616374696f6e223a2273656e645f656d61696c222c2261646170746572223a7b226964223a22616461707465722e6d61696c6572222c2276657273696f6e223a22312e302e30227d2c22617267756d656e7473223a7b22696e766f6963655f6964223a22696e765f343536222c2274656d706c617465223a22696e766f6963652d7265616479227d2c2261727469666163745f68617368223a6e756c6c2c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c22657865637574696e675f7072696e636970616c223a226167656e742e61222c227061796c6f61645f68617368223a6e756c6c2c22746172676574223a22637573746f6d65723a313233222c2274656e616e74223a2274656e616e745f616263227d",
+        "action_binding": "7b22616374696f6e223a2273656e645f656d61696c222c2261646170746572223a7b226964223a22616461707465722e6d61696c6572222c2276657273696f6e223a22312e302e30227d2c22617267756d656e7473223a7b22696e766f6963655f6964223a22696e765f343536222c2274656d706c617465223a22696e766f6963652d7265616479227d2c2261727469666163745f68617368223a6e756c6c2c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c22657865637574696e675f7072696e636970616c223a226167656e742e61222c227061796c6f61645f68617368223a6e756c6c2c22746172676574223a22637573746f6d65723a313233222c2274656e616e74223a2274656e616e745f616263227d"
+      },
+      "sha256": {
+        "intent_hash": "sha256:bde45aef2758c6f10844976e228aa1b3d3a3250727e52ff240656ccb751fa6d2",
+        "authorized_action_hash": "sha256:6b589976cf531bf5058f7919179d0ab70e410e985de9e4d6899b5efef75045ee",
+        "executed_action_hash": "sha256:e94c46f41b4468e9613412ca2f24bb92bb44a0c970d149f9be27a60826916104",
+        "action_binding_hash": "sha256:e94c46f41b4468e9613412ca2f24bb92bb44a0c970d149f9be27a60826916104"
+      },
+      "digest_hex": {
+        "intent_hash": "bde45aef2758c6f10844976e228aa1b3d3a3250727e52ff240656ccb751fa6d2",
+        "authorized_action_hash": "6b589976cf531bf5058f7919179d0ab70e410e985de9e4d6899b5efef75045ee",
+        "executed_action_hash": "e94c46f41b4468e9613412ca2f24bb92bb44a0c970d149f9be27a60826916104",
+        "action_binding_hash": "e94c46f41b4468e9613412ca2f24bb92bb44a0c970d149f9be27a60826916104"
+      }
+    },
+    {
+      "id": "bound-digests-with-retry-and-unicode",
+      "submitted_intent": {
+        "requesting_principal": "agent.é",
+        "executing_principal": "agent.worker",
+        "action": "write_file",
+        "intent_class": "filesystem_change",
+        "target": "/srv/reports/résumé.json",
+        "arguments": {
+          "content_ref": "artifact:résumé",
+          "mode": 416,
+          "labels": [
+            "final",
+            "reviewed"
+          ]
+        },
+        "environment": "staging",
+        "tenant": "tenant_eu",
+        "declared_risk": "low",
+        "data_classes": [],
+        "requested_capability": "filesystem.write",
+        "resource_scope": [
+          "/srv/reports",
+          "/srv/reports/résumé.json"
+        ],
+        "payload_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "adapter": {
+          "id": "adapter.filesystem",
+          "version": "2.1.0"
+        },
+        "request_id": "req-typed-2",
+        "retry_of_receipt_id": "rcpt_previous_error"
+      },
+      "authorized_action": {
+        "requesting_principal": "agent.é",
+        "executing_principal": "agent.worker",
+        "action": "write_file",
+        "target": "/srv/reports/résumé.json",
+        "arguments": {
+          "content_ref": "artifact:résumé",
+          "mode": 416,
+          "labels": [
+            "final",
+            "reviewed"
+          ]
+        },
+        "environment": "staging",
+        "tenant": "tenant_eu",
+        "derived_risk": "low",
+        "effective_risk": "medium",
+        "risk_reasons": [
+          "policy.mutable_target"
+        ],
+        "risk_source": "policy",
+        "data_classes": [],
+        "capability": "filesystem.write",
+        "resource_scope": [
+          "/srv/reports",
+          "/srv/reports/résumé.json"
+        ],
+        "payload_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "policy_bundle_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "adapter": {
+          "id": "adapter.filesystem",
+          "version": "2.1.0"
+        }
+      },
+      "executed_action": {
+        "executing_principal": "agent.worker",
+        "action": "write_file",
+        "target": "/srv/reports/résumé.json",
+        "arguments": {
+          "content_ref": "artifact:résumé",
+          "mode": 416,
+          "labels": [
+            "final",
+            "reviewed"
+          ]
+        },
+        "environment": "staging",
+        "tenant": "tenant_eu",
+        "payload_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "adapter": {
+          "id": "adapter.filesystem",
+          "version": "2.1.0"
+        }
+      },
+      "action_binding": {
+        "executing_principal": "agent.worker",
+        "action": "write_file",
+        "target": "/srv/reports/résumé.json",
+        "arguments": {
+          "content_ref": "artifact:résumé",
+          "mode": 416,
+          "labels": [
+            "final",
+            "reviewed"
+          ]
+        },
+        "environment": "staging",
+        "tenant": "tenant_eu",
+        "payload_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "adapter": {
+          "id": "adapter.filesystem",
+          "version": "2.1.0"
+        }
+      },
+      "canonical": {
+        "submitted_intent": "{\"action\":\"write_file\",\"adapter\":{\"id\":\"adapter.filesystem\",\"version\":\"2.1.0\"},\"arguments\":{\"content_ref\":\"artifact:résumé\",\"labels\":[\"final\",\"reviewed\"],\"mode\":416},\"artifact_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"data_classes\":[],\"declared_risk\":\"low\",\"environment\":\"staging\",\"executing_principal\":\"agent.worker\",\"intent_class\":\"filesystem_change\",\"payload_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"request_id\":\"req-typed-2\",\"requested_capability\":\"filesystem.write\",\"requesting_principal\":\"agent.é\",\"resource_scope\":[\"/srv/reports\",\"/srv/reports/résumé.json\"],\"retry_of_receipt_id\":\"rcpt_previous_error\",\"target\":\"/srv/reports/résumé.json\",\"tenant\":\"tenant_eu\"}",
+        "authorized_action": "{\"action\":\"write_file\",\"adapter\":{\"id\":\"adapter.filesystem\",\"version\":\"2.1.0\"},\"arguments\":{\"content_ref\":\"artifact:résumé\",\"labels\":[\"final\",\"reviewed\"],\"mode\":416},\"artifact_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"capability\":\"filesystem.write\",\"data_classes\":[],\"derived_risk\":\"low\",\"effective_risk\":\"medium\",\"environment\":\"staging\",\"executing_principal\":\"agent.worker\",\"payload_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"policy_bundle_hash\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"requesting_principal\":\"agent.é\",\"resource_scope\":[\"/srv/reports\",\"/srv/reports/résumé.json\"],\"risk_reasons\":[\"policy.mutable_target\"],\"risk_source\":\"policy\",\"target\":\"/srv/reports/résumé.json\",\"tenant\":\"tenant_eu\"}",
+        "executed_action": "{\"action\":\"write_file\",\"adapter\":{\"id\":\"adapter.filesystem\",\"version\":\"2.1.0\"},\"arguments\":{\"content_ref\":\"artifact:résumé\",\"labels\":[\"final\",\"reviewed\"],\"mode\":416},\"artifact_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"environment\":\"staging\",\"executing_principal\":\"agent.worker\",\"payload_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"target\":\"/srv/reports/résumé.json\",\"tenant\":\"tenant_eu\"}",
+        "action_binding": "{\"action\":\"write_file\",\"adapter\":{\"id\":\"adapter.filesystem\",\"version\":\"2.1.0\"},\"arguments\":{\"content_ref\":\"artifact:résumé\",\"labels\":[\"final\",\"reviewed\"],\"mode\":416},\"artifact_hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"environment\":\"staging\",\"executing_principal\":\"agent.worker\",\"payload_hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"target\":\"/srv/reports/résumé.json\",\"tenant\":\"tenant_eu\"}"
+      },
+      "canonical_utf8_hex": {
+        "submitted_intent": "7b22616374696f6e223a2277726974655f66696c65222c2261646170746572223a7b226964223a22616461707465722e66696c6573797374656d222c2276657273696f6e223a22322e312e30227d2c22617267756d656e7473223a7b22636f6e74656e745f726566223a2261727469666163743a72c3a973756dc3a9222c226c6162656c73223a5b2266696e616c222c227265766965776564225d2c226d6f6465223a3431367d2c2261727469666163745f68617368223a227368613235363a62626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c22646174615f636c6173736573223a5b5d2c226465636c617265645f7269736b223a226c6f77222c22656e7669726f6e6d656e74223a2273746167696e67222c22657865637574696e675f7072696e636970616c223a226167656e742e776f726b6572222c22696e74656e745f636c617373223a2266696c6573797374656d5f6368616e6765222c227061796c6f61645f68617368223a227368613235363a61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c22726571756573745f6964223a227265712d74797065642d32222c227265717565737465645f6361706162696c697479223a2266696c6573797374656d2e7772697465222c2272657175657374696e675f7072696e636970616c223a226167656e742ec3a9222c227265736f757263655f73636f7065223a5b222f7372762f7265706f727473222c222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e225d2c2272657472795f6f665f726563656970745f6964223a22726370745f70726576696f75735f6572726f72222c22746172676574223a222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e222c2274656e616e74223a2274656e616e745f6575227d",
+        "authorized_action": "7b22616374696f6e223a2277726974655f66696c65222c2261646170746572223a7b226964223a22616461707465722e66696c6573797374656d222c2276657273696f6e223a22322e312e30227d2c22617267756d656e7473223a7b22636f6e74656e745f726566223a2261727469666163743a72c3a973756dc3a9222c226c6162656c73223a5b2266696e616c222c227265766965776564225d2c226d6f6465223a3431367d2c2261727469666163745f68617368223a227368613235363a62626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c226361706162696c697479223a2266696c6573797374656d2e7772697465222c22646174615f636c6173736573223a5b5d2c22646572697665645f7269736b223a226c6f77222c226566666563746976655f7269736b223a226d656469756d222c22656e7669726f6e6d656e74223a2273746167696e67222c22657865637574696e675f7072696e636970616c223a226167656e742e776f726b6572222c227061796c6f61645f68617368223a227368613235363a61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c22706f6c6963795f62756e646c655f68617368223a227368613235363a66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666222c2272657175657374696e675f7072696e636970616c223a226167656e742ec3a9222c227265736f757263655f73636f7065223a5b222f7372762f7265706f727473222c222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e225d2c227269736b5f726561736f6e73223a5b22706f6c6963792e6d757461626c655f746172676574225d2c227269736b5f736f75726365223a22706f6c696379222c22746172676574223a222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e222c2274656e616e74223a2274656e616e745f6575227d",
+        "executed_action": "7b22616374696f6e223a2277726974655f66696c65222c2261646170746572223a7b226964223a22616461707465722e66696c6573797374656d222c2276657273696f6e223a22322e312e30227d2c22617267756d656e7473223a7b22636f6e74656e745f726566223a2261727469666163743a72c3a973756dc3a9222c226c6162656c73223a5b2266696e616c222c227265766965776564225d2c226d6f6465223a3431367d2c2261727469666163745f68617368223a227368613235363a62626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c22656e7669726f6e6d656e74223a2273746167696e67222c22657865637574696e675f7072696e636970616c223a226167656e742e776f726b6572222c227061796c6f61645f68617368223a227368613235363a61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c22746172676574223a222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e222c2274656e616e74223a2274656e616e745f6575227d",
+        "action_binding": "7b22616374696f6e223a2277726974655f66696c65222c2261646170746572223a7b226964223a22616461707465722e66696c6573797374656d222c2276657273696f6e223a22322e312e30227d2c22617267756d656e7473223a7b22636f6e74656e745f726566223a2261727469666163743a72c3a973756dc3a9222c226c6162656c73223a5b2266696e616c222c227265766965776564225d2c226d6f6465223a3431367d2c2261727469666163745f68617368223a227368613235363a62626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262222c22656e7669726f6e6d656e74223a2273746167696e67222c22657865637574696e675f7072696e636970616c223a226167656e742e776f726b6572222c227061796c6f61645f68617368223a227368613235363a61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c22746172676574223a222f7372762f7265706f7274732f72c3a973756dc3a92e6a736f6e222c2274656e616e74223a2274656e616e745f6575227d"
+      },
+      "sha256": {
+        "intent_hash": "sha256:613c6b313b08d6ab53e9ab4dc230ccb6b1018858ae47114e7ba83c871e2ce9cc",
+        "authorized_action_hash": "sha256:bc74170427e644ee2c59b20ec6769c6301840b5050b1fe573adaaba83846de93",
+        "executed_action_hash": "sha256:c82b75aaf2dba46971b0fa60c5cf155756e78716a91fc2fc152de332c5bb9b68",
+        "action_binding_hash": "sha256:c82b75aaf2dba46971b0fa60c5cf155756e78716a91fc2fc152de332c5bb9b68"
+      },
+      "digest_hex": {
+        "intent_hash": "613c6b313b08d6ab53e9ab4dc230ccb6b1018858ae47114e7ba83c871e2ce9cc",
+        "authorized_action_hash": "bc74170427e644ee2c59b20ec6769c6301840b5050b1fe573adaaba83846de93",
+        "executed_action_hash": "c82b75aaf2dba46971b0fa60c5cf155756e78716a91fc2fc152de332c5bb9b68",
+        "action_binding_hash": "c82b75aaf2dba46971b0fa60c5cf155756e78716a91fc2fc152de332c5bb9b68"
+      }
+    }
+  ]
+}

@@ -4,6 +4,22 @@
   "title": "TL-PX 0.2 Authorized Action",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": ["derived_risk"],
+        "properties": { "derived_risk": { "const": "high" } }
+      },
+      "then": { "properties": { "effective_risk": { "const": "high" } } }
+    },
+    {
+      "if": {
+        "required": ["derived_risk"],
+        "properties": { "derived_risk": { "const": "medium" } }
+      },
+      "then": { "properties": { "effective_risk": { "enum": ["medium", "high"] } } }
+    }
+  ],
   "required": [
     "requesting_principal",
     "executing_principal",

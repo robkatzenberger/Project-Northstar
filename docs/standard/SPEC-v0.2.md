@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1 are local commits `a87f822` and `1addb5c`, with exact-commit/full Section 3 verification deferred and no acceptance claim. Execution-side evidence schema closure remains deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1 are local commits `a87f822` and `1addb5c`; slice 3.2 is an uncommitted typed-action/hash candidate on base `31831a2`. Exact-commit/full Section 3 verification is deferred and none of 2.4/3.1/3.2 is accepted. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-17
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -17,6 +17,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 2.3d | Independently accepted at exact commit `aed80e2`: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, authority-wide sequence, and the bounded Rust local evaluate/issue/claim path. |
 | 2.4 | Local commit `a87f822`: policy-bundle manifest/schema/hash, explicit supersession and precedence, complete-stream ordering oracle, requirements-maturity labels. Exact-commit/full Section 3 verification deferred; not accepted. |
 | 3.1 | Local commit `1addb5c`: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Exact-commit/full Section 3 verification deferred; not accepted. |
+| 3.2 | Uncommitted candidate on `31831a2`: shared schema-bound fixtures pin the three action objects, canonical strings/bytes, distinct hashes, nullable/optional semantics, and exact Action Binding across JavaScript and Rust. Bounded builder checks passed; full Section 3 verification deferred; not accepted. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -193,7 +194,7 @@ After authentication, Switchboard, validation, and policy, the authority constru
 
 It MUST exclude requester-only correlation fields unless a 0.2 schema (slice 2.3) explicitly includes them.
 
-Caller-declared risk is advisory. Policy derives authoritative risk. A requester MAY raise and MUST NEVER lower effective risk. Missing required classification MUST fail closed as an evaluation error. Under-declaration is retained as evidence.
+Caller-declared risk is advisory. Policy derives authoritative risk. `effective_risk` MUST be greater than or equal to `derived_risk` in the ordering `low < medium < high`; a requester MAY cause risk to rise and MUST NEVER lower it. Missing required classification MUST fail closed as an evaluation error. Under-declaration is retained as evidence.
 
 ### 4.3 Executed Action and Execution Receipt
 
@@ -675,7 +676,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. Local slice 3.1 commit `1addb5c` consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration, but exact-commit/full Section 3 verification and independent review are deferred and it remains unaccepted. It does not authenticate caller identity, execute a capability, or close the deferred execution-side evidence contract.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, typed-action, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. Local slice 3.1 commit `1addb5c` consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration. The uncommitted 3.2 candidate independently pins the existing Rust action types and hash behavior to shared cross-language fixtures; it does not add execution behavior. Exact-commit/full Section 3 verification and independent review are deferred, and both candidates remain unaccepted. Neither authenticates caller identity, executes a capability, or closes the deferred execution-side evidence contract.
 
 ---
 
@@ -731,7 +732,9 @@ Implementations MUST validate this representation before embedding a hash string
 
 ### 14.4 Golden fixtures
 
-Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, `digest_hex`, and `sha256` fields, and MUST reject every `reject` vector. `digest_hex` is the raw 32-byte SHA-256 as 64 lowercase hex; `sha256` is `sha256:` plus that hex. The exact policy-manifest vector is `tests/fixtures/tlpx-0.2/policy/manifest-golden.json`. Those fixtures are not the 47 frozen 0.1 tests.
+Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 hash implementation MUST match every `accept` vector’s `canonical`, `canonical_utf8_hex`, `digest_hex`, and `sha256` fields, and MUST reject every `reject` vector. `digest_hex` is the raw 32-byte SHA-256 as 64 lowercase hex; `sha256` is `sha256:` plus that hex. The exact policy-manifest vector is `tests/fixtures/tlpx-0.2/policy/manifest-golden.json`.
+
+The slice 3.2 typed-object vectors live at `tests/fixtures/tlpx-0.2/actions/golden.json`. Each case pins schema-valid Submitted Intent, Authorized Action, Executed Action, and Action Binding values together with their exact canonical strings, canonical UTF-8 bytes, raw digests, and domain-separated hashes. Implementations consuming these vectors MUST preserve the difference between a required nullable digest and an absent optional field, MUST validate before hashing, and MUST match the exact nine-field binding projection in §4. These fixtures are contract evidence, not proof of authenticated execution. None of the 0.2 fixtures are the 47 frozen 0.1 tests.
 
 ---
 
@@ -750,3 +753,4 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.3e | Records the accepted 2.3 evaluation/authorization schema scope, defers execution/cancellation/reconciliation/revocation evidence closure, and requires human authorizers for `APPROVE`/`REJECT`. |
 | 0.2.0-draft.2.4 | Adds the policy-bundle provenance manifest and domain hash, explicit supersession/precedence rules, complete authority-sequence verification semantics, and requirements-maturity labels. Local commit `a87f822`; exact-commit/full Section 3 verification deferred; not accepted. |
 | 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Local commit `1addb5c`; exact-commit/full Section 3 verification deferred; not accepted. |
+| 0.2.0-draft.3.2 | Adds schema-bound cross-language fixtures and oracles for Submitted Intent, Authorized Action, Executed Action, exact Action Binding, nullable/optional semantics, effective-risk monotonicity, canonical bytes, and distinct domain hashes. Uncommitted candidate on `31831a2`; bounded builder checks only; not accepted. |

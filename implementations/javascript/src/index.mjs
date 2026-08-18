@@ -92,3 +92,17 @@ export {
   validatePolicyBundleManifest,
   verifyCompleteAuthoritySequence
 } from "./policy-v02.mjs";
+export {
+  ACTION_BINDING_FIELDS,
+  actionBindingsMatchV02,
+  authorizedActionBindingHashV02,
+  authorizedActionBindingV02,
+  authorizedActionHashV02,
+  canonicalAuthorizedActionV02,
+  canonicalExecutedActionV02,
+  canonicalSubmittedIntentV02,
+  executedActionBindingHashV02,
+  executedActionBindingV02,
+  executedActionHashV02,
+  submittedIntentHashV02
+} from "./action-v02.mjs";

@@ -10,6 +10,13 @@ import {
   selectActivePolicyBundle,
   verifyCompleteAuthoritySequence
 } from "../src/policy-v02.mjs";
+import {
+  actionBindingsMatchV02,
+  authorizedActionBindingHashV02,
+  authorizedActionHashV02,
+  executedActionHashV02,
+  submittedIntentHashV02
+} from "../src/action-v02.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -209,6 +216,28 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   check(
     "retry linkage accepted on successor decision",
     validateV02("decision", decision({ request_id: "req-2", retry_of_receipt_id: "rcpt_e" })).ok
+  );
+  check(
+    "effective risk below derived risk rejected",
+    !validateV02("authorized-action", {
+      ...authorized,
+      derived_risk: "high",
+      effective_risk: "low"
+    }).ok
+  );
+  check("intent hash is schema-bound", /^sha256:[0-9a-f]{64}$/.test(submittedIntentHashV02(intent)));
+  check(
+    "authorized full hash differs from Action Binding hash",
+    authorizedActionHashV02(authorized) !== authorizedActionBindingHashV02(authorized)
+  );
+  check(
+    "matching executed action uses the Action Binding hash",
+    actionBindingsMatchV02(authorized, executed) &&
+      authorizedActionBindingHashV02(authorized) === executedActionHashV02(executed)
+  );
+  check(
+    "binding mutation is rejected",
+    !actionBindingsMatchV02(authorized, { ...executed, target: "customer:999" })
   );
 }
 

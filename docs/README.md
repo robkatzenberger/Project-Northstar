@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and unaccepted working-tree 2.4 policy-contract and 3.1 Rust activation candidates. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope, unaccepted local 2.4/3.1 commits, and an uncommitted 3.2 typed-action/hash candidate. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -52,8 +52,10 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification and limits for named commit `c9bdd0f` (not independently accepted) |
 | [../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md](../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Pre-commit builder matrix, negative cases, and limits for local slice 2.4 commit `a87f822` |
 | [../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit Rust activation matrix, provenance negatives, and limits for local slice 3.1 commit `1addb5c` |
+| [../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md](../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded typed-object/hash parity checks and limits for the uncommitted slice 3.2 candidate |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
+| [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
 | [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |

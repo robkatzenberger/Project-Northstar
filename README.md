@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f` (not independently accepted); local 2.4 policy-contract commit `a87f822` and 3.1 Rust manifest-activation commit `1addb5c` (full Section 3 verification deferred; not accepted; not a PEP)
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; builder-verified sealed-evidence commit `c9bdd0f` (not independently accepted); local 2.4 policy-contract commit `a87f822`, 3.1 Rust manifest-activation commit `1addb5c`, and an uncommitted 3.2 typed-action/hash candidate (full Section 3 verification deferred; not accepted; not a PEP)
 
 **Who should read what**
 
@@ -29,7 +29,7 @@ northstar/
   docs/roadmap/              Product ideas & phased plan (H-M/M-M, PEP, tokens)
   schemas/tlpx-0.1/          Frozen TL-PX 0.1 JSON schemas
   schemas/tlpx-0.2/          TL-PX 0.2 draft schemas and reason codes
-  tests/fixtures/tlpx-0.2/   0.2 JCS / hash golden fixtures
+  tests/fixtures/tlpx-0.2/   0.2 JCS, policy, and typed-action/hash golden fixtures
   LICENSE
   implementations/
     javascript/              Full Node reference
@@ -48,11 +48,12 @@ northstar/
 | [`docs/SHARE.md`](docs/SHARE.md) | Shareable plain-language overview |
 | [`docs/roadmap/`](docs/roadmap/README.md) | **Ideas & next phases** |
 | [`docs/standard/SPEC-v0.1.md`](docs/standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 spec |
-| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract; accepted 2.3/2.3d scope plus unaccepted 2.4 and 3.1 candidates |
+| [`docs/standard/SPEC-v0.2.md`](docs/standard/SPEC-v0.2.md) | Draft 0.2 contract; accepted 2.3/2.3d scope plus unaccepted 2.4, 3.1, and 3.2 candidates |
 | [`tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and limits |
 | [`tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification for named commit `c9bdd0f` (not independently accepted) |
 | [`tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 2.4 commit `a87f822`; not exact-commit acceptance |
 | [`tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit builder verification for local slice 3.1 commit `1addb5c`; not exact-commit acceptance |
+| [`tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded builder verification for the uncommitted slice 3.2 typed-action/hash candidate; not full Section 3 or acceptance |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -96,7 +97,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox for the accepted record core; it is not independently accepted. Local commits `a87f822` and `1addb5c` add the slice 2.4 contract and 3.1 Rust policy activation. Their full exact-commit Section 3 test is intentionally deferred until Section 3 is complete. Neither increment is accepted, and neither mediates a protected capability. The running gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; execution-receipt, cancellation/reconciliation, and revocation-evidence closure remains deferred. Rust commit `aed80e2` independently passes the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Named commit `c9bdd0f` adds builder-verified canonical records and a sealed durable outbox for the accepted record core; it is not independently accepted. Local commits `a87f822` and `1addb5c` add the slice 2.4 contract and 3.1 Rust policy activation. The uncommitted 3.2 candidate adds shared schema-bound typed-action/hash fixtures and strict JavaScript/Rust parity checks over the exact Action Binding. The full exact-commit Section 3 test is intentionally deferred until Section 3 is complete. None of these increments is accepted, and none mediates a protected capability. The running gate is still TL-PX 0.1.
 
 ---
 
@@ -111,7 +112,8 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Rust 0.2 types, canonical hashes, local authority MVP, and builder-verified bounded evidence outbox
 - [x] Slice 2.4 policy manifest, precedence, and ordering local commit `a87f822` (full Section 3 verification deferred; not accepted)
 - [x] Slice 3.1 Rust policy-manifest activation local commit `1addb5c` (full Section 3 verification deferred; not accepted)
-- [ ] Independent review of `c9bdd0f`, then named/independent 2.4 and 3.1 reviews
+- [x] Slice 3.2 typed-action/hash working-tree candidate (bounded checks passed; uncommitted and not accepted)
+- [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust authenticated transport, execution evidence, and protected-execution PEP
 - [ ] Python adapter
 - [ ] Java sealed audit / full ops parity  

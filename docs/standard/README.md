@@ -2,7 +2,7 @@
 
 **Minimum Profile** — the open, testable contract for real-world adopters.
 
-TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3 plus unaccepted working-tree 2.4 policy-contract and 3.1 Rust activation candidates. Execution-receipt, cancellation/reconciliation, and revocation-evidence schema closure remains deferred. Implementation-driven 2.3d is independently accepted at exact commit `aed80e2`. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/JCS/hash oracle.
+TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3, unaccepted local 2.4/3.1 commits, and an uncommitted 3.2 typed-action/hash candidate. Execution-receipt, cancellation/reconciliation, and revocation-evidence schema closure remains deferred. Implementation-driven 2.3d is independently accepted at exact commit `aed80e2`. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/typed-action/JCS/hash oracle.
 
 ## Why a standard (not only a demo)
 

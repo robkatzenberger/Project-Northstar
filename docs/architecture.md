@@ -2,7 +2,7 @@
 
 ## Overview
 
-Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions and a **0.2 schema/policy/JCS/hash oracle**. Runtime decisions remain 0.1:
+Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions and a **0.2 schema/policy/typed-action/JCS/hash oracle**. Runtime decisions remain 0.1:
 
 - **Switchboard** — identity / whitelist / credibility / approval routing  
 - **Air-gapped audit chain** — authorization derived only from append-only JSONL  

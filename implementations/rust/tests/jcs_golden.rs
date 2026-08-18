@@ -259,7 +259,11 @@ fn binding_mutations_mismatch() {
 
     let mut e = executed.clone();
     e.adapter.id = "adapter.other".into();
-    assert_binding_false(&authorized, e, "adapter");
+    assert_binding_false(&authorized, e, "adapter id");
+
+    let mut e = executed;
+    e.adapter.version = "9.0.0".into();
+    assert_binding_false(&authorized, e, "adapter version");
 }
 
 #[test]

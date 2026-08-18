@@ -4,12 +4,13 @@
 
 **Evidence/outbox commit:** Canonical schema evidence plus a sealed durable outbox at `c9bdd0f` — builder-verified, not independently accepted
 **Slices 2.4/3.1 local commits:** Policy contract `a87f822`; native Rust activation `1addb5c` — pre-commit builder run passed, full Section 3 verification deferred, unaccepted
+**Slice 3.2 working-tree candidate:** Shared typed-action/hash fixtures and parity tests on base `31831a2` — bounded builder checks passed, uncommitted and unaccepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** OS authentication, human approval resolution, execution/cancellation/revocation evidence, side effects, or a forced-mediation PEP
 
-This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match `tests/fixtures/tlpx-0.2/jcs/golden.json` exactly.
+This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
-Builder verification details and non-claims are recorded in [`../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md). Independent exact-commit acceptance is recorded in [`../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The `c9bdd0f` evidence increment is recorded separately in [`../../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md). Slice 2.4 working-tree verification is in [`../../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](../../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md); the dependent 3.1 Rust activation verification is in [`../../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md).
+Builder verification details and non-claims are recorded in [`../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md). Independent exact-commit acceptance is recorded in [`../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The `c9bdd0f` evidence increment is recorded separately in [`../../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md). Slice 2.4 working-tree verification is in [`../../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](../../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md); the dependent 3.1 Rust activation verification is in [`../../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md); bounded 3.2 verification is in [`../../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](../../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md).
 
 The MVP plus the unaccepted 3.1 candidate proves this local authority seam:
 
@@ -39,6 +40,7 @@ rust/
   src/types.rs                  distinct 0.2 contract objects
   tests/authority_mvp.rs        negative, race, restart, and replay tests
   tests/evidence_outbox.rs      atomicity, sealing, tamper, export, compatibility tests
+  tests/action_types.rs         shared typed-object/canonical/hash fixture parity
   tests/jcs_golden.rs           cross-language canonical/hash oracle
   tests/policy_activation.rs    provenance, activation, durable-error, and claim recheck tests
 ```
@@ -71,6 +73,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies are
 - Switchboard checks both requester and named executor before a new evaluation.
 - Policy is deterministic, exact-match only, and has an explicit default.
 - Caller-declared risk cannot lower policy-derived risk.
+- Submitted Intent, Authorized Action, Executed Action, and Action Binding match the same schema-bound canonical strings, UTF-8 bytes, and domain hashes in JavaScript and Rust.
 - The requested capability cannot silently become a different policy capability.
 - Authorization IDs, nonces, claim IDs, and normal receipt IDs use OS CSPRNG bytes. If randomness fails while an evaluation error is being recorded, a database-local sequence-derived receipt id preserves durable fail-closed evidence; no authorization is issued.
 - The authority computes and stores `intent_hash`, `authorized_action_hash`, and `action_binding_hash`.
@@ -109,4 +112,4 @@ There is no protected side effect in this crate. A process that can reach a capa
 
 ## Next implementation
 
-Continue with bounded slice 3.2. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+After Robert deliberately commits slice 3.2, continue with bounded slice 3.3: authenticated local requester, operator, executor, and cancellation boundaries. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
