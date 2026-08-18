@@ -12,8 +12,8 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Current hardened baseline for a separately versioned TL-PX 0.2 |
 | [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and explicit limits |
 | [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder evidence for named commit `c9bdd0f` (not independently accepted) |
-| [`../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Builder evidence and limits for the uncommitted slice 2.4 contract/oracle candidate |
-| [`../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Builder evidence and limits for the uncommitted slice 3.1 Rust activation candidate |
+| [`../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Pre-commit builder evidence and limits for local slice 2.4 commit `a87f822` |
+| [`../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Pre-commit builder evidence and limits for local slice 3.1 commit `1addb5c` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -27,7 +27,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering helpers, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority MVP** | Commit `aed80e2` independently accepted; named commit `c9bdd0f` adds builder-verified bounded schema evidence and a sealed outbox and is not independently accepted. The working tree adds unaccepted 2.4 contract and 3.1 native policy activation candidates. No authenticated transport, execution receipt, or PEP yet. |
+| [`rust/`](./rust/) | **Local authority MVP** | Commit `aed80e2` independently accepted; named commit `c9bdd0f` adds builder-verified bounded schema evidence and a sealed outbox and is not independently accepted. Local commits `a87f822` and `1addb5c` add the unaccepted 2.4 contract and 3.1 native policy activation candidates; full Section 3 verification is deferred. No authenticated transport, execution receipt, or PEP yet. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; named commit `c9bdd0f` adds builder-verified sealed evidence for its four evaluation/authorization record types and is not independently accepted. Working-tree candidates define the 2.4 policy contract and make Rust validate/select those manifests in 3.1; neither is committed or accepted. No implementation is yet an unavoidable protected-execution boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; named commit `c9bdd0f` adds builder-verified sealed evidence for its four evaluation/authorization record types and is not independently accepted. Local commits `a87f822` and `1addb5c` define the 2.4 policy contract and make Rust validate/select those manifests in 3.1; exact-commit/full Section 3 verification is deferred and neither increment is accepted. No implementation is yet an unavoidable protected-execution boundary.
 
 ---
 
@@ -263,8 +263,8 @@ flowchart TB
 | JavaScript audit + fail-closed cooperative executor | Working; direct bypass remains possible |
 | Rust local evaluate/issue/atomic-claim authority | Independently accepted at `aed80e2`; no side effect or PEP |
 | Rust bounded sealed evidence outbox | Builder-verified at `c9bdd0f`; independent acceptance pending |
-| Policy provenance, precedence, and ordering contract | Slice 2.4 working-tree candidate; not accepted |
-| Rust policy content binding and active-manifest selection | Slice 3.1 working-tree candidate; not accepted |
+| Policy provenance, precedence, and ordering contract | Local slice 2.4 commit `a87f822`; full Section 3 verification deferred; not accepted |
+| Rust policy content binding and active-manifest selection | Local slice 3.1 commit `1addb5c`; full Section 3 verification deferred; not accepted |
 | Automated tests + 0.1 and schema-only 0.2 conformance | Passing |
 | Formal technical test #1 | **Passed (29/29)** for the JavaScript cooperative reference |
 | Forced mediation / protected-execution PEP | Not implemented |

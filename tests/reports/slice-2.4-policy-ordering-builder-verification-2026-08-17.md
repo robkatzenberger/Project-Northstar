@@ -73,3 +73,5 @@ The generated JCS fixture contains 493 passing assertions.
 ## Next gate
 
 Deliberately commit the bounded slice 2.4 delta, rerun the builder matrix against that exact commit, and obtain an independent exact-commit contract/security/conformance review. Only then may the maturity table move slice 2.4 from `PLANNED` to `IMPLEMENTED`; acceptance remains a separate recorded decision.
+
+**Later note (2026-08-17):** The bounded delta was committed locally as `a87f82271a12843c120d9a1e6ee238957f285c2f`. This report remains evidence from the pre-commit working tree. Exact-commit/full Section 3 verification and independent review are deferred until Section 3 is complete; the slice remains `PLANNED` and unaccepted.

@@ -3,7 +3,7 @@
 **Accepted base:** Durable local authority MVP at `aed80e2` — independently exact-commit crosschecked for the bounded evaluate/issue/claim scope
 
 **Evidence/outbox commit:** Canonical schema evidence plus a sealed durable outbox at `c9bdd0f` — builder-verified, not independently accepted
-**Slices 2.4/3.1 working tree:** Native policy manifests, exact-match content binding, deterministic activation, durable selection errors, and claim-time activity recheck — uncommitted and unaccepted
+**Slices 2.4/3.1 local commits:** Policy contract `a87f822`; native Rust activation `1addb5c` — pre-commit builder run passed, full Section 3 verification deferred, unaccepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** OS authentication, human approval resolution, execution/cancellation/revocation evidence, side effects, or a forced-mediation PEP
 
@@ -89,7 +89,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies are
 
 ## Deliberate boundary
 
-The caller currently supplies authenticated principal strings through the library API. Only a trusted embedding may do that; a network or shell caller is not authenticated merely because it can type a principal name. The policy profile is intentionally small and configuration remains process-owned. In the 3.1 working tree, `AuthorityConfig` receives a catalog of manifest-bound policy content rather than an arbitrary policy hash. Rust verifies each exact-match content digest and supersession chain, selects by exact tenant/environment/trusted time, and rechecks activity at claim. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven.
+The caller currently supplies authenticated principal strings through the library API. Only a trusted embedding may do that; a network or shell caller is not authenticated merely because it can type a principal name. The policy profile is intentionally small and configuration remains process-owned. In local 3.1 commit `1addb5c`, `AuthorityConfig` receives a catalog of manifest-bound policy content rather than an arbitrary policy hash. Rust verifies each exact-match content digest and supersession chain, selects by exact tenant/environment/trusted time, and rechecks activity at claim. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
 
 The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect a minimum 32-byte HMAC key. Key storage, rotation, recovery, external export transport, and retention are not implemented. SQLite and export-acknowledgement state remain trusted. The fixed key in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
@@ -109,4 +109,4 @@ There is no protected side effect in this crate. A process that can reach a capa
 
 ## Next implementation
 
-Create deliberately separated named 2.4 and 3.1 commits only when requested, rerun each exact artifact, and obtain independent review. Do not broaden those acceptance gates into authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, or the PEP.
+Continue with bounded slice 3.2. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.

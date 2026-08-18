@@ -2,7 +2,7 @@
 
 This document is **engineering guidance**, not a formal certification or legal opinion.
 
-**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local evaluate/issue/claim state. Named commit `c9bdd0f` adds builder-verified canonical decision/error/authorization/claim evidence in a hash-chained, HMAC-sealed SQLite outbox; it is not independently accepted. The uncommitted 3.1 candidate additionally binds exact policy content to selected manifests and rechecks activity at claim. Rust still trusts authenticated-context strings and manifest issuer assertions from its embedding/configuration and has no authenticated transport, execution receipt, or protected-execution PEP. Neither path currently establishes forced mediation.
+**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local evaluate/issue/claim state. Named commit `c9bdd0f` adds builder-verified canonical decision/error/authorization/claim evidence in a hash-chained, HMAC-sealed SQLite outbox; it is not independently accepted. Local 3.1 commit `1addb5c` additionally binds exact policy content to selected manifests and rechecks activity at claim; exact-commit/full Section 3 verification is deferred. Rust still trusts authenticated-context strings and manifest issuer assertions from its embedding/configuration and has no authenticated transport, execution receipt, or protected-execution PEP. Neither path currently establishes forced mediation.
 
 ## Security goals
 

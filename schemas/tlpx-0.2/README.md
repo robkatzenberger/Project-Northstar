@@ -11,6 +11,6 @@ These schemas are the contract Rust and other languages must implement. The JS `
 
 Accepted 2.3 conformance covers Submitted Intent, Authorized Action, Executed Action, decision, evaluation error, operator action, authorization, and authorization claim. It does not establish a complete execution receipt, cancellation/reconciliation evidence, or revocation record. See the 2026-08-14 acceptance clarification in the normative specification before implementing those surfaces.
 
-The slice 2.4 candidate adds `policy-bundle.schema.json`, the `northstar:policy-bundle:v1\0` hash domain, strict provenance/active-window/supersession rules, and a deterministic JavaScript contract oracle. The uncommitted 3.1 candidate consumes that schema in Rust and binds it to the configured exact-match policy content. Neither candidate standardizes the JavaScript 0.1 YAML language or makes either implementation a conforming 0.2 runtime.
+Local slice 2.4 commit `a87f822` adds `policy-bundle.schema.json`, the `northstar:policy-bundle:v1\0` hash domain, strict provenance/active-window/supersession rules, and a deterministic JavaScript contract oracle. Local slice 3.1 commit `1addb5c` consumes that schema in Rust and binds it to the configured exact-match policy content. Exact-commit/full Section 3 verification is deferred; neither increment is accepted, standardizes the JavaScript 0.1 YAML language, or makes either implementation a conforming 0.2 runtime.
 
 Do not place 0.2 documents under `../tlpx-0.1/`.

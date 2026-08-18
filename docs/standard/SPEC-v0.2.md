@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1 are uncommitted working-tree candidates, not accepted. Execution-side evidence schema closure remains deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1 are local commits `a87f822` and `1addb5c`, with exact-commit/full Section 3 verification deferred and no acceptance claim. Execution-side evidence schema closure remains deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-17
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -15,8 +15,8 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 2.2 | Done in this document §14 and `tests/fixtures/tlpx-0.2/jcs/` |
 | 2.3 | Accepted core: object schemas plus decision, evaluation-error, operator-action, authorization, and authorization-claim schemas in `schemas/tlpx-0.2/`, `validate-v02.mjs`, and `npm run conformance:0.2`. The execution schema is provisional; cancellation/reconciliation and revocation evidence are deferred. Not a 0.2 runtime. |
 | 2.3d | Independently accepted at exact commit `aed80e2`: immutable authenticated idempotency, successor retry linkage, failure attribution, conditional operator evidence, authority-wide sequence, and the bounded Rust local evaluate/issue/claim path. |
-| 2.4 | Working-tree candidate: policy-bundle manifest/schema/hash, explicit supersession and precedence, complete-stream ordering oracle, requirements-maturity labels. Not accepted until named-commit review. |
-| 3.1 | Working-tree candidate: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Not accepted until named-commit review. |
+| 2.4 | Local commit `a87f822`: policy-bundle manifest/schema/hash, explicit supersession and precedence, complete-stream ordering oracle, requirements-maturity labels. Exact-commit/full Section 3 verification deferred; not accepted. |
+| 3.1 | Local commit `1addb5c`: native Rust manifest parsing/content binding, deterministic per-evaluation activation, durable unavailable/ambiguous-policy errors, and claim-time policy-activity recheck. Exact-commit/full Section 3 verification deferred; not accepted. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -675,7 +675,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. The slice 3.1 working tree consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration, but it remains uncommitted, builder-authored, and unaccepted. It does not authenticate caller identity, execute a capability, or close the deferred execution-side evidence contract.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` still has no authenticated transport, execution receipt, or PEP. Named commit `c9bdd0f` emits the bounded evaluation/authorization record core into a sealed outbox; it is builder-verified and is not part of the accepted named-commit baseline yet. Local slice 3.1 commit `1addb5c` consumes the 2.4 manifest contract and removes caller-supplied arbitrary policy hashes from Rust configuration, but exact-commit/full Section 3 verification and independent review are deferred and it remains unaccepted. It does not authenticate caller identity, execute a capability, or close the deferred execution-side evidence contract.
 
 ---
 
@@ -748,5 +748,5 @@ Cross-language vectors live at `tests/fixtures/tlpx-0.2/jcs/golden.json`. A 0.2 
 | 0.2.0-draft.2.3c | Authorization stores `action_binding_hash`. Claim compares presented binding to that value. `capability`/`resource_scope` stay PEP constraints, not binding fields. |
 | 0.2.0-draft.2.3d | Authenticated idempotency slots are immutable; retries use successor ids and same-principal evidence links; request refusals are distinguished from activation/runtime errors; operator context is conditional; committed decisions, errors, and claims share one authority sequence. Independently accepted at exact commit `aed80e2`. |
 | 0.2.0-draft.2.3e | Records the accepted 2.3 evaluation/authorization schema scope, defers execution/cancellation/reconciliation/revocation evidence closure, and requires human authorizers for `APPROVE`/`REJECT`. |
-| 0.2.0-draft.2.4 | Adds the policy-bundle provenance manifest and domain hash, explicit supersession/precedence rules, complete authority-sequence verification semantics, and requirements-maturity labels. Working-tree candidate; not accepted. |
-| 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Working-tree candidate; not accepted. |
+| 0.2.0-draft.2.4 | Adds the policy-bundle provenance manifest and domain hash, explicit supersession/precedence rules, complete authority-sequence verification semantics, and requirements-maturity labels. Local commit `a87f822`; exact-commit/full Section 3 verification deferred; not accepted. |
+| 0.2.0-draft.3.1 | Rust authority consumes native policy manifests, verifies exact-match content hashes and supersession, selects by exact scope/trusted time, durably records selection failures, and rechecks policy activity at claim. Local commit `1addb5c`; exact-commit/full Section 3 verification deferred; not accepted. |

@@ -77,3 +77,5 @@ All commands ran from the local working tree and exited successfully.
 ## Next gate
 
 First capture and verify the bounded slice 2.4 contract at an exact named commit. Then capture this 3.1 Rust integration as a distinct named commit, rerun the full builder matrix against it, and obtain an independent contract/security/conformance review. Only then may slice 3.1 move from `PLANNED` to `IMPLEMENTED`; acceptance remains a separate recorded decision.
+
+**Later note (2026-08-17):** The 2.4 dependency was committed locally as `a87f82271a12843c120d9a1e6ee238957f285c2f`, and this bounded Rust delta was committed locally as `1addb5c6a0ede31d754ac0bd47d7ef1f3a05e6d4`. This report remains evidence from the pre-commit working tree. Exact-commit/full Section 3 verification and independent review are deferred until Section 3 is complete; the slice remains `PLANNED` and unaccepted.
