@@ -114,17 +114,19 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 3.4 local candidate:** commit `133cd94` requires human-only operators on the exact policy route to bind canonical Authorized Action content, the displayed hash, and renderer identity/version. `APPROVE` creates a fresh authority ID/nonce and starts the short claim window at approval time; `REJECT` creates no authorization. Expiry and terminal human outcomes race atomically. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`. Expiry has durable state/sequence but no portable record because the accepted schema has no expiry outcome.
 
+**Slice 3.5 local candidate:** commit `ad95653` adds authenticated authority-local revocation state for authorization, principal, policy hash, tenant, environment, and capability scopes. Claim checks those scopes inside the same SQLite write transaction as one-time consumption; authorization revocation versus claim has one winner across processes, and revocation survives restart. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md`. There is still no portable or sealed `tlpx.revocation` record, and authorization-signing-key enforcement remains slice 4.1 work.
+
 **3.9** remains the system-level claim. The 3.3 candidate authenticates Unix peers at a bounded facade, but the Rust crate still exposes trusted-embedding string APIs and performs no side effect; there is no hardened service or OS-protected PEP. The authority work is real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** continue Section 3 from 3.5. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Execution receipts, post-claim cancellation/reconciliation evidence, revocation evidence, authenticated adapters, and the OS-enforced PEP remain open.
+**Immediate next gates:** continue Section 3 from 3.6. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Execution receipts, post-claim cancellation/reconciliation evidence, portable revocation evidence, authenticated adapters, and the OS-enforced PEP remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.3 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.5 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

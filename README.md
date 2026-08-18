@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later local commits through exact-commit builder-verified 3.4 `133cd94` (later increments unaccepted; full Section 3 verification deferred; not a PEP)
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later local commits through exact-commit builder-verified 3.5 `ad95653` (later increments unaccepted; full Section 3 verification deferred; not a PEP)
 
 **Who should read what**
 
@@ -56,6 +56,7 @@ northstar/
 | [`tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit verification for local slice 3.2 commit `e835c4e`; not full Section 3 or acceptance |
 | [`tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.3 commit `c19b1d2` |
 | [`tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.4 commit `133cd94` |
+| [`tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md`](tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.5 commit `ad95653` |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -117,6 +118,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 3.2 typed-action/hash local commit `e835c4e` (bounded exact-commit checks passed; not independently accepted)
 - [x] Slice 3.3 Unix peer authentication and pending cancellation local commit `c19b1d2` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.4 human approval/rejection and expiry local commit `133cd94` (full exact-commit builder matrix passed; not independently accepted)
+- [x] Slice 3.5 transactional scoped revocation and atomic claim local commit `ad95653` (full exact-commit builder matrix passed; portable evidence deferred; not independently accepted)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust authenticated transport, execution evidence, and protected-execution PEP
 - [ ] Python adapter
