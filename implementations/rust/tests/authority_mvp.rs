@@ -10,8 +10,8 @@ use tlpx::{
     CancellationReason, CancellationRole, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
     EvidenceConfig, ExecutedAction, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
     PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
-    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
-    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    PolicyIssuerType, PolicyRule, Principal, RevocationReason, RevocationScope, Risk,
+    SubmittedIntent, Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -1491,6 +1491,218 @@ fn expiry_and_revocation_fail_closed() {
         )
         .unwrap_err();
     assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+}
+
+#[test]
+fn authenticated_scoped_revocations_block_every_later_unclaimed_use() {
+    let revoker = authenticated_identity(
+        "authority.emergency",
+        PartyType::Machine,
+        vec![LocalRole::EmergencyCanceller],
+        vec![],
+    );
+    let cases = [
+        (RevocationScope::Authorization, "authorization"),
+        (RevocationScope::Principal, "principal"),
+        (RevocationScope::PolicyBundle, "policy"),
+        (RevocationScope::Tenant, "tenant"),
+        (RevocationScope::Environment, "environment"),
+        (RevocationScope::Capability, "capability"),
+    ];
+    for (index, (scope, label)) in cases.into_iter().enumerate() {
+        let authority = Authority::in_memory(config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at(
+                "agent.requester",
+                &intent(&format!("req-revoke-{label}")),
+                NOW,
+            )
+            .unwrap()
+            .authorization
+            .unwrap();
+        let scope_id = match scope {
+            RevocationScope::Authorization => issued.authorization_id.clone(),
+            RevocationScope::Principal => issued.executing_principal.clone(),
+            RevocationScope::PolicyBundle => issued.policy_bundle_hash.clone(),
+            RevocationScope::Tenant => issued.tenant.clone(),
+            RevocationScope::Environment => issued.environment.clone(),
+            RevocationScope::Capability => issued.capability.clone(),
+            RevocationScope::SigningKey => unreachable!(),
+        };
+        let record = authority
+            .revoke_authenticated_at(
+                &revoker,
+                scope,
+                &scope_id,
+                RevocationReason::EmergencyDeny,
+                NOW + index as i64 + 1,
+            )
+            .unwrap();
+        assert_eq!(record.scope, scope);
+        assert_eq!(record.scope_id, scope_id);
+        assert_eq!(record.revoking_principal, "authority.emergency");
+        let error = authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 100,
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+    }
+}
+
+#[test]
+fn revocation_requires_emergency_authority_and_is_immutable() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-revoke-auth"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let requester = authenticated_identity(
+        "agent.requester",
+        PartyType::Machine,
+        vec![LocalRole::Requester],
+        vec![],
+    );
+    let unauthorized = authority
+        .revoke_authenticated_at(
+            &requester,
+            RevocationScope::Authorization,
+            &issued.authorization_id,
+            RevocationReason::AuthorizationWithdrawn,
+            NOW + 1,
+        )
+        .unwrap_err();
+    assert_eq!(unauthorized.code(), "AUTHENTICATION_FAILED");
+    assert_eq!(
+        authority.state(&issued.authorization_id).unwrap(),
+        Some(AuthzState::AuthorizedUnclaimed)
+    );
+
+    let revoker = authenticated_identity(
+        "authority.emergency",
+        PartyType::Machine,
+        vec![LocalRole::EmergencyCanceller],
+        vec![],
+    );
+    authority
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::Authorization,
+            &issued.authorization_id,
+            RevocationReason::AuthorizationWithdrawn,
+            NOW + 2,
+        )
+        .unwrap();
+    let repeated = authority
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::Authorization,
+            &issued.authorization_id,
+            RevocationReason::EmergencyDeny,
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(repeated.code(), "REVOCATION_ALREADY_ACTIVE");
+}
+
+#[test]
+fn scoped_revocation_survives_restart() {
+    let path = temp_db("revocation-restart");
+    let issued = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-revoke-restart"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap();
+        let revoker = authenticated_identity(
+            "authority.emergency",
+            PartyType::Machine,
+            vec![LocalRole::EmergencyCanceller],
+            vec![],
+        );
+        authority
+            .revoke_authenticated_at(
+                &revoker,
+                RevocationScope::Capability,
+                &issued.capability,
+                RevocationReason::CapabilityDisabled,
+                NOW + 1,
+            )
+            .unwrap();
+        issued
+    };
+    let reopened = Authority::open(&path, config()).unwrap();
+    let error = reopened
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+    drop(reopened);
+    clean_db(&path);
+}
+
+#[test]
+fn authorization_revocation_and_claim_have_one_transactional_winner() {
+    let path = temp_db("revoke-claim-race");
+    let issuer = Authority::open(&path, config()).unwrap();
+    let issued = issuer
+        .evaluate_and_issue_at("agent.requester", &intent("req-revoke-race"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    drop(issuer);
+
+    let claim_authority = Authority::open(&path, config()).unwrap();
+    let revoke_authority = Authority::open(&path, config()).unwrap();
+    let revoker = authenticated_identity(
+        "authority.emergency",
+        PartyType::Machine,
+        vec![LocalRole::EmergencyCanceller],
+        vec![],
+    );
+    let barrier = Arc::new(Barrier::new(3));
+    let claim_barrier = Arc::clone(&barrier);
+    let claim_authorization_id = issued.authorization_id.clone();
+    let claim_handle = thread::spawn(move || {
+        claim_barrier.wait();
+        claim_authority.claim_at(
+            &claim_authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+    });
+    let revoke_barrier = Arc::clone(&barrier);
+    let revoke_authorization_id = issued.authorization_id.clone();
+    let revoke_handle = thread::spawn(move || {
+        revoke_barrier.wait();
+        revoke_authority.revoke_authenticated_at(
+            &revoker,
+            RevocationScope::Authorization,
+            &revoke_authorization_id,
+            RevocationReason::EmergencyDeny,
+            NOW + 1,
+        )
+    });
+    barrier.wait();
+    let claim = claim_handle.join().unwrap();
+    let revocation = revoke_handle.join().unwrap();
+    assert_ne!(claim.is_ok(), revocation.is_ok());
+    match (claim, revocation) {
+        (Ok(_), Err(error)) => assert_eq!(error.code(), "AUTHORIZATION_TERMINAL"),
+        (Err(error), Ok(_)) => assert_eq!(error.code(), "AUTHORIZATION_REVOKED"),
+        _ => unreachable!(),
+    }
+    clean_db(&path);
 }
 
 #[test]

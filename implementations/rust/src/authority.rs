@@ -173,6 +173,71 @@ pub struct ClaimRecord {
     pub lease_expires_at_ms: i64,
 }
 
+/// A durable authority-local revocation scope. This is deliberately not a
+/// claim that the deferred portable `tlpx.revocation` record exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationScope {
+    Authorization,
+    Principal,
+    PolicyBundle,
+    SigningKey,
+    Tenant,
+    Environment,
+    Capability,
+}
+
+impl RevocationScope {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Authorization => "AUTHORIZATION",
+            Self::Principal => "PRINCIPAL",
+            Self::PolicyBundle => "POLICY_BUNDLE",
+            Self::SigningKey => "SIGNING_KEY",
+            Self::Tenant => "TENANT",
+            Self::Environment => "ENVIRONMENT",
+            Self::Capability => "CAPABILITY",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationReason {
+    AuthorizationWithdrawn,
+    PrincipalDisabled,
+    PolicyRetired,
+    SigningKeyCompromised,
+    TenantDisabled,
+    EnvironmentDisabled,
+    CapabilityDisabled,
+    EmergencyDeny,
+}
+
+impl RevocationReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::AuthorizationWithdrawn => "AUTHORIZATION_WITHDRAWN",
+            Self::PrincipalDisabled => "PRINCIPAL_DISABLED",
+            Self::PolicyRetired => "POLICY_RETIRED",
+            Self::SigningKeyCompromised => "SIGNING_KEY_COMPROMISED",
+            Self::TenantDisabled => "TENANT_DISABLED",
+            Self::EnvironmentDisabled => "ENVIRONMENT_DISABLED",
+            Self::CapabilityDisabled => "CAPABILITY_DISABLED",
+            Self::EmergencyDeny => "EMERGENCY_DENY",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RevocationRecord {
+    pub revocation_id: String,
+    pub sequence: i64,
+    pub scope: RevocationScope,
+    pub scope_id: String,
+    pub revoking_principal: String,
+    pub reason: RevocationReason,
+    pub revoked_at_ms: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CancellationRole {
     Requester,
@@ -517,6 +582,23 @@ impl Authority {
                    claimed_at_ms INTEGER NOT NULL,
                    lease_expires_at_ms INTEGER NOT NULL,
                    CHECK(action_binding_hash = executed_action_hash)
+                 );
+                 CREATE TABLE IF NOT EXISTS tlpx_revocations (
+                   revocation_id TEXT PRIMARY KEY,
+                   sequence INTEGER NOT NULL UNIQUE,
+                   scope_type TEXT NOT NULL CHECK(scope_type IN (
+                     'AUTHORIZATION','PRINCIPAL','POLICY_BUNDLE','SIGNING_KEY',
+                     'TENANT','ENVIRONMENT','CAPABILITY'
+                   )),
+                   scope_id TEXT NOT NULL CHECK(length(scope_id) > 0),
+                   revoking_principal TEXT NOT NULL CHECK(length(revoking_principal) > 0),
+                   reason TEXT NOT NULL CHECK(reason IN (
+                     'AUTHORIZATION_WITHDRAWN','PRINCIPAL_DISABLED','POLICY_RETIRED',
+                     'SIGNING_KEY_COMPROMISED','TENANT_DISABLED','ENVIRONMENT_DISABLED',
+                     'CAPABILITY_DISABLED','EMERGENCY_DENY'
+                   )),
+                   revoked_at_ms INTEGER NOT NULL CHECK(revoked_at_ms >= 0),
+                   UNIQUE(scope_type, scope_id)
                  );
                  CREATE TABLE IF NOT EXISTS tlpx_evidence_outbox (
                    outbox_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -873,6 +955,9 @@ impl Authority {
         if stored.revoked_at_ms.is_some() {
             return Err(Error::claim("AUTHORIZATION_REVOKED"));
         }
+        if authorization_has_active_revocation(&transaction, authorization_id, &stored)? {
+            return Err(Error::claim("AUTHORIZATION_REVOKED"));
+        }
         if claimed_at_ms >= stored.claim_expires_at_ms {
             transaction
                 .execute(
@@ -999,21 +1084,123 @@ impl Authority {
     }
 
     pub fn revoke_at(&self, authorization_id: &str, revoked_at_ms: i64) -> Result<()> {
-        let connection = self
+        self.revoke_scope_at(
+            "trusted-embedding.local",
+            RevocationScope::Authorization,
+            authorization_id,
+            RevocationReason::AuthorizationWithdrawn,
+            revoked_at_ms,
+        )?;
+        Ok(())
+    }
+
+    pub fn revoke_authenticated(
+        &self,
+        revoker: &AuthenticatedIdentity,
+        scope: RevocationScope,
+        scope_id: &str,
+        reason: RevocationReason,
+    ) -> Result<RevocationRecord> {
+        self.revoke_authenticated_at(revoker, scope, scope_id, reason, now_ms()?)
+    }
+
+    pub fn revoke_authenticated_at(
+        &self,
+        revoker: &AuthenticatedIdentity,
+        scope: RevocationScope,
+        scope_id: &str,
+        reason: RevocationReason,
+        revoked_at_ms: i64,
+    ) -> Result<RevocationRecord> {
+        revoker.require_role(LocalRole::EmergencyCanceller)?;
+        self.revoke_scope_at(
+            revoker.principal_id(),
+            scope,
+            scope_id,
+            reason,
+            revoked_at_ms,
+        )
+    }
+
+    fn revoke_scope_at(
+        &self,
+        revoking_principal: &str,
+        scope: RevocationScope,
+        scope_id: &str,
+        reason: RevocationReason,
+        revoked_at_ms: i64,
+    ) -> Result<RevocationRecord> {
+        if revoking_principal.is_empty() || scope_id.is_empty() || revoked_at_ms < 0 {
+            return Err(Error::coded(
+                "REVOCATION_INVALID",
+                "revocation actor, scope id, and timestamp must be valid",
+            ));
+        }
+        let mut connection = self
             .db
             .lock()
             .map_err(|_| Error::authority("database lock poisoned"))?;
-        let updated = connection
-            .execute(
-                "UPDATE tlpx_authorizations SET state = 'REVOKED', revoked_at_ms = ?1
-                 WHERE authorization_id = ?2 AND state = 'AUTHORIZED_UNCLAIMED'",
-                params![revoked_at_ms, authorization_id],
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let already_active = transaction
+            .query_row(
+                "SELECT EXISTS(
+                   SELECT 1 FROM tlpx_revocations WHERE scope_type = ?1 AND scope_id = ?2
+                 )",
+                params![scope.as_str(), scope_id],
+                |row| row.get::<_, bool>(0),
             )
             .map_err(db_error)?;
-        if updated != 1 {
-            return Err(Error::claim("AUTHORIZATION_TERMINAL"));
+        if already_active {
+            return Err(Error::coded(
+                "REVOCATION_ALREADY_ACTIVE",
+                "the exact revocation scope is already active",
+            ));
         }
-        Ok(())
+        if scope == RevocationScope::Authorization {
+            let updated = transaction
+                .execute(
+                    "UPDATE tlpx_authorizations SET state = 'REVOKED', revoked_at_ms = ?1
+                     WHERE authorization_id = ?2 AND state = 'AUTHORIZED_UNCLAIMED'
+                       AND revoked_at_ms IS NULL",
+                    params![revoked_at_ms, scope_id],
+                )
+                .map_err(db_error)?;
+            if updated != 1 {
+                return Err(Error::claim("AUTHORIZATION_TERMINAL"));
+            }
+        }
+        let sequence = next_sequence(&transaction)?;
+        let record = RevocationRecord {
+            revocation_id: random_id("revocation")?,
+            sequence,
+            scope,
+            scope_id: scope_id.to_string(),
+            revoking_principal: revoking_principal.to_string(),
+            reason,
+            revoked_at_ms,
+        };
+        transaction
+            .execute(
+                "INSERT INTO tlpx_revocations (
+                   revocation_id, sequence, scope_type, scope_id,
+                   revoking_principal, reason, revoked_at_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    record.revocation_id,
+                    record.sequence,
+                    record.scope.as_str(),
+                    record.scope_id,
+                    record.revoking_principal,
+                    record.reason.as_str(),
+                    record.revoked_at_ms,
+                ],
+            )
+            .map_err(db_error)?;
+        transaction.commit().map_err(db_error)?;
+        Ok(record)
     }
 
     pub fn cancel_pending_authenticated(
@@ -2704,6 +2891,36 @@ fn load_authorization_row(
     }))
 }
 
+fn authorization_has_active_revocation(
+    transaction: &Transaction<'_>,
+    authorization_id: &str,
+    stored: &StoredAuthorization,
+) -> Result<bool> {
+    transaction
+        .query_row(
+            "SELECT EXISTS(
+               SELECT 1 FROM tlpx_revocations
+               WHERE (scope_type = 'AUTHORIZATION' AND scope_id = ?1)
+                  OR (scope_type = 'PRINCIPAL' AND scope_id IN (?2, ?3))
+                  OR (scope_type = 'POLICY_BUNDLE' AND scope_id = ?4)
+                  OR (scope_type = 'TENANT' AND scope_id = ?5)
+                  OR (scope_type = 'ENVIRONMENT' AND scope_id = ?6)
+                  OR (scope_type = 'CAPABILITY' AND scope_id = ?7)
+             )",
+            params![
+                authorization_id,
+                stored.requesting_principal,
+                stored.executing_principal,
+                stored.policy_bundle_hash,
+                stored.tenant,
+                stored.environment,
+                stored.capability,
+            ],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(db_error)
+}
+
 fn parse_decision(value: &str) -> Result<Decision> {
     match value {
         "ALLOW" => Ok(Decision::Allow),
@@ -2767,6 +2984,17 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
         ),
         ("tlpx_authorizations", &["target"] as &[&str]),
         ("tlpx_claims", &["adapter_id", "adapter_version"] as &[&str]),
+        (
+            "tlpx_revocations",
+            &[
+                "sequence",
+                "scope_type",
+                "scope_id",
+                "revoking_principal",
+                "reason",
+                "revoked_at_ms",
+            ] as &[&str],
+        ),
         (
             "tlpx_evidence_outbox",
             &[

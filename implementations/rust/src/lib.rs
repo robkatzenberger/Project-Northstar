@@ -17,7 +17,7 @@ pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
     Authority, AuthorityConfig, AuthzState, CancellationReason, CancellationRecord,
     CancellationRole, ClaimRecord, EvaluationOutcome, IssuedAuthorization, PendingApprovalView,
-    Retryability,
+    Retryability, RevocationReason, RevocationRecord, RevocationScope,
 };
 pub use error::{Error, Result};
 pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};
