@@ -22,6 +22,7 @@
     "policy_bundle_version",
     "policy_bundle_hash",
     "adapter",
+    "adapter_principal",
     "adapter_binary_hash",
     "sequence",
     "started_at",
@@ -50,6 +51,9 @@
     "policy_bundle_version": { "type": "string", "minLength": 1 },
     "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" },
     "adapter": { "$ref": "common.schema.json#/$defs/adapter" },
+    "adapter_principal": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/principalId" }, { "type": "null" }]
+    },
     "adapter_binary_hash": {
       "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
     },

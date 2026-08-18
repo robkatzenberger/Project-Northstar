@@ -102,6 +102,16 @@ export function validateV02(kind, value) {
         "CANCELLED requires a terminal cancellation outcome, and other states must not use one"
       );
     }
+    const hasAdapterPrincipal = typeof value.adapter_principal === "string";
+    const hasAdapterDigest = typeof value.adapter_binary_hash === "string";
+    if (hasAdapterPrincipal !== hasAdapterDigest) {
+      result.ok = false;
+      result.errors.push("adapter principal and binary digest must be present or absent together");
+    }
+    if (value.state !== "LEASE_EXPIRED" && (!hasAdapterPrincipal || !hasAdapterDigest)) {
+      result.ok = false;
+      result.errors.push("executed terminal outcomes require authenticated adapter provenance");
+    }
   }
   return result;
 }

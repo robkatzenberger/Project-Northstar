@@ -212,7 +212,7 @@ Every successful claim MUST reach one durable terminal Execution Receipt. Slice 
 - the three action hashes;
 - protected target reference;
 - policy bundle identity, version, and digest;
-- adapter identity and version;
+- adapter identity/version plus the authenticated adapter principal and verified binary/deployment digest for every attempt that reached adapter start; a `LEASE_EXPIRED` receipt recovered before adapter start carries explicit null provenance instead of inventing an adapter observation;
 - trusted sequence number;
 - start and terminal timestamps;
 - terminal state;
@@ -514,6 +514,7 @@ The accepted 2.3 core did not define complete execution, cancellation/reconcilia
 - every terminal receipt requires at least one non-empty bounded result summary, result digest, or external evidence reference;
 - audit integrity remains an evidence-envelope/storage property and MUST NOT be copied into private receipt fields;
 - cancellation receipts name the observed cancellation outcome from §7.4;
+- receipts for adapter-started work bind the mutually authenticated adapter principal and configured binary/deployment digest; only pre-adapter `LEASE_EXPIRED` may carry both fields as null, and they MUST otherwise be present or absent together;
 - `EXECUTION_OUTCOME_UNKNOWN` and `RECONCILIATION_REQUIRED` are authority-process states, not terminal receipt states; and
 - there is no accepted `tlpx.revocation` record or immutable successor-evidence shape.
 
@@ -581,6 +582,10 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `RECONCILIATION_REQUIRED` | Direct completion is forbidden after an unknown outcome |
 | `RECONCILIATION_NOT_READY` | A final reconciliation result was supplied before the reconciliation-required state |
 | `ADAPTER_INTEGRITY_INVALID` | Adapter binary identity/digest is malformed or cannot be trusted |
+| `ADAPTER_AUTHENTICATION_FAILED` | The adapter/authority channel principals do not match the activated contract |
+| `ADAPTER_VERSION_MISMATCH` | The claimed adapter id/version is not an activated contract |
+| `ADAPTER_MAPPING_INCOMPLETE` | Material action fields or the requested action are not completely and deterministically mapped |
+| `ADAPTER_CAPABILITY_DENIED` | The activated adapter contract does not cover the protected capability |
 
 ### 9.4 Operator-action blocks
 
@@ -680,9 +685,9 @@ Maturity and acceptance are separate. `IMPLEMENTED` does not mean independently 
 
 ## 11. Identity and handoff (contract level)
 
-Requester, operator, executor, and canceller identities MUST come from authenticated context.
+Requester, operator, executor, canceller, reconciler, adapter, and authority-channel identities MUST come from authenticated context where those actors participate.
 
-The initial Rust local profile authenticates a connected Unix-domain-socket peer from kernel-supplied UID/GID and resolves an exact, process-owned mapping to an opaque principal, party type, and allowed requester/operator/executor/emergency-canceller roles. Unknown peers, missing roles, and route mismatches fail closed. Socket ownership/mode, mapping configuration, service identity, and configuration freshness are deployment trust boundaries. A caller-supplied principal string is not authenticated merely because a library method accepts it; untrusted adapters MUST use an authenticated facade.
+The initial Rust local profile authenticates a connected Unix-domain-socket peer from kernel-supplied UID/GID and resolves an exact, process-owned mapping to an opaque principal, party type, and bounded role. Its adapter session authenticates both directions: the authority-side mapping must identify an adapter role, and the adapter-side trust mapping must independently identify an authority role. The activated adapter contract fixes both principals, adapter id/version, binary digest, capability/action coverage, and the exact ordered material-field mapping. Unknown peers, missing roles, principal substitution, route mismatch, digest/version mismatch, and incomplete adapter mapping fail closed. Socket ownership/mode, mapping configuration, process isolation, executable measurement, service identity, and configuration freshness remain deployment trust boundaries. A caller-supplied principal or digest is not authenticated merely because a library method accepts it.
 
 For pending cancellation, requester authority is limited to the original authenticated requester, operator authority is limited to the exact policy-bound approval route, and emergency authority requires its explicit role. Reason and role MUST be stored transactionally with the state transition. The portable `CANCEL` operator-action record MUST remain schema-valid and MUST NOT invent renderer evidence or private fields. Post-claim cancellation remains governed by §7.4 and the deferred execution-side evidence contract.
 
@@ -704,6 +709,7 @@ Durable 0.2 records MUST attribute at least:
 | router | `machine` | When Switchboard (or equivalent) ran |
 | authorizer | `human` | When an escalation is resolved by `APPROVE` or `REJECT` |
 | canceller | `human` \| `machine` | When `CANCEL` is recorded |
+| adapter | `machine` | On adapter-started execution receipts |
 
 ---
 
@@ -711,7 +717,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, typed-action, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` has no execution receipt or PEP. Later local candidates through slice 3.6 add manifest activation, typed hashes, authenticated local roles, approval/revocation state, and one real terminal execution receipt in the sealed outbox. Full Section 3 verification and independent review are deferred, and all candidates remain unaccepted. Slice 3.6 closes the execution-side contract candidate but performs no protected side effect and does not establish forced mediation.
+This document does not make the JavaScript reference a 0.2 authority. The JavaScript reference does not implement atomic claim or PEP enforcement; its 0.2 schema, policy/ordering, typed-action, and JCS/hash helpers are contract oracles, not a 0.2 decision engine. The accepted Rust local-authority commit `aed80e2` has no execution receipt or PEP. Later local candidates through slice 3.6 add manifest activation, typed hashes, authenticated local roles, approval/revocation state, and one real terminal execution receipt in the sealed outbox. The working-tree slice 3.7 candidate additionally authenticates the local adapter channel in both directions and verifies the activated adapter contract before execution start; it remains uncommitted and builder-only until its named artifact and report exist. Full Section 3 verification and independent review are deferred, and all candidates remain unaccepted. These slices perform no protected side effect and do not establish forced mediation.
 
 ---
 

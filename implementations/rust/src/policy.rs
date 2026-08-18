@@ -387,6 +387,12 @@ impl CapabilityRegistry {
     pub fn contains(&self, capability: &str) -> bool {
         self.adapters.contains_key(capability)
     }
+
+    pub(crate) fn entries(&self) -> impl Iterator<Item = (&str, &BTreeSet<String>)> {
+        self.adapters
+            .iter()
+            .map(|(capability, adapters)| (capability.as_str(), adapters))
+    }
 }
 
 fn require_text(value: &str, name: &str) -> Result<()> {

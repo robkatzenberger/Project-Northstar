@@ -395,6 +395,10 @@ pub(crate) fn execution_record(receipt: &ExecutionReceipt) -> Result<Canonical> 
             adapter(&receipt.adapter_id, &receipt.adapter_version),
         ),
         (
+            "adapter_principal".into(),
+            nullable_string(&receipt.adapter_principal),
+        ),
+        (
             "adapter_binary_hash".into(),
             nullable_string(&receipt.adapter_binary_hash),
         ),

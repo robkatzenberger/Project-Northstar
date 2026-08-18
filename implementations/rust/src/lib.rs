@@ -3,6 +3,7 @@
 //! This crate is not a 0.1 rewrite and not a PEP. It is a durable local
 //! evaluate/authorize/claim authority with no side-effect capability.
 
+pub mod adapter;
 pub mod authority;
 pub mod error;
 pub mod evidence;
@@ -13,6 +14,9 @@ pub mod policy;
 pub mod policy_manifest;
 pub mod types;
 
+pub use adapter::{
+    AdapterContract, AdapterRegistry, AuthenticatedAdapterSession, ADAPTER_MATERIAL_FIELDS,
+};
 pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
     Authority, AuthorityConfig, AuthzState, CancellationOutcome, CancellationReason,

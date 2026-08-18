@@ -5,6 +5,7 @@
 //! decisions, evaluation errors, and successful claims. The authenticated
 //! principal strings still come from a trusted embedding boundary.
 
+use crate::adapter::{AdapterRegistry, AuthenticatedAdapterSession};
 use crate::error::{Error, Result};
 use crate::evidence::{
     self, ApprovalEvidenceInput, CancellationEvidenceInput, DecisionEvidenceInput,
@@ -83,6 +84,7 @@ pub struct AuthorityConfig {
     pub policy: PolicyCatalog,
     pub switchboard: Switchboard,
     pub capabilities: CapabilityRegistry,
+    pub adapters: AdapterRegistry,
     pub evidence: EvidenceConfig,
     pub approval_window_ms: i64,
     pub claim_window_ms: i64,
@@ -99,6 +101,43 @@ impl AuthorityConfig {
                     "ALLOW capability {} is absent from capability registry",
                     template.capability
                 )));
+            }
+        }
+        for (capability, adapter_ids) in self.capabilities.entries() {
+            for adapter_id in adapter_ids {
+                if !self.adapters.covers_capability(adapter_id, capability) {
+                    return Err(Error::policy_compile(format!(
+                        "capability {capability} names adapter {adapter_id} without an integrity contract"
+                    )));
+                }
+            }
+        }
+        for configured in &self.policy.bundles {
+            if configured.policy.default.authorization.is_some() {
+                return Err(Error::policy_compile(
+                    "adapter-integrity profile requires explicit action rules for authorization",
+                ));
+            }
+            for rule in &configured.policy.rules {
+                let Some(template) = rule.effect.authorization.as_ref() else {
+                    continue;
+                };
+                let covered = self
+                    .capabilities
+                    .entries()
+                    .find(|(capability, _)| *capability == template.capability)
+                    .is_some_and(|(_, adapter_ids)| {
+                        adapter_ids.iter().any(|adapter_id| {
+                            self.adapters
+                                .covers_any(adapter_id, &template.capability, &rule.action)
+                        })
+                    });
+                if !covered {
+                    return Err(Error::policy_compile(format!(
+                        "action {} has no complete adapter integrity contract for capability {}",
+                        rule.action, template.capability
+                    )));
+                }
             }
         }
         if self.approval_window_ms <= 0 || self.claim_window_ms <= 0 || self.execution_lease_ms <= 0
@@ -406,6 +445,7 @@ pub struct ExecutionReceipt {
     pub policy_bundle_hash: String,
     pub adapter_id: String,
     pub adapter_version: String,
+    pub adapter_principal: Option<String>,
     pub adapter_binary_hash: Option<String>,
     pub sequence: i64,
     pub started_at_ms: i64,
@@ -794,6 +834,7 @@ impl Authority {
                    policy_bundle_hash TEXT NOT NULL,
                    adapter_id TEXT NOT NULL,
                    adapter_version TEXT NOT NULL,
+                   adapter_principal TEXT,
                    adapter_binary_hash TEXT,
                    started_at_ms INTEGER NOT NULL,
                    lease_expires_at_ms INTEGER NOT NULL,
@@ -1313,19 +1354,21 @@ impl Authority {
 
     /// Durably opens one execution attempt before a protected side effect may
     /// begin. Repeating the exact request returns the existing state.
+    #[allow(clippy::too_many_arguments)] // Every security-relevant presentation stays explicit.
     pub fn begin_execution_authenticated_at(
         &self,
         claim_id: &str,
         idempotency_key: &str,
-        adapter_binary_hash: Option<&str>,
+        executed: &ExecutedAction,
         executor: &AuthenticatedIdentity,
+        adapter: &AuthenticatedAdapterSession,
+        adapter_binary_hash: &str,
         started_at_ms: i64,
     ) -> Result<ExecutionLease> {
         executor.require_role(LocalRole::Executor)?;
-        if let Some(binary_hash) = adapter_binary_hash {
-            assert_hash_string(binary_hash)
-                .map_err(|_| Error::coded("ADAPTER_INTEGRITY_INVALID", "invalid binary hash"))?;
-        }
+        let presented_action_hash = executed.executed_action_hash()?;
+        assert_hash_string(adapter_binary_hash)
+            .map_err(|_| Error::coded("ADAPTER_INTEGRITY_INVALID", "invalid binary hash"))?;
         let mut connection = self
             .db
             .lock()
@@ -1337,7 +1380,9 @@ impl Authority {
         if let Some(existing) = load_execution_by_claim(&transaction, claim_id)? {
             if existing.idempotency_key != idempotency_key
                 || existing.executing_principal != executor.principal_id()
-                || existing.adapter_binary_hash.as_deref() != adapter_binary_hash
+                || existing.executed_action_hash != presented_action_hash
+                || existing.adapter_principal.as_deref() != Some(adapter.adapter_principal())
+                || existing.adapter_binary_hash.as_deref() != Some(adapter_binary_hash)
             {
                 return Err(Error::coded(
                     "IDEMPOTENCY_CONFLICT",
@@ -1351,6 +1396,17 @@ impl Authority {
         if context.executing_principal != executor.principal_id() {
             return Err(Error::claim("EXECUTOR_MISMATCH"));
         }
+        if context.executed_action_hash != presented_action_hash {
+            return Err(Error::claim("ACTION_MISMATCH"));
+        }
+        self.config.adapters.verify(
+            &context.adapter_id,
+            &context.adapter_version,
+            adapter,
+            adapter_binary_hash,
+            &context.capability,
+            &context.action,
+        )?;
         let expected_idempotency_key = evidence::authorization_idempotency_key(
             &context.authorization_id,
             &context.executing_principal,
@@ -1384,14 +1440,14 @@ impl Authority {
                    requesting_principal, executing_principal, intent_hash,
                    authorized_action_hash, executed_action_hash, target,
                    policy_bundle_id, policy_bundle_version, policy_bundle_hash,
-                   adapter_id, adapter_version, adapter_binary_hash,
+                   adapter_id, adapter_version, adapter_principal, adapter_binary_hash,
                    started_at_ms, lease_expires_at_ms, state,
                    outcome_unknown_at_ms, reconciliation_required_at_ms,
                    terminal_sequence, ended_at_ms, result_summary, result_hash,
                    external_evidence_reference, cancellation_outcome
                  ) VALUES (
                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                   ?15, ?16, ?17, ?18, ?19, ?20, NULL, NULL, ?21, ?22, ?23, NULL, NULL, NULL
+                   ?15, ?16, ?17, ?18, ?19, ?20, ?21, NULL, NULL, ?22, ?23, ?24, NULL, NULL, NULL
                  )",
                 params![
                     execution_id,
@@ -1410,6 +1466,7 @@ impl Authority {
                     context.policy_bundle_hash,
                     context.adapter_id,
                     context.adapter_version,
+                    adapter.adapter_principal(),
                     adapter_binary_hash,
                     stored_started_at_ms,
                     context.lease_expires_at_ms,
@@ -1754,14 +1811,14 @@ impl Authority {
                    requesting_principal, executing_principal, intent_hash,
                    authorized_action_hash, executed_action_hash, target,
                    policy_bundle_id, policy_bundle_version, policy_bundle_hash,
-                   adapter_id, adapter_version, adapter_binary_hash,
+                   adapter_id, adapter_version, adapter_principal, adapter_binary_hash,
                    started_at_ms, lease_expires_at_ms, state,
                    outcome_unknown_at_ms, reconciliation_required_at_ms,
                    terminal_sequence, ended_at_ms, result_summary, result_hash,
                    external_evidence_reference, cancellation_outcome
                  ) VALUES (
                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                   ?15, ?16, NULL, ?17, ?18, 'LEASE_EXPIRED', NULL, NULL,
+                   ?15, ?16, NULL, NULL, ?17, ?18, 'LEASE_EXPIRED', NULL, NULL,
                    ?19, ?20, ?21, NULL, NULL, NULL
                  )",
                 params![
@@ -3692,6 +3749,8 @@ struct ClaimExecutionContext {
     authorized_action_hash: String,
     executed_action_hash: String,
     target: String,
+    action: String,
+    capability: String,
     policy_bundle_hash: String,
     adapter_id: String,
     adapter_version: String,
@@ -3708,7 +3767,7 @@ fn load_claim_execution_context(
             "SELECT c.claim_id, c.authorization_id, c.receipt_id,
                     a.requesting_principal, c.executing_principal, a.intent_hash,
                     c.authorized_action_hash, c.executed_action_hash, a.target,
-                    a.policy_bundle_hash, c.adapter_id, c.adapter_version,
+                    a.action, a.capability, a.policy_bundle_hash, c.adapter_id, c.adapter_version,
                     c.claimed_at_ms, c.lease_expires_at_ms
              FROM tlpx_claims c
              JOIN tlpx_authorizations a ON a.authorization_id = c.authorization_id
@@ -3725,11 +3784,13 @@ fn load_claim_execution_context(
                     authorized_action_hash: row.get(6)?,
                     executed_action_hash: row.get(7)?,
                     target: row.get(8)?,
-                    policy_bundle_hash: row.get(9)?,
-                    adapter_id: row.get(10)?,
-                    adapter_version: row.get(11)?,
-                    claimed_at_ms: row.get(12)?,
-                    lease_expires_at_ms: row.get(13)?,
+                    action: row.get(9)?,
+                    capability: row.get(10)?,
+                    policy_bundle_hash: row.get(11)?,
+                    adapter_id: row.get(12)?,
+                    adapter_version: row.get(13)?,
+                    claimed_at_ms: row.get(14)?,
+                    lease_expires_at_ms: row.get(15)?,
                 })
             },
         )
@@ -3754,6 +3815,7 @@ struct StoredExecution {
     policy_bundle_hash: String,
     adapter_id: String,
     adapter_version: String,
+    adapter_principal: Option<String>,
     adapter_binary_hash: Option<String>,
     started_at_ms: i64,
     lease_expires_at_ms: i64,
@@ -3804,6 +3866,7 @@ impl StoredExecution {
             policy_bundle_hash: self.policy_bundle_hash.clone(),
             adapter_id: self.adapter_id.clone(),
             adapter_version: self.adapter_version.clone(),
+            adapter_principal: self.adapter_principal.clone(),
             adapter_binary_hash: self.adapter_binary_hash.clone(),
             sequence: self
                 .terminal_sequence
@@ -3847,7 +3910,7 @@ fn load_execution(
                 requesting_principal, executing_principal, intent_hash,
                 authorized_action_hash, executed_action_hash, target,
                 policy_bundle_id, policy_bundle_version, policy_bundle_hash,
-                adapter_id, adapter_version, adapter_binary_hash,
+                adapter_id, adapter_version, adapter_principal, adapter_binary_hash,
                 started_at_ms, lease_expires_at_ms, state,
                 outcome_unknown_at_ms, reconciliation_required_at_ms,
                 terminal_sequence, ended_at_ms, result_summary, result_hash,
@@ -3856,8 +3919,8 @@ fn load_execution(
     );
     transaction
         .query_row(&sql, [value], |row| {
-            let state = row.get::<_, String>(19)?;
-            let cancellation = row.get::<_, Option<String>>(27)?;
+            let state = row.get::<_, String>(20)?;
+            let cancellation = row.get::<_, Option<String>>(28)?;
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
@@ -3876,16 +3939,17 @@ fn load_execution(
                 row.get::<_, String>(14)?,
                 row.get::<_, String>(15)?,
                 row.get::<_, Option<String>>(16)?,
-                row.get::<_, i64>(17)?,
+                row.get::<_, Option<String>>(17)?,
                 row.get::<_, i64>(18)?,
+                row.get::<_, i64>(19)?,
                 state,
-                row.get::<_, Option<i64>>(20)?,
                 row.get::<_, Option<i64>>(21)?,
                 row.get::<_, Option<i64>>(22)?,
                 row.get::<_, Option<i64>>(23)?,
-                row.get::<_, Option<String>>(24)?,
+                row.get::<_, Option<i64>>(24)?,
                 row.get::<_, Option<String>>(25)?,
                 row.get::<_, Option<String>>(26)?,
+                row.get::<_, Option<String>>(27)?,
                 cancellation,
             ))
         })
@@ -3909,19 +3973,20 @@ fn load_execution(
                 policy_bundle_hash: row.13,
                 adapter_id: row.14,
                 adapter_version: row.15,
-                adapter_binary_hash: row.16,
-                started_at_ms: row.17,
-                lease_expires_at_ms: row.18,
-                state: ExecutionState::parse(&row.19)?,
-                outcome_unknown_at_ms: row.20,
-                reconciliation_required_at_ms: row.21,
-                terminal_sequence: row.22,
-                ended_at_ms: row.23,
-                result_summary: row.24,
-                result_hash: row.25,
-                external_evidence_reference: row.26,
+                adapter_principal: row.16,
+                adapter_binary_hash: row.17,
+                started_at_ms: row.18,
+                lease_expires_at_ms: row.19,
+                state: ExecutionState::parse(&row.20)?,
+                outcome_unknown_at_ms: row.21,
+                reconciliation_required_at_ms: row.22,
+                terminal_sequence: row.23,
+                ended_at_ms: row.24,
+                result_summary: row.25,
+                result_hash: row.26,
+                external_evidence_reference: row.27,
                 cancellation_outcome: row
-                    .27
+                    .28
                     .as_deref()
                     .map(CancellationOutcome::parse)
                     .transpose()?,
@@ -4111,6 +4176,7 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             "tlpx_executions",
             &[
                 "idempotency_key",
+                "adapter_principal",
                 "adapter_binary_hash",
                 "outcome_unknown_at_ms",
                 "reconciliation_required_at_ms",

@@ -4,12 +4,14 @@ use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
+    exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry,
+    AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
     AuthorizationTemplate, AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
     ExecutedAction, ExecutionResultEvidence, ExecutionState, LocalAuthenticator,
     LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
     PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
-    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    Switchboard, Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE,
+    POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -32,6 +34,35 @@ fn executor_identity() -> AuthenticatedIdentity {
     let identity = authenticator.authenticate_stream(&server).unwrap();
     drop(client);
     identity
+}
+
+fn adapter_identity() -> AuthenticatedAdapterSession {
+    let authority_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "adapter.mailer.local".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Adapter],
+        approval_routes: vec![],
+    }])
+    .unwrap();
+    let adapter_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "authority.local".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Authority],
+        approval_routes: vec![],
+    }])
+    .unwrap();
+    let (authority_side, adapter_side) = UnixStream::pair().unwrap();
+    AuthenticatedAdapterSession::authenticate_local(
+        &authority_authenticator,
+        &adapter_authenticator,
+        &authority_side,
+        &adapter_side,
+    )
+    .unwrap()
 }
 
 fn config() -> AuthorityConfig {
@@ -94,6 +125,20 @@ fn config() -> AuthorityConfig {
             "mailer.send".into(),
             vec!["adapter.mailer".into()],
         )])
+        .unwrap(),
+        adapters: AdapterRegistry::new(vec![AdapterContract {
+            adapter_id: "adapter.mailer".into(),
+            adapter_version: "1.0.0".into(),
+            authenticated_principal: "adapter.mailer.local".into(),
+            authenticated_authority: "authority.local".into(),
+            binary_hash: hash('8'),
+            capabilities: vec!["mailer.send".into()],
+            actions: vec!["send_email".into()],
+            material_fields: ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect(),
+        }])
         .unwrap(),
         evidence: EvidenceConfig {
             evaluator_id: "authority.local".into(),
@@ -444,8 +489,10 @@ fn execution_outbox_failure_does_not_create_a_ghost_terminal_receipt() {
             .begin_execution_authenticated_at(
                 &claim.claim_id,
                 &issued.idempotency_key,
-                None,
+                &executed(),
                 &executor_identity(),
+                &adapter_identity(),
+                &hash('8'),
                 NOW + 2,
             )
             .unwrap();

@@ -5,13 +5,14 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation, ApprovalState,
-    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState,
-    CancellationOutcome, CancellationReason, CancellationRole, CapabilityRegistry,
-    ConfiguredPolicyBundle, Decision, EvidenceConfig, ExecutedAction, ExecutionResultEvidence,
-    ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
-    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
-    Principal, RevocationReason, RevocationScope, Risk, SubmittedIntent, Switchboard, Value,
+    exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry, ApprovalOutcome,
+    ApprovalPresentation, ApprovalState, AuthenticatedAdapterSession, AuthenticatedIdentity,
+    Authority, AuthorityConfig, AuthorizationTemplate, AuthzState, CancellationOutcome,
+    CancellationReason, CancellationRole, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
+    EvidenceConfig, ExecutedAction, ExecutionResultEvidence, ExecutionState, LocalAuthenticator,
+    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, RevocationReason,
+    RevocationScope, Risk, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
     EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
@@ -96,6 +97,20 @@ fn config() -> AuthorityConfig {
             "mailer.send".into(),
             vec!["adapter.mailer".into()],
         )])
+        .unwrap(),
+        adapters: AdapterRegistry::new(vec![AdapterContract {
+            adapter_id: "adapter.mailer".into(),
+            adapter_version: "1.0.0".into(),
+            authenticated_principal: "adapter.mailer.local".into(),
+            authenticated_authority: "authority.local".into(),
+            binary_hash: hash('8'),
+            capabilities: vec!["mailer.send".into()],
+            actions: vec!["send_email".into(), "deploy".into()],
+            material_fields: ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect(),
+        }])
         .unwrap(),
         evidence: EvidenceConfig {
             evaluator_id: "authority.local".into(),
@@ -1723,6 +1738,46 @@ fn executor_identity() -> AuthenticatedIdentity {
     )
 }
 
+fn local_adapter_session(
+    adapter_principal: &str,
+    adapter_role: LocalRole,
+    authority_principal: &str,
+) -> tlpx::Result<AuthenticatedAdapterSession> {
+    let authority_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: adapter_principal.into(),
+        party_type: PartyType::Machine,
+        roles: vec![adapter_role],
+        approval_routes: vec![],
+    }])?;
+    let adapter_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: authority_principal.into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Authority],
+        approval_routes: vec![],
+    }])?;
+    let (authority_side, adapter_side) = UnixStream::pair()
+        .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;
+    AuthenticatedAdapterSession::authenticate_local(
+        &authority_authenticator,
+        &adapter_authenticator,
+        &authority_side,
+        &adapter_side,
+    )
+}
+
+fn adapter_identity() -> AuthenticatedAdapterSession {
+    local_adapter_session(
+        "adapter.mailer.local",
+        LocalRole::Adapter,
+        "authority.local",
+    )
+    .unwrap()
+}
+
 fn reconciler_identity() -> AuthenticatedIdentity {
     authenticated_identity(
         "authority.reconciler",
@@ -1730,6 +1785,219 @@ fn reconciler_identity() -> AuthenticatedIdentity {
         vec![LocalRole::Reconciler],
         vec![],
     )
+}
+
+#[test]
+fn adapter_contract_rejects_incomplete_or_reordered_material_mapping() {
+    for fields in [
+        ADAPTER_MATERIAL_FIELDS[..8]
+            .iter()
+            .map(|field| (*field).to_string())
+            .collect::<Vec<_>>(),
+        {
+            let mut fields = ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect::<Vec<_>>();
+            fields.swap(0, 1);
+            fields
+        },
+        {
+            let mut fields = ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect::<Vec<_>>();
+            fields.push("caller_downgrade".into());
+            fields
+        },
+    ] {
+        let error = AdapterRegistry::new(vec![AdapterContract {
+            adapter_id: "adapter.mailer".into(),
+            adapter_version: "1.0.0".into(),
+            authenticated_principal: "adapter.mailer.local".into(),
+            authenticated_authority: "authority.local".into(),
+            binary_hash: hash('8'),
+            capabilities: vec!["mailer.send".into()],
+            actions: vec!["send_email".into(), "deploy".into()],
+            material_fields: fields,
+        }])
+        .unwrap_err();
+        assert_eq!(error.code(), "ADAPTER_MAPPING_INCOMPLETE");
+    }
+}
+
+#[test]
+fn authority_activation_requires_complete_adapter_coverage() {
+    let mut broken = config();
+    broken.adapters = AdapterRegistry::new(vec![AdapterContract {
+        adapter_id: "adapter.mailer".into(),
+        adapter_version: "1.0.0".into(),
+        authenticated_principal: "adapter.mailer.local".into(),
+        authenticated_authority: "authority.local".into(),
+        binary_hash: hash('8'),
+        capabilities: vec!["mailer.send".into()],
+        actions: vec!["deploy".into()],
+        material_fields: ADAPTER_MATERIAL_FIELDS
+            .iter()
+            .map(|field| (*field).to_string())
+            .collect(),
+    }])
+    .unwrap();
+    let error = match Authority::in_memory(broken) {
+        Ok(_) => panic!("incomplete adapter coverage must fail activation"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code(), "POLICY_COMPILE_FAILED");
+}
+
+#[test]
+fn execution_start_authenticates_adapter_integrity_and_exact_mapping() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-adapter-auth"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let executor = executor_identity();
+    let wrong_role = local_adapter_session(
+        "adapter.mailer.local",
+        LocalRole::Executor,
+        "authority.local",
+    )
+    .unwrap_err();
+    assert_eq!(wrong_role.code(), "AUTHENTICATION_FAILED");
+
+    let wrong_principal = local_adapter_session(
+        "adapter.impostor.local",
+        LocalRole::Adapter,
+        "authority.local",
+    )
+    .unwrap();
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor,
+            &wrong_principal,
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "ADAPTER_AUTHENTICATION_FAILED");
+
+    let wrong_authority = local_adapter_session(
+        "adapter.mailer.local",
+        LocalRole::Adapter,
+        "authority.impostor.local",
+    )
+    .unwrap();
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor,
+            &wrong_authority,
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "ADAPTER_AUTHENTICATION_FAILED");
+
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor,
+            &adapter_identity(),
+            &hash('9'),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "ADAPTER_INTEGRITY_INVALID");
+
+    let mut mutated = executed();
+    mutated.target = "customer:other".into();
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &mutated,
+            &executor,
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "ACTION_MISMATCH");
+
+    let lease = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor,
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap();
+    assert_eq!(lease.state, ExecutionState::Started);
+}
+
+#[test]
+fn execution_start_rejects_unactivated_adapter_version() {
+    let mut versioned = config();
+    versioned.adapters = AdapterRegistry::new(vec![AdapterContract {
+        adapter_id: "adapter.mailer".into(),
+        adapter_version: "2.0.0".into(),
+        authenticated_principal: "adapter.mailer.local".into(),
+        authenticated_authority: "authority.local".into(),
+        binary_hash: hash('8'),
+        capabilities: vec!["mailer.send".into()],
+        actions: vec!["send_email".into(), "deploy".into()],
+        material_fields: ADAPTER_MATERIAL_FIELDS
+            .iter()
+            .map(|field| (*field).to_string())
+            .collect(),
+    }])
+    .unwrap();
+    let authority = Authority::in_memory(versioned).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-adapter-version"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "ADAPTER_VERSION_MISMATCH");
 }
 
 #[test]
@@ -1749,12 +2017,15 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
         )
         .unwrap();
     let executor = executor_identity();
+    let adapter = adapter_identity();
     let lease = authority
         .begin_execution_authenticated_at(
             &claim.claim_id,
             &issued.idempotency_key,
-            Some(&hash('9')),
+            &executed(),
             &executor,
+            &adapter,
+            &hash('8'),
             NOW + 2,
         )
         .unwrap();
@@ -1763,8 +2034,10 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
         .begin_execution_authenticated_at(
             &claim.claim_id,
             &issued.idempotency_key,
-            Some(&hash('9')),
+            &executed(),
             &executor,
+            &adapter,
+            &hash('8'),
             NOW + 3,
         )
         .unwrap();
@@ -1773,8 +2046,10 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
         .begin_execution_authenticated_at(
             &claim.claim_id,
             "different-key",
-            Some(&hash('9')),
+            &executed(),
             &executor,
+            &adapter,
+            &hash('8'),
             NOW + 3,
         )
         .unwrap_err();
@@ -1792,7 +2067,11 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
         )
         .unwrap();
     assert_eq!(receipt.state, ExecutionState::Completed);
-    assert_eq!(receipt.adapter_binary_hash, Some(hash('9')));
+    assert_eq!(
+        receipt.adapter_principal.as_deref(),
+        Some("adapter.mailer.local")
+    );
+    assert_eq!(receipt.adapter_binary_hash, Some(hash('8')));
     let terminal_retry = authority
         .finish_execution_authenticated_at(
             &lease.execution_id,
@@ -1819,8 +2098,10 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
         .begin_execution_authenticated_at(
             &claim.claim_id,
             &issued.idempotency_key,
-            Some(&hash('9')),
+            &executed(),
             &executor,
+            &adapter,
+            &hash('8'),
             NOW + 5,
         )
         .unwrap();
@@ -1853,8 +2134,10 @@ fn execution_result_identity_and_cancellation_fail_closed() {
         .begin_execution_authenticated_at(
             &claim.claim_id,
             &issued.idempotency_key,
-            None,
+            &executed(),
             &executor,
+            &adapter_identity(),
+            &hash('8'),
             NOW + 2,
         )
         .unwrap();
@@ -1936,8 +2219,10 @@ fn unknown_outcome_requires_reconciliation_and_never_reopens() {
             .begin_execution_authenticated_at(
                 &claim.claim_id,
                 &issued.idempotency_key,
-                None,
+                &executed(),
                 &executor_identity(),
+                &adapter_identity(),
+                &hash('8'),
                 NOW + 2,
             )
             .unwrap();
@@ -1999,8 +2284,10 @@ fn unknown_outcome_requires_reconciliation_and_never_reopens() {
         .begin_execution_authenticated_at(
             &claim.claim_id,
             &issued.idempotency_key,
-            None,
+            &executed(),
             &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
             NOW + 6,
         )
         .unwrap();
@@ -2050,8 +2337,10 @@ fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
         .begin_execution_authenticated_at(
             &started_claim.claim_id,
             &started.idempotency_key,
-            None,
+            &executed(),
             &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
             NOW + 2,
         )
         .unwrap();
@@ -2087,8 +2376,10 @@ fn separate_connections_have_one_terminal_execution_winner() {
             .begin_execution_authenticated_at(
                 &claim.claim_id,
                 &issued.idempotency_key,
-                None,
+                &executed(),
                 &executor_identity(),
+                &adapter_identity(),
+                &hash('8'),
                 NOW + 2,
             )
             .unwrap();

@@ -2,12 +2,13 @@
 
 use std::os::unix::net::UnixStream;
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation,
-    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, CancellationOutcome,
-    CancellationReason, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
-    ExecutionResultEvidence, ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
-    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
-    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry, ApprovalOutcome,
+    ApprovalPresentation, AuthenticatedAdapterSession, AuthenticatedIdentity, Authority,
+    AuthorityConfig, AuthorizationTemplate, CancellationOutcome, CancellationReason,
+    CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, ExecutionResultEvidence,
+    ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, Risk, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
     EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
@@ -65,11 +66,14 @@ fn main() -> tlpx::Result<()> {
     };
     let claim = authority.claim(&issued.authorization_id, "runtime.mailer", &executed)?;
     let executor = pilot_authenticated_executor()?;
+    let adapter = pilot_authenticated_adapter()?;
     let execution = authority.begin_execution_authenticated_at(
         &claim.claim_id,
         &issued.idempotency_key,
-        None,
+        &executed,
         &executor,
+        &adapter,
+        &format!("sha256:{}", "8".repeat(64)),
         claim.claimed_at_ms + 1,
     )?;
     let terminal = authority.finish_execution_authenticated_at(
@@ -208,6 +212,19 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             "mailer.send".into(),
             vec!["adapter.mailer".into()],
         )])?,
+        adapters: AdapterRegistry::new(vec![AdapterContract {
+            adapter_id: "adapter.mailer".into(),
+            adapter_version: "1.0.0".into(),
+            authenticated_principal: "adapter.mailer.local".into(),
+            authenticated_authority: "authority.local".into(),
+            binary_hash: format!("sha256:{}", "8".repeat(64)),
+            capabilities: vec!["mailer.send".into()],
+            actions: vec!["send_email".into(), "deploy".into()],
+            material_fields: ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect(),
+        }])?,
         evidence: EvidenceConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
@@ -268,6 +285,33 @@ fn pilot_authenticated_executor() -> tlpx::Result<AuthenticatedIdentity> {
     let identity = authenticator.authenticate_stream(&server)?;
     drop(client);
     Ok(identity)
+}
+
+fn pilot_authenticated_adapter() -> tlpx::Result<AuthenticatedAdapterSession> {
+    let authority_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "adapter.mailer.local".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Adapter],
+        approval_routes: vec![],
+    }])?;
+    let adapter_authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "authority.local".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Authority],
+        approval_routes: vec![],
+    }])?;
+    let (authority_side, adapter_side) = UnixStream::pair()
+        .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;
+    AuthenticatedAdapterSession::authenticate_local(
+        &authority_authenticator,
+        &adapter_authenticator,
+        &authority_side,
+        &adapter_side,
+    )
 }
 
 fn pilot_intent(request_id: String) -> SubmittedIntent {

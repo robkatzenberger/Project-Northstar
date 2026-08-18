@@ -2,11 +2,12 @@ use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::PathBuf;
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
-    CapabilityRegistry, ConfiguredPolicyBundle, Decision, EvidenceConfig, ExecutedAction,
-    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
-    PolicyIssuerType, PolicyRule, PolicySupersedes, Principal, Risk, SubmittedIntent, Switchboard,
-    Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry, Authority,
+    AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
+    EvidenceConfig, ExecutedAction, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, PolicySupersedes, Principal, Risk,
+    SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE,
+    POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -79,6 +80,20 @@ fn config(bundles: Vec<ConfiguredPolicyBundle>) -> AuthorityConfig {
             "mailer.send".into(),
             vec!["adapter.mailer".into()],
         )])
+        .unwrap(),
+        adapters: AdapterRegistry::new(vec![AdapterContract {
+            adapter_id: "adapter.mailer".into(),
+            adapter_version: "1.0.0".into(),
+            authenticated_principal: "adapter.mailer.local".into(),
+            authenticated_authority: "authority.local".into(),
+            binary_hash: format!("sha256:{}", "8".repeat(64)),
+            capabilities: vec!["mailer.send".into()],
+            actions: vec!["send_email".into()],
+            material_fields: ADAPTER_MATERIAL_FIELDS
+                .iter()
+                .map(|field| (*field).to_string())
+                .collect(),
+        }])
         .unwrap(),
         evidence: EvidenceConfig {
             evaluator_id: "authority.local".into(),

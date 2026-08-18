@@ -423,7 +423,8 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     policy_bundle_version: "1.0.0",
     policy_bundle_hash: H,
     adapter,
-    adapter_binary_hash: null,
+    adapter_principal: "adapter.mailer.local",
+    adapter_binary_hash: H2,
     sequence: 4,
     started_at: T,
     ended_at: T,
@@ -434,6 +435,19 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     cancellation_outcome: null
   };
   check("execution receipt", validateV02("execution", execOk).ok);
+  check(
+    "lease expiry before adapter start may carry explicit null adapter provenance",
+    validateV02("execution", {
+      ...execOk,
+      state: "LEASE_EXPIRED",
+      adapter_principal: null,
+      adapter_binary_hash: null
+    }).ok
+  );
+  check(
+    "completed receipt requires authenticated adapter provenance",
+    !validateV02("execution", { ...execOk, adapter_principal: null, adapter_binary_hash: null }).ok
+  );
   check(
     "receipt may store distinct authorized vs executed hashes",
     validateV02("execution", { ...execOk, executed_action_hash: H2 }).ok
@@ -501,6 +515,10 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   check("includes APPROVAL_EXPIRED", catalog.operator_action.includes("APPROVAL_EXPIRED"));
   check("includes EXECUTION_RESULT_INVALID", catalog.claim_and_execution.includes("EXECUTION_RESULT_INVALID"));
   check("includes RECONCILIATION_REQUIRED", catalog.claim_and_execution.includes("RECONCILIATION_REQUIRED"));
+  check("includes adapter authentication failure", catalog.claim_and_execution.includes("ADAPTER_AUTHENTICATION_FAILED"));
+  check("includes adapter version mismatch", catalog.claim_and_execution.includes("ADAPTER_VERSION_MISMATCH"));
+  check("includes incomplete adapter mapping", catalog.claim_and_execution.includes("ADAPTER_MAPPING_INCOMPLETE"));
+  check("includes adapter capability denial", catalog.claim_and_execution.includes("ADAPTER_CAPABILITY_DENIED"));
 }
 
 {

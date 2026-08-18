@@ -498,7 +498,7 @@ Every claimed authorization must reach one durable terminal execution receipt co
 - intent, authorized-action, and executed-action hashes;
 - protected target reference;
 - policy bundle identity, version, and digest;
-- adapter identity, version, and optional binary digest;
+- adapter identity/version, authenticated adapter principal, and verified binary/deployment digest for adapter-started work; pre-adapter `LEASE_EXPIRED` evidence carries explicit null provenance;
 - trusted sequence number;
 - start and terminal timestamps;
 - terminal state;
@@ -616,6 +616,8 @@ Adapters are part of the trusted enforcement path when they translate host opera
 - undergo mutation, omission, and mapping tests.
 
 A correct authority behind a compromised or incomplete adapter does not provide reliable enforcement.
+
+The bounded local slice 3.7 candidate uses kernel-derived Unix peer credentials in both directions: the authority authenticates the adapter role and the adapter-side trust mapping authenticates the authority role. Startup requires one activated contract that fixes both principals, adapter id/version, canonical binary digest, capability/action coverage, and the exact ordered material-field projection. Execution start re-hashes the presented Executed Action, matches the consumed claim, and verifies that contract before durable start. This is a local contract/integrity boundary, not proof that the measured executable is isolated from replacement or that callers cannot reach the protected tool around it; those are later PEP/OS-enforcement gates.
 
 ### 12.11 Human approval quality and quorum extension
 
