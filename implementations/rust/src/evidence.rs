@@ -133,7 +133,7 @@ pub(crate) struct ErrorEvidenceInput<'a> {
     pub intent_hash: Option<&'a str>,
     pub retry_of_receipt_id: Option<&'a str>,
     pub required_condition: Option<&'a str>,
-    pub policy_bundle_id: &'a str,
+    pub policy_bundle_id: Option<&'a str>,
 }
 
 pub(crate) fn decision_record(input: DecisionEvidenceInput<'_>) -> Result<Canonical> {
@@ -201,7 +201,6 @@ pub(crate) fn evaluation_error_record(input: ErrorEvidenceInput<'_>) -> Result<C
         string("retryability", input.retryability.as_str()),
         string("reason", input.reason),
         ("sequence".into(), Value::Int(input.sequence)),
-        string("policy_bundle_id", input.policy_bundle_id),
     ];
     if let (Some(requester), Some(request_id)) = (input.authenticated_requester, input.request_id) {
         fields.push(string("authenticated_requester", requester));
@@ -215,6 +214,9 @@ pub(crate) fn evaluation_error_record(input: ErrorEvidenceInput<'_>) -> Result<C
     }
     if let Some(condition) = input.required_condition {
         fields.push(string("required_condition", condition));
+    }
+    if let Some(policy_bundle_id) = input.policy_bundle_id {
+        fields.push(string("policy_bundle_id", policy_bundle_id));
     }
     canonicalize(&Value::Object(fields))
 }

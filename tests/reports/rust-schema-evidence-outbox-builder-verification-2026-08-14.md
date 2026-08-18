@@ -80,3 +80,5 @@ The embedding still supplies trusted requester/executor strings and the audit HM
 ## Disposition
 
 The bounded working-tree implementation is builder-verified. Acceptance requires a deliberate named commit followed by an independent exact-commit inspection and isolated rerun. Until then, documentation must distinguish the accepted `aed80e2` authority base from this newer, unaccepted evidence/outbox delta.
+
+**Later note (2026-08-14):** The reviewed delta was committed as `c9bdd0fcd2d4c51fda9f3861724db0fd97524003`. This report remains builder verification of that snapshot; it is not independent acceptance.

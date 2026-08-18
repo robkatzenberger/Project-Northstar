@@ -3,9 +3,11 @@ use serde_json::Value as JsonValue;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    Adapter, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState, CapabilityRegistry,
-    EvidenceConfig, ExecutedAction, PartyType, PolicyBundle, PolicyEffect, PolicyRule, Principal,
-    Risk, SubmittedIntent, Switchboard, Value,
+    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
+    AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, ExecutedAction,
+    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -15,27 +17,48 @@ fn hash(ch: char) -> String {
 }
 
 fn config() -> AuthorityConfig {
+    let policy = PolicyBundle {
+        rules: vec![PolicyRule {
+            id: "allow-email".into(),
+            action: "send_email".into(),
+            effect: PolicyEffect::allow(
+                "POLICY_ALLOW",
+                AuthorizationTemplate {
+                    derived_risk: Risk::High,
+                    capability: "mailer.send".into(),
+                    resource_scope: vec!["customer:123".into()],
+                    risk_reasons: vec!["external_communication".into()],
+                    risk_source: "policy:evidence-policy@1.0.0".into(),
+                },
+            ),
+        }],
+        default: PolicyEffect::deny("POLICY_DENY"),
+    };
+    let content_hash = exact_match_policy_content_hash(&policy).unwrap();
     AuthorityConfig {
-        policy: PolicyBundle {
-            id: "evidence-policy".into(),
-            version: "1.0.0".into(),
-            hash: hash('a'),
-            rules: vec![PolicyRule {
-                id: "allow-email".into(),
-                action: "send_email".into(),
-                effect: PolicyEffect::allow(
-                    "POLICY_ALLOW",
-                    AuthorizationTemplate {
-                        derived_risk: Risk::High,
-                        capability: "mailer.send".into(),
-                        resource_scope: vec!["customer:123".into()],
-                        risk_reasons: vec!["external_communication".into()],
-                        risk_source: "policy:evidence-policy@1.0.0".into(),
-                    },
-                ),
-            }],
-            default: PolicyEffect::deny("POLICY_DENY"),
-        },
+        policy: PolicyCatalog::new(vec![ConfiguredPolicyBundle {
+            manifest: PolicyBundleManifest {
+                policy_bundle_id: "evidence-policy".into(),
+                policy_bundle_version: "1.0.0".into(),
+                issuer: PolicyIssuer {
+                    id: "security.platform".into(),
+                    kind: PolicyIssuerType::Human,
+                },
+                content_type: EXACT_MATCH_POLICY_CONTENT_TYPE.into(),
+                content_hash,
+                activated_at: "2020-01-01T00:00:00.000Z".into(),
+                retired_at: None,
+                environment: "production".into(),
+                tenant: "tenant_abc".into(),
+                precedence: POLICY_PRECEDENCE
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+                default_decision: policy.default.decision,
+                supersedes: None,
+            },
+            policy,
+        }]),
         switchboard: Switchboard::new(vec![
             Principal {
                 id: "agent.requester".into(),
@@ -504,6 +527,37 @@ fn incompatible_pre_release_database_is_rejected_before_schema_changes() {
     assert!(error
         .message()
         .contains("incompatible pre-release authority database"));
+    assert!(error.message().contains("use a fresh database"));
+
+    let connection = Connection::open(&path).unwrap();
+    let created_sequence_table: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'tlpx_sequence')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(!created_sequence_table);
+    clean_db(&path);
+}
+
+#[test]
+fn legacy_nonnullable_policy_hash_schema_is_rejected() {
+    let path = temp_db("legacy-policy-hash-schema");
+    {
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE tlpx_evaluations (
+                   policy_id TEXT,
+                   policy_bundle_hash TEXT NOT NULL
+                 );",
+            )
+            .unwrap();
+    }
+
+    let error = Authority::open(&path, config()).err().unwrap();
+    assert!(error.message().contains("policy_bundle_hash"));
     assert!(error.message().contains("use a fresh database"));
 
     let connection = Connection::open(&path).unwrap();

@@ -74,7 +74,7 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 
 ## Status snapshot
 
-- TL-PX 0.1 frozen; 0.2 draft contract through accepted slice 2.2 (JCS hashes)  
+- TL-PX 0.1 frozen; 0.2 accepted evaluation/authorization contract core through 2.3 plus unaccepted working-tree 2.4 policy-contract and 3.1 Rust activation candidates
 - Reference implementation: Switchboard + air-gap + fail-closed policy compile (still emits 0.1)  
 - Conformance + formal technical test #1 **passed**  
 - Local-only until public release is intentionally chosen  

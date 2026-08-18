@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and unaccepted working-tree 2.4 policy-contract and 3.1 Rust activation candidates. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -38,7 +38,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | --- | --- |
 | [standard/README.md](./standard/README.md) | Why a minimum standard; OSS posture |
 | [standard/SPEC-v0.1.md](./standard/SPEC-v0.1.md) | Frozen TL-PX 0.1 Minimum Profile |
-| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract (decisions, errors, states, JCS hashes, schemas) |
+| [standard/SPEC-v0.2.md](./standard/SPEC-v0.2.md) | Draft 0.2 contract (decisions, errors, states, policy provenance/precedence, JCS hashes, schemas) |
 | [../schemas/tlpx-0.1/](../schemas/tlpx-0.1/) | Frozen 0.1 JSON Schemas |
 | [../schemas/tlpx-0.2/](../schemas/tlpx-0.2/) | Slice 2.3 record/object schemas + reason codes |
 
@@ -49,8 +49,11 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) | Current hardened build baseline; 2.3d/Rust authority at `aed80e2` independently accepted |
 | [../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit builder evidence, environment, passing matrix, and explicit limits |
 | [../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md) | Independent exact-commit review, rerun, scope, and acceptance disposition |
-| [../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification and limits for the uncommitted Rust schema-evidence/sealed-outbox delta |
+| [../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder verification and limits for named commit `c9bdd0f` (not independently accepted) |
+| [../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md](../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md) | Working-tree builder matrix, negative cases, limits, and named-commit gate for slice 2.4 |
+| [../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md) | Working-tree Rust activation matrix, provenance negatives, limits, and named-commit gate for slice 3.1 |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
+| [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [reviews/build-spec-review-2026-08-11-model-2.md](./reviews/build-spec-review-2026-08-11-model-2.md) | Independent architecture/spec review and accepted dispositions |
 | [reviews/build-plan-review-disposition-2026-08-13.md](./reviews/build-plan-review-disposition-2026-08-13.md) | Implementation-boundary disposition: Phase 1 only, abandoned snapshot token, OS-enforced 3.9 bar |
 | [../tests/reports/northstar-two-agent-test-proof.md](../tests/reports/northstar-two-agent-test-proof.md) | Executed two-agent baseline evidence and confirmed defects |

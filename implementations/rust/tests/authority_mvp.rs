@@ -4,46 +4,42 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    Adapter, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState, CapabilityRegistry,
-    Decision, EvidenceConfig, ExecutedAction, PartyType, PolicyBundle, PolicyEffect, PolicyRule,
-    Principal, Risk, SubmittedIntent, Switchboard, Value,
+    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
+    AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, Decision, EvidenceConfig,
+    ExecutedAction, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect,
+    PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard,
+    Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
 
-fn hash(ch: char) -> String {
-    format!("sha256:{}", ch.to_string().repeat(64))
-}
-
 fn config() -> AuthorityConfig {
+    let policy = PolicyBundle {
+        rules: vec![
+            PolicyRule {
+                id: "allow-email".into(),
+                action: "send_email".into(),
+                effect: PolicyEffect::allow(
+                    "POLICY_ALLOW",
+                    AuthorizationTemplate {
+                        derived_risk: Risk::High,
+                        capability: "mailer.send".into(),
+                        resource_scope: vec!["customer:123".into()],
+                        risk_reasons: vec!["external_communication".into()],
+                        risk_source: "policy:mvp-policy@1.0.0".into(),
+                    },
+                ),
+            },
+            PolicyRule {
+                id: "approval-deploy".into(),
+                action: "deploy".into(),
+                effect: PolicyEffect::require_approval("POLICY_REQUIRE_APPROVAL"),
+            },
+        ],
+        default: PolicyEffect::deny("POLICY_DENY"),
+    };
     AuthorityConfig {
-        policy: PolicyBundle {
-            id: "mvp-policy".into(),
-            version: "1.0.0".into(),
-            hash: hash('a'),
-            rules: vec![
-                PolicyRule {
-                    id: "allow-email".into(),
-                    action: "send_email".into(),
-                    effect: PolicyEffect::allow(
-                        "POLICY_ALLOW",
-                        AuthorizationTemplate {
-                            derived_risk: Risk::High,
-                            capability: "mailer.send".into(),
-                            resource_scope: vec!["customer:123".into()],
-                            risk_reasons: vec!["external_communication".into()],
-                            risk_source: "policy:mvp-policy@1.0.0".into(),
-                        },
-                    ),
-                },
-                PolicyRule {
-                    id: "approval-deploy".into(),
-                    action: "deploy".into(),
-                    effect: PolicyEffect::require_approval("POLICY_REQUIRE_APPROVAL"),
-                },
-            ],
-            default: PolicyEffect::deny("POLICY_DENY"),
-        },
+        policy: PolicyCatalog::new(vec![configured_policy("mvp-policy", "1.0.0", policy)]),
         switchboard: Switchboard::new(vec![
             Principal {
                 id: "agent.requester".into(),
@@ -72,6 +68,39 @@ fn config() -> AuthorityConfig {
         claim_window_ms: 5_000,
         execution_lease_ms: 30_000,
     }
+}
+
+fn configured_policy(id: &str, version: &str, policy: PolicyBundle) -> ConfiguredPolicyBundle {
+    let content_hash = exact_match_policy_content_hash(&policy).unwrap();
+    ConfiguredPolicyBundle {
+        manifest: PolicyBundleManifest {
+            policy_bundle_id: id.into(),
+            policy_bundle_version: version.into(),
+            issuer: PolicyIssuer {
+                id: "security.platform".into(),
+                kind: PolicyIssuerType::Human,
+            },
+            content_type: EXACT_MATCH_POLICY_CONTENT_TYPE.into(),
+            content_hash,
+            activated_at: "2020-01-01T00:00:00.000Z".into(),
+            retired_at: None,
+            environment: "production".into(),
+            tenant: "tenant_abc".into(),
+            precedence: POLICY_PRECEDENCE
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            default_decision: policy.default.decision,
+            supersedes: None,
+        },
+        policy,
+    }
+}
+
+fn rebind_policy(config: &mut AuthorityConfig) {
+    let configured = &mut config.policy.bundles[0];
+    configured.manifest.content_hash = exact_match_policy_content_hash(&configured.policy).unwrap();
+    configured.manifest.default_decision = configured.policy.default.decision;
 }
 
 fn config_with_principal(principal: Principal) -> AuthorityConfig {
@@ -205,7 +234,7 @@ fn policy_cannot_silently_replace_requested_capability() {
 #[test]
 fn malformed_authorization_templates_fail_activation() {
     let mut duplicate_scope = config();
-    let template = duplicate_scope.policy.rules[0]
+    let template = duplicate_scope.policy.bundles[0].policy.rules[0]
         .effect
         .authorization
         .as_mut()
@@ -216,23 +245,29 @@ fn malformed_authorization_templates_fail_activation() {
     assert!(error.message().contains("unique"));
 
     let mut unknown_capability = config();
-    unknown_capability.policy.rules[0]
+    unknown_capability.policy.bundles[0].policy.rules[0]
         .effect
         .authorization
         .as_mut()
         .unwrap()
         .capability = "mailer.unregistered".into();
+    rebind_policy(&mut unknown_capability);
     let error = Authority::in_memory(unknown_capability).err().unwrap();
     assert_eq!(error.code(), "POLICY_COMPILE_FAILED");
     assert!(error.message().contains("capability registry"));
 
     let mut missing_policy_id = config();
-    missing_policy_id.policy.id.clear();
+    missing_policy_id.policy.bundles[0]
+        .manifest
+        .policy_bundle_id
+        .clear();
     let error = Authority::in_memory(missing_policy_id).err().unwrap();
-    assert_eq!(error.code(), "POLICY_COMPILE_FAILED");
+    assert_eq!(error.code(), "POLICY_PROVENANCE_INVALID");
 
     let mut invented_reason = config();
-    invented_reason.policy.rules[0].effect.reason_code = "LOCAL_ALLOW_ALIAS".into();
+    invented_reason.policy.bundles[0].policy.rules[0]
+        .effect
+        .reason_code = "LOCAL_ALLOW_ALIAS".into();
     let error = Authority::in_memory(invented_reason).err().unwrap();
     assert_eq!(error.code(), "POLICY_COMPILE_FAILED");
     assert!(error.message().contains("POLICY_ALLOW"));
@@ -558,12 +593,13 @@ fn idempotency_returns_existing_and_rejects_mutation() {
 #[test]
 fn idempotent_authorization_preserves_resource_scope_order() {
     let mut ordered_config = config();
-    ordered_config.policy.rules[0]
+    ordered_config.policy.bundles[0].policy.rules[0]
         .effect
         .authorization
         .as_mut()
         .unwrap()
         .resource_scope = vec!["customer:z".into(), "customer:123".into()];
+    rebind_policy(&mut ordered_config);
     let authority = Authority::in_memory(ordered_config).unwrap();
     let request = intent("req-scope-order");
     let first = authority
@@ -595,8 +631,9 @@ fn idempotent_result_survives_policy_and_scope_change() {
     };
 
     let mut changed = config();
-    changed.policy.hash = hash('b');
-    changed.policy.rules.clear();
+    changed.policy.bundles[0].manifest.policy_bundle_version = "2.0.0".into();
+    changed.policy.bundles[0].policy.rules.clear();
+    rebind_policy(&mut changed);
     changed.switchboard = Switchboard::new(vec![Principal {
         id: "agent.requester".into(),
         active: true,

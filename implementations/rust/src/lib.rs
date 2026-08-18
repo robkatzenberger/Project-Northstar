@@ -9,6 +9,7 @@ pub mod evidence;
 pub mod hash;
 pub mod jcs;
 pub mod policy;
+pub mod policy_manifest;
 pub mod types;
 
 pub use authority::{
@@ -26,6 +27,11 @@ pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Canonical, 
 pub use policy::{
     AuthorizationTemplate, CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, PolicyRule,
     Principal, Switchboard,
+};
+pub use policy_manifest::{
+    exact_match_policy_content_hash, ConfiguredPolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyIssuer, PolicyIssuerType, PolicySupersedes, SelectedPolicy,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 pub use types::{
     bindings_match, ActionBinding, Adapter, AuthorizedAction, ExecutedAction, Risk, SubmittedIntent,

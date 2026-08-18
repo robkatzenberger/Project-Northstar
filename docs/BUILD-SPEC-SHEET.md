@@ -1,14 +1,17 @@
 # Northstar Build Specification Sheet
 
 **Status:** Current hardened build baseline  
-**Date:** 2026-08-11; disposition recorded 2026-08-13; named-commit evidence recorded 2026-08-14
+**Date:** 2026-08-11; disposition recorded 2026-08-13; implementation status updated 2026-08-17
 **Repository:** `robkatzenberger/Project-Northstar`  
 **Baseline commit:** `7a0b371e1307739e465f8c5bd313ef9372adc9be`  
 **Prior tested implementation commit:** `ca05f6996534471e817d11f3c668e38411797fb8`  
-**Current builder-verified implementation commit:** `aed80e2527f05a3730b1057f2d90c55a6c3eb646`
-**Live implementation scope:** accepted slices 1.1–2.3 plus independently accepted 2.3d/Rust local-authority commit `aed80e2`: types/hashes, exact-match policy, SQLite decisions/errors/issuance/idempotency/revocation, authority-wide sequence, and atomic claim. The current uncommitted working tree additionally emits the bounded decision/error/authorization/claim record core into a canonical, hash-chained, HMAC-sealed durable outbox; it is builder-verified, not independently accepted. This is implementation evidence toward 3.1–3.6, not acceptance of those slices: authenticated transport/operator identity, approval lifecycle, transactional global revocation evidence, execution receipts, and the PEP remain open. No snapshot token.
+**Current accepted implementation commit:** `aed80e2527f05a3730b1057f2d90c55a6c3eb646`
+**Current builder-verified evidence/outbox commit:** `c9bdd0fcd2d4c51fda9f3861724db0fd97524003` (not independently accepted)
+**Current slice 2.4 candidate:** uncommitted working-tree policy-bundle schema/hash fixture, deterministic precedence/selection oracle, trusted complete-stream sequence verifier, and maturity matrix. The working tree is builder-verified in `tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`; it is not a named implementation, accepted, or independently reviewed.
+**Current slice 3.1 candidate:** uncommitted Rust integration of the 2.4 manifest contract: native manifest parsing/hash, exact-match content binding, deterministic per-evaluation selection, durable unavailable/ambiguous-policy errors, and claim-time active-policy recheck. The working tree is builder-verified in `tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`; it is not a named implementation, accepted, or independently reviewed.
+**Live implementation scope:** accepted slices 1.1–2.3 plus independently accepted 2.3d/Rust local-authority commit `aed80e2`: types/hashes, exact-match policy, SQLite decisions/errors/issuance/idempotency/revocation, authority-wide sequence, and atomic claim. Named commit `c9bdd0f` additionally emits the bounded decision/error/authorization/claim record core into a canonical, hash-chained, HMAC-sealed durable outbox; it is builder-verified, not independently accepted. The 2.4 and 3.1 working-tree candidates add the policy contract/oracle and Rust activation boundary, but are not accepted 0.2 runtime slices. Authenticated transport/operator identity, approval lifecycle, transactional global revocation evidence, execution receipts, and the PEP remain open. No snapshot token.
 
-**Current evidence-increment gate:** builder verification is recorded in `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`. A named commit and independent exact-commit review are still required. Do not broaden that gate into authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, or a PEP.
+**Current evidence-increment gate:** builder verification for `c9bdd0f` is recorded in `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`. Independent exact-commit review of that named commit is still required. Do not broaden that gate into authenticated transport, execution receipts, cancellation/reconciliation evidence, revocation evidence, or a PEP.
 
 **Continuity:** [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 
@@ -943,8 +946,8 @@ Major phases add dated evidence under `tests/reports/` without overwriting histo
 | 2.1 | Freeze v0.1 and draft normative TL-PX 0.2 decision/error/state contract | 1.1 |
 | 2.2 | JCS profile, hash representation, domain separation, and golden fixtures | 2.1 |
 | 2.3 | v0.2 object and evaluation/authorization record schema core, validators, reason codes, and conformance suite; execution-side evidence closure deferred by the 2026-08-14 clarification | 2.2 |
-| 2.4 | Policy precedence, provenance, trusted ordering, and maturity labels | 2.3 |
-| 3.1 | Rust authority skeleton and shared contract types | 2.4 |
+| 2.4 | Policy-bundle manifest/schema/hash, explicit supersession and monotone precedence, trusted complete-stream ordering oracle, and maturity labels | 2.3 |
+| 3.1 | Rust authority skeleton/shared types plus native policy-manifest content binding and activation | 2.4 |
 | 3.2 | Submitted Intent, Authorized Action, and Executed Action types plus distinct canonical hashing | 3.1 |
 | 3.3 | Authenticated local requester, operator, executor, and cancellation | 3.2 |
 | 3.4 | Authorization record, authority-generated nonce, and approval expiry | 3.3 |
@@ -1000,6 +1003,8 @@ The hardened core is complete when:
 - [`../tests/reports/northstar-two-agent-test-proof.md`](../tests/reports/northstar-two-agent-test-proof.md)
 - [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md)
 - [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md)
+- [`../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md`](../tests/reports/slice-2.4-policy-ordering-builder-verification-2026-08-17.md)
+- [`../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md`](../tests/reports/slice-3.1-rust-policy-activation-builder-verification-2026-08-17.md)
 - [`reviews/build-spec-review-2026-08-11-model-2.md`](./reviews/build-spec-review-2026-08-11-model-2.md)
 - [`reviews/build-plan-review-disposition-2026-08-13.md`](./reviews/build-plan-review-disposition-2026-08-13.md)
 - [`standard/SPEC-v0.1.md`](./standard/SPEC-v0.1.md)

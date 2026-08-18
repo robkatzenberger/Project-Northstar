@@ -2,7 +2,6 @@
 //! This is intentionally exact-match only; ambiguity fails bundle validation.
 
 use crate::error::{Error, Result};
-use crate::hash::assert_hash_string;
 use crate::types::{AuthorizedAction, Risk, SubmittedIntent};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -69,6 +68,11 @@ impl PolicyEffect {
     }
 
     fn validate(&self) -> Result<()> {
+        if self.policy_id.is_some() {
+            return Err(Error::policy_compile(
+                "configured policy effect must not contain runtime policy_id",
+            ));
+        }
         require_policy_text(&self.reason_code, "reason_code")?;
         let expected_reason = match self.decision {
             Decision::Allow => "POLICY_ALLOW",
@@ -123,18 +127,12 @@ pub struct PolicyRule {
 
 #[derive(Debug, Clone)]
 pub struct PolicyBundle {
-    pub id: String,
-    pub version: String,
-    pub hash: String,
     pub rules: Vec<PolicyRule>,
     pub default: PolicyEffect,
 }
 
 impl PolicyBundle {
     pub fn validate(&self) -> Result<()> {
-        require_policy_text(&self.id, "policy.id")?;
-        require_policy_text(&self.version, "policy.version")?;
-        assert_hash_string(&self.hash).map_err(|_| Error::policy_compile("invalid policy hash"))?;
         self.default.validate()?;
 
         let mut ids = BTreeSet::new();
@@ -195,6 +193,7 @@ impl PolicyBundle {
         &self,
         intent: &SubmittedIntent,
         effect: &PolicyEffect,
+        policy_bundle_hash: &str,
     ) -> Result<AuthorizedAction> {
         let template = effect
             .authorization
@@ -218,7 +217,7 @@ impl PolicyBundle {
             resource_scope: template.resource_scope.clone(),
             payload_hash: intent.payload_hash.clone(),
             artifact_hash: intent.artifact_hash.clone(),
-            policy_bundle_hash: self.hash.clone(),
+            policy_bundle_hash: policy_bundle_hash.to_string(),
             adapter: intent.adapter.clone(),
         };
         action.validate()?;

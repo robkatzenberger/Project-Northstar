@@ -2,7 +2,7 @@
 
 This document is **engineering guidance**, not a formal certification or legal opinion.
 
-**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local evaluate/issue/claim state. A newer uncommitted, builder-verified delta adds canonical decision/error/authorization/claim evidence in a hash-chained, HMAC-sealed SQLite outbox. Rust still trusts authenticated-context strings from its embedding and has no authenticated transport, execution receipt, or protected-execution PEP. Neither path currently establishes forced mediation.
+**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local evaluate/issue/claim state. Named commit `c9bdd0f` adds builder-verified canonical decision/error/authorization/claim evidence in a hash-chained, HMAC-sealed SQLite outbox; it is not independently accepted. The uncommitted 3.1 candidate additionally binds exact policy content to selected manifests and rechecks activity at claim. Rust still trusts authenticated-context strings and manifest issuer assertions from its embedding/configuration and has no authenticated transport, execution receipt, or protected-execution PEP. Neither path currently establishes forced mediation.
 
 ## Security goals
 
@@ -46,7 +46,7 @@ This document is **engineering guidance**, not a formal certification or legal o
 
 ## What the Rust local authority currently enforces
 
-Within a trusted embedding, the accepted `aed80e2` Rust scope provides Switchboard-first refusal, deterministic exact-match policy, immutable authenticated idempotency slots, authority-generated identifiers/nonces, durable SQLite decision/error/authorization state, exact Action Binding checks, revocation checks, and one atomic claim winner. The current working-tree delta atomically couples the four supported 0.2 records to that state and reconciles their canonical payloads, envelope bindings, hash/HMAC chain, source references, and coverage before new evaluation/claim work or export access.
+Within a trusted embedding, the accepted `aed80e2` Rust scope provides Switchboard-first refusal, deterministic exact-match policy, immutable authenticated idempotency slots, authority-generated identifiers/nonces, durable SQLite decision/error/authorization state, exact Action Binding checks, revocation checks, and one atomic claim winner. Named commit `c9bdd0f` atomically couples the four supported 0.2 records to that state and reconciles their canonical payloads, envelope bindings, hash/HMAC chain, source references, and coverage before new evaluation/claim work or export access.
 
 The HMAC key, SQLite file, and export-acknowledgement state remain trusted deployment inputs; key management, rotation, and an external export service are not implemented. This is authority logic, not an authentication mechanism or executor. A caller that can reach the protected capability directly can still bypass it.
 
@@ -59,7 +59,7 @@ The HMAC key, SQLite file, and export-acknowledgement state remain trusted deplo
 | **Operator id free string** | Medium | Approval-route + allowlist enforced; still no SSO/mTLS crypto identity |
 | **Declared intent can lie** | Medium–High | By design metadata trust; pair with scope limits + monitoring |
 | **Policy expression engine** | Low (mitigated) | Safe AST parser (no `new Function`); entire pack compiled before any decision; malformed policy fails load and issues no authorization |
-| **0.2 hash canonicalization** | Implemented as oracle | RFC 8785 JCS + UTF-16 key sort; lone surrogates fail closed. Not used by the 0.1 audit seal path. |
+| **0.2 hash canonicalization** | Low (bounded) | RFC 8785 JCS + UTF-16 key sort; lone surrogates fail closed. Implemented as a cross-language contract oracle; not used by the 0.1 audit seal path. |
 | **`allowEphemeral`** | Medium if misused | Never enable in production adapters |
 | **Secrets in audit JSONL** | High if leaked | Redact; restrict file perms (`chmod 600`); no commit |
 

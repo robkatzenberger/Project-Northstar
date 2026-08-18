@@ -11,7 +11,8 @@ use crate::evidence::{
     SealedEvidence,
 };
 use crate::hash::assert_hash_string;
-use crate::policy::{CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, Switchboard};
+use crate::policy::{CapabilityRegistry, Decision, PolicyEffect, Switchboard};
+use crate::policy_manifest::{ConfiguredPolicyBundle, PolicyCatalog};
 use crate::types::{ActionBinding, AuthorizedAction, ExecutedAction, SubmittedIntent};
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::Path;
@@ -77,7 +78,7 @@ impl Retryability {
 
 #[derive(Debug, Clone)]
 pub struct AuthorityConfig {
-    pub policy: PolicyBundle,
+    pub policy: PolicyCatalog,
     pub switchboard: Switchboard,
     pub capabilities: CapabilityRegistry,
     pub evidence: EvidenceConfig,
@@ -216,7 +217,7 @@ impl Authority {
                    reason TEXT NOT NULL,
                    retryability TEXT CHECK(retryability IN ('NEVER','AFTER_CONDITION','IMMEDIATE')),
                    required_condition TEXT,
-                   policy_bundle_hash TEXT NOT NULL,
+                   policy_bundle_hash TEXT,
                    evaluated_at_ms INTEGER NOT NULL,
                    authorization_id TEXT,
                    occupies_slot INTEGER NOT NULL CHECK(occupies_slot IN (0, 1)),
@@ -225,7 +226,8 @@ impl Authority {
                    CHECK(
                      (outcome_kind = 'DECISION' AND decision IS NOT NULL AND stage IS NULL
                        AND retryability IS NULL
-                       AND required_condition IS NULL AND intent_hash IS NOT NULL)
+                       AND required_condition IS NULL AND intent_hash IS NOT NULL
+                       AND policy_bundle_hash IS NOT NULL)
                      OR
                      (outcome_kind = 'EVALUATION_ERROR' AND decision IS NULL AND stage IS NOT NULL
                        AND retryability IS NOT NULL
@@ -360,6 +362,8 @@ impl Authority {
                             message: "request_id is already bound to a different intent",
                             retryability: Retryability::Never,
                             required_condition: None,
+                            policy_bundle_id: None,
+                            policy_bundle_hash: None,
                             evaluated_at_ms,
                             occupies_slot: false,
                         },
@@ -385,6 +389,8 @@ impl Authority {
                     message: "authenticated requester context is unavailable",
                     retryability: Retryability::AfterCondition,
                     required_condition: Some("authenticated requester context is available"),
+                    policy_bundle_id: None,
+                    policy_bundle_hash: None,
                     evaluated_at_ms,
                     occupies_slot: false,
                 },
@@ -409,6 +415,8 @@ impl Authority {
                     required_condition: Some(
                         "authenticated requester matches the proposed requester",
                     ),
+                    policy_bundle_id: None,
+                    policy_bundle_hash: None,
                     evaluated_at_ms,
                     occupies_slot: scoped,
                 },
@@ -430,6 +438,8 @@ impl Authority {
                     message: validation_error.message(),
                     retryability: Retryability::Never,
                     required_condition: None,
+                    policy_bundle_id: None,
+                    policy_bundle_hash: None,
                     evaluated_at_ms,
                     occupies_slot: scoped,
                 },
@@ -454,6 +464,8 @@ impl Authority {
                         message: "retry link is not an eligible error owned by this requester",
                         retryability: Retryability::Never,
                         required_condition: None,
+                        policy_bundle_id: None,
+                        policy_bundle_hash: None,
                         evaluated_at_ms,
                         occupies_slot: true,
                     },
@@ -462,6 +474,38 @@ impl Authority {
             }
         }
 
+        let selected =
+            match self
+                .config
+                .policy
+                .select(&intent.environment, &intent.tenant, evaluated_at_ms)
+            {
+                Ok(selected) => selected,
+                Err(error) => {
+                    return commit_evaluation_error(
+                        transaction,
+                        ErrorInput {
+                            authenticated_principal: Some(authenticated_requester),
+                            request_id: Some(&intent.request_id),
+                            intent_hash: Some(intent_hash),
+                            retry_of_receipt_id: intent.retry_of_receipt_id.as_deref(),
+                            stage: "policy_activation",
+                            code: error.code(),
+                            message: error.message(),
+                            retryability: Retryability::AfterCondition,
+                            required_condition: Some(
+                                "one valid active policy exists for the exact tenant/environment",
+                            ),
+                            policy_bundle_id: None,
+                            policy_bundle_hash: None,
+                            evaluated_at_ms,
+                            occupies_slot: true,
+                        },
+                        &self.config,
+                    );
+                }
+            };
+
         if let Some(reason_code) = self.config.switchboard.refusal_for_intent(intent) {
             return commit_decision(
                 transaction,
@@ -469,6 +513,8 @@ impl Authority {
                     authenticated_requester,
                     intent,
                     intent_hash,
+                    policy: selected.bundle,
+                    policy_bundle_hash: &selected.policy_bundle_hash,
                     effect: PolicyEffect::deny(reason_code),
                     evaluated_at_ms,
                 },
@@ -476,7 +522,7 @@ impl Authority {
             );
         }
 
-        let mut effect = self.config.policy.evaluate(intent);
+        let mut effect = selected.bundle.policy.evaluate(intent);
         if let Some(template) = effect.authorization.as_ref() {
             if !self
                 .config
@@ -494,6 +540,8 @@ impl Authority {
                 authenticated_requester,
                 intent,
                 intent_hash,
+                policy: selected.bundle,
+                policy_bundle_hash: &selected.policy_bundle_hash,
                 effect,
                 evaluated_at_ms,
             },
@@ -574,7 +622,12 @@ impl Authority {
                 _ => Err(Error::claim("EXECUTOR_NOT_ACTIVE")),
             };
         }
-        if stored.policy_bundle_hash != self.config.policy.hash {
+        let active_policy = self
+            .config
+            .policy
+            .select(&stored.environment, &stored.tenant, claimed_at_ms)
+            .map_err(|_| Error::claim("POLICY_INACTIVE"))?;
+        if stored.policy_bundle_hash != active_policy.policy_bundle_hash {
             return Err(Error::claim("POLICY_INACTIVE"));
         }
 
@@ -776,6 +829,8 @@ struct DecisionInput<'a> {
     authenticated_requester: &'a str,
     intent: &'a SubmittedIntent,
     intent_hash: &'a str,
+    policy: &'a ConfiguredPolicyBundle,
+    policy_bundle_hash: &'a str,
     effect: PolicyEffect,
     evaluated_at_ms: i64,
 }
@@ -804,6 +859,8 @@ fn commit_decision(
                     message: error.message(),
                     retryability: Retryability::AfterCondition,
                     required_condition: Some("operating-system randomness is available"),
+                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
                 },
@@ -813,7 +870,11 @@ fn commit_decision(
     };
     let mut authorization = None;
     let authorization_id = if input.effect.decision == Decision::Allow {
-        let action = match config.policy.authorize(input.intent, &input.effect) {
+        let action = match input.policy.policy.authorize(
+            input.intent,
+            &input.effect,
+            input.policy_bundle_hash,
+        ) {
             Ok(action) => action,
             Err(error) => {
                 return commit_preallocated_error(
@@ -830,6 +891,8 @@ fn commit_decision(
                         message: error.message(),
                         retryability: Retryability::Never,
                         required_condition: None,
+                        policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                        policy_bundle_hash: Some(input.policy_bundle_hash),
                         evaluated_at_ms: input.evaluated_at_ms,
                         occupies_slot: true,
                     },
@@ -861,6 +924,8 @@ fn commit_decision(
                         message: error.message(),
                         retryability: Retryability::Never,
                         required_condition: None,
+                        policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                        policy_bundle_hash: Some(input.policy_bundle_hash),
                         evaluated_at_ms: input.evaluated_at_ms,
                         occupies_slot: true,
                     },
@@ -895,7 +960,7 @@ fn commit_decision(
                 input.effect.policy_id,
                 input.effect.reason_code,
                 input.effect.reason_code,
-                config.policy.hash,
+                input.policy_bundle_hash,
                 input.evaluated_at_ms,
                 authorization_id,
             ],
@@ -917,6 +982,8 @@ fn commit_decision(
                 message: "decision could not be persisted",
                 retryability: Retryability::Never,
                 required_condition: None,
+                policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                policy_bundle_hash: Some(input.policy_bundle_hash),
                 evaluated_at_ms: input.evaluated_at_ms,
                 occupies_slot: true,
             },
@@ -940,6 +1007,8 @@ fn commit_decision(
                     message: "authorization could not be persisted",
                     retryability: Retryability::Never,
                     required_condition: None,
+                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
                 },
@@ -955,9 +1024,9 @@ fn commit_decision(
         decision: input.effect.decision,
         reason_code: &input.effect.reason_code,
         policy_id: input.effect.policy_id.as_deref(),
-        policy_bundle_id: &config.policy.id,
-        policy_bundle_version: &config.policy.version,
-        policy_bundle_hash: &config.policy.hash,
+        policy_bundle_id: &input.policy.manifest.policy_bundle_id,
+        policy_bundle_version: &input.policy.manifest.policy_bundle_version,
+        policy_bundle_hash: input.policy_bundle_hash,
         intent_hash: input.intent_hash,
         authenticated_requester: input.authenticated_requester,
         sequence,
@@ -996,7 +1065,7 @@ fn commit_decision(
         reason_code: input.effect.reason_code,
         policy_id: input.effect.policy_id,
         intent_hash: input.intent_hash.to_string(),
-        policy_bundle_hash: config.policy.hash.clone(),
+        policy_bundle_hash: input.policy_bundle_hash.to_string(),
         authorization,
     })
 }
@@ -1044,7 +1113,7 @@ fn replace_decision_with_error<T>(
         intent_hash: input.intent_hash,
         retry_of_receipt_id: input.retry_of_receipt_id,
         required_condition: input.required_condition,
-        policy_bundle_id: &config.policy.id,
+        policy_bundle_id: input.policy_bundle_id,
     })?;
     evidence::enqueue(
         &transaction,
@@ -1107,6 +1176,8 @@ struct ErrorInput<'a> {
     message: &'a str,
     retryability: Retryability,
     required_condition: Option<&'a str>,
+    policy_bundle_id: Option<&'a str>,
+    policy_bundle_hash: Option<&'a str>,
     evaluated_at_ms: i64,
     occupies_slot: bool,
 }
@@ -1149,7 +1220,7 @@ fn commit_preallocated_error<T>(
                 input.message,
                 input.retryability.as_str(),
                 input.required_condition,
-                config.policy.hash,
+                input.policy_bundle_hash,
                 input.evaluated_at_ms,
                 i64::from(input.occupies_slot),
             ],
@@ -1168,7 +1239,7 @@ fn commit_preallocated_error<T>(
         intent_hash: input.intent_hash,
         retry_of_receipt_id: input.retry_of_receipt_id,
         required_condition: input.required_condition,
-        policy_bundle_id: &config.policy.id,
+        policy_bundle_id: input.policy_bundle_id,
     })?;
     evidence::enqueue(
         &transaction,
@@ -1300,7 +1371,7 @@ struct StoredEvaluation {
     policy_id: Option<String>,
     reason_code: String,
     reason: String,
-    policy_bundle_hash: String,
+    policy_bundle_hash: Option<String>,
     authorization_id: Option<String>,
 }
 
@@ -1317,6 +1388,9 @@ impl StoredEvaluation {
         let intent_hash = self
             .intent_hash
             .ok_or_else(|| Error::authority("stored decision has no intent hash"))?;
+        let policy_bundle_hash = self
+            .policy_bundle_hash
+            .ok_or_else(|| Error::authority("stored decision has no policy bundle hash"))?;
         let authorization = self
             .authorization_id
             .as_deref()
@@ -1333,7 +1407,7 @@ impl StoredEvaluation {
             reason_code: self.reason_code,
             policy_id: self.policy_id,
             intent_hash,
-            policy_bundle_hash: self.policy_bundle_hash,
+            policy_bundle_hash,
             authorization,
         })
     }
@@ -1594,17 +1668,28 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             .prepare(&format!("PRAGMA table_info({table})"))
             .map_err(db_error)?;
         let columns = statement
-            .query_map([], |row| row.get::<_, String>(1))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(1)?, row.get::<_, bool>(3)?))
+            })
             .map_err(db_error)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(db_error)?;
         if let Some(missing) = required_columns
             .iter()
-            .find(|column| !columns.iter().any(|existing| existing == **column))
+            .find(|column| !columns.iter().any(|(existing, _)| existing == **column))
         {
             return Err(Error::authority(format!(
                 "incompatible pre-release authority database: {table}.{missing} is missing; use a fresh database"
             )));
+        }
+        if table == "tlpx_evaluations"
+            && columns
+                .iter()
+                .any(|(name, not_null)| name == "policy_bundle_hash" && *not_null)
+        {
+            return Err(Error::authority(
+                "incompatible pre-release authority database: tlpx_evaluations.policy_bundle_hash must permit unavailable-policy errors; use a fresh database",
+            ));
         }
     }
     Ok(())

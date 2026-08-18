@@ -1,9 +1,11 @@
 //! Runnable authority-only MVP. It deliberately performs no external side effect.
 
 use tlpx::{
-    Adapter, Authority, AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, EvidenceConfig,
-    PartyType, PolicyBundle, PolicyEffect, PolicyRule, Principal, Risk, SubmittedIntent,
-    Switchboard, Value,
+    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
+    CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, Risk, SubmittedIntent, Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE,
+    POLICY_PRECEDENCE,
 };
 
 fn main() -> tlpx::Result<()> {
@@ -81,27 +83,48 @@ fn main() -> tlpx::Result<()> {
 }
 
 fn pilot_config() -> tlpx::Result<AuthorityConfig> {
+    let policy = PolicyBundle {
+        rules: vec![PolicyRule {
+            id: "allow-email".into(),
+            action: "send_email".into(),
+            effect: PolicyEffect::allow(
+                "POLICY_ALLOW",
+                AuthorizationTemplate {
+                    derived_risk: Risk::High,
+                    capability: "mailer.send".into(),
+                    resource_scope: vec!["customer:123".into()],
+                    risk_reasons: vec!["external_communication".into()],
+                    risk_source: "policy:pilot-policy@1.0.0".into(),
+                },
+            ),
+        }],
+        default: PolicyEffect::deny("POLICY_DENY"),
+    };
+    let content_hash = exact_match_policy_content_hash(&policy)?;
     Ok(AuthorityConfig {
-        policy: PolicyBundle {
-            id: "pilot-policy".into(),
-            version: "1.0.0".into(),
-            hash: format!("sha256:{}", "a".repeat(64)),
-            rules: vec![PolicyRule {
-                id: "allow-email".into(),
-                action: "send_email".into(),
-                effect: PolicyEffect::allow(
-                    "POLICY_ALLOW",
-                    AuthorizationTemplate {
-                        derived_risk: Risk::High,
-                        capability: "mailer.send".into(),
-                        resource_scope: vec!["customer:123".into()],
-                        risk_reasons: vec!["external_communication".into()],
-                        risk_source: "policy:pilot-policy@1.0.0".into(),
-                    },
-                ),
-            }],
-            default: PolicyEffect::deny("POLICY_DENY"),
-        },
+        policy: PolicyCatalog::new(vec![ConfiguredPolicyBundle {
+            manifest: PolicyBundleManifest {
+                policy_bundle_id: "pilot-policy".into(),
+                policy_bundle_version: "1.0.0".into(),
+                issuer: PolicyIssuer {
+                    id: "security.platform".into(),
+                    kind: PolicyIssuerType::Human,
+                },
+                content_type: EXACT_MATCH_POLICY_CONTENT_TYPE.into(),
+                content_hash,
+                activated_at: "2020-01-01T00:00:00.000Z".into(),
+                retired_at: None,
+                environment: "production".into(),
+                tenant: "tenant_abc".into(),
+                precedence: POLICY_PRECEDENCE
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+                default_decision: policy.default.decision,
+                supersedes: None,
+            },
+            policy,
+        }]),
         switchboard: Switchboard::new(vec![
             Principal {
                 id: "agent.requester".into(),

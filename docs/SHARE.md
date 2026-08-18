@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; a newer builder-verified working-tree delta adds sealed evidence for its four evaluation/authorization record types. Neither implementation is yet an unavoidable protected-execution boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; named commit `c9bdd0f` adds builder-verified sealed evidence for its four evaluation/authorization record types and is not independently accepted. Working-tree candidates define the 2.4 policy contract and make Rust validate/select those manifests in 3.1; neither is committed or accepted. No implementation is yet an unavoidable protected-execution boundary.
 
 ---
 
@@ -60,6 +60,8 @@ The Trust Layer is designed as an **external** boundary, not a setting buried in
 
 That means it can sit in front of **many** agents and tools over time — not only one vendor’s coding assistant.
 
+The diagram below is the **target protected-deployment shape**, not a claim that today’s Rust library already controls those systems.
+
 ```mermaid
 flowchart TB
   subgraph untrusted [Things that propose actions]
@@ -102,12 +104,14 @@ flowchart TB
 | **Switchboard** | The bouncer + directory | Who are you? Are you allowed in? How trusted are you? Who should approve you? |
 | **Glass / TL-PX gate** | The rulebook | Given this intent + rules, **allow**, **ask a human**, or **deny**. |
 | **Human approval** | The supervisor | For higher risk: a person must approve before go. |
-| **Executor** | The last lock | Will **not** run the real action unless the gate (and audit) say authorized. |
+| **Executor** | The last lock | In the target PEP, will **not** run the real action unless the gate (and audit) say authorized. |
 | **Audit log** | The black box recorder | Append-only history: who declared, who decided, who approved, what ran. |
 
-Today, the JavaScript executor is cooperative: it blocks mediated calls, but a process retaining direct access can bypass it. The Rust authority adds durable one-time claim state and, in the current uncommitted delta, a sealed evidence outbox—but it still performs no side effect. Forced mediation remains a later PEP/deployment property.
+Today, the JavaScript executor is cooperative: it blocks mediated calls, but a process retaining direct access can bypass it. The Rust authority adds durable one-time claim state and, in named commit `c9bdd0f`, a sealed evidence outbox—but it still performs no side effect. Forced mediation remains a later PEP/deployment property.
 
 ### How they fit together
+
+This is the intended end-to-end flow. Today’s JavaScript executor is cooperative, and the Rust authority currently stops after one-time claim and evidence.
 
 ```mermaid
 flowchart TD
@@ -197,7 +201,7 @@ That matters when the failure was:
 - a human who approved too quickly, or  
 - a runtime that ran something it shouldn’t have.
 
-The audit log is a **JSONL** file on disk in the reference system (local, append-only).  
+The JavaScript 0.1 reference uses a local append-only **JSONL** audit file. The Rust authority uses SQLite for live state and, at `c9bdd0f`, a separate sealed evidence outbox.
 Canonical technical-test log path:
 
 ```text
@@ -254,14 +258,17 @@ flowchart TB
 
 | Item | Status |
 | --- | --- |
-| Idea & architecture | Written in the local **Northstar** repository |
+| Idea & architecture | Documented in the **Northstar** repository |
 | JavaScript TL-PX 0.1 Switchboard and cooperative gate | Working for mediated calls |
 | JavaScript audit + fail-closed cooperative executor | Working; direct bypass remains possible |
 | Rust local evaluate/issue/atomic-claim authority | Independently accepted at `aed80e2`; no side effect or PEP |
+| Rust bounded sealed evidence outbox | Builder-verified at `c9bdd0f`; independent acceptance pending |
+| Policy provenance, precedence, and ordering contract | Slice 2.4 working-tree candidate; not accepted |
+| Rust policy content binding and active-manifest selection | Slice 3.1 working-tree candidate; not accepted |
 | Automated tests + 0.1 and schema-only 0.2 conformance | Passing |
 | Formal technical test #1 | **Passed (29/29)** for the JavaScript cooperative reference |
 | Forced mediation / protected-execution PEP | Not implemented |
-| Public GitHub for *this* repo | Not required / not pushed by default (local until you choose) |
+| GitHub for *this* repo | A baseline exists remotely; current post-baseline commits and working-tree changes remain local until explicitly pushed |
 | Related public pieces | Prism / APEX-Lite / Trust Layer site under Trust-Layer-AI |
 
 ---
@@ -269,6 +276,8 @@ flowchart TB
 ## A day-in-the-life story
 
 **Scenario:** A support agent wants to email a customer with an attachment that may include personal data.
+
+This is an **intended protected-deployment story**. The current Rust authority does not yet send email or provide the unavoidable executor shown here.
 
 ```mermaid
 sequenceDiagram
