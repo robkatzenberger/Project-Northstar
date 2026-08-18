@@ -5,7 +5,7 @@
 **Evidence/outbox commit:** Canonical schema evidence plus a sealed durable outbox at `c9bdd0f` — builder-verified, not independently accepted
 **Slices 2.4/3.1 local commits:** Policy contract `a87f822`; native Rust activation `1addb5c` — pre-commit builder run passed, full Section 3 verification deferred, unaccepted
 **Slice 3.2 local commit:** Shared typed-action/hash fixtures and parity tests at `e835c4e` — bounded exact-commit checks passed, not independently accepted
-**Slice 3.3 working-tree candidate:** Kernel-derived Unix peer identity, authenticated role facades, policy-bound approval routes, and atomic pending cancellation — full builder matrix passed, not yet committed or accepted
+**Slice 3.3 local commit:** Kernel-derived Unix peer identity, authenticated role facades, policy-bound approval routes, and atomic pending cancellation at `c19b1d2` — full exact-commit builder matrix passed, not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** human approval resolution/expiry, post-claim cancellation, execution/revocation evidence, side effects, a hardened service, or a forced-mediation PEP
 
@@ -117,4 +117,4 @@ There is no protected side effect in this crate. A process that can reach a capa
 
 ## Next implementation
 
-Commit and exact-commit verify slice 3.3, then continue with bounded slice 3.4: approval resolution, authority-generated authorization, and approval expiry. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Continue with bounded slice 3.4: approval resolution, authority-generated authorization, and approval expiry. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
