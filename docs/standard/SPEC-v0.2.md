@@ -203,7 +203,7 @@ Caller-declared risk is advisory. Policy derives authoritative risk. `effective_
 
 The PEP computes `executed_action_hash` over the operation it is about to perform, not over the original request object.
 
-Every successful claim MUST reach one durable terminal Execution Receipt. Slice 2.3 specifies the schema. The receipt MUST at least bind:
+Every successful claim MUST reach one durable terminal Execution Receipt. Slice 3.6 closes the previously provisional schema. The receipt MUST at least bind:
 
 - execution and claim ids;
 - authorization and decision receipt ids;
@@ -405,7 +405,7 @@ If the PEP may have performed the side effect but no durable completion receipt 
 
 `glass.*` aliases are **not** part of 0.2 Minimum. Product aliases MAY exist as extensions; 0.2 conformance uses `tlpx.*` only.
 
-The `tlpx.execution` row above names the planned record family, but its current schema is provisional and is not established as complete by accepted 2.3 conformance. The lifecycle's `RECONCILIATION_REQUIRED` value is intentionally unresolved here: a later contract delta MUST decide whether it is an emitted receipt state or authority-process state before scheming it. Implementations MUST NOT privately add fields or states and call them 0.2 Minimum.
+`tlpx.execution` is a terminal receipt, not a mutable execution-process row. `EXECUTION_OUTCOME_UNKNOWN` and `RECONCILIATION_REQUIRED` are durable authority-process states and MUST NOT appear as receipt states. Reconciliation emits exactly one later terminal receipt in `COMPLETED_CONFIRMED`, `FAILED_CONFIRMED`, or `OUTCOME_UNKNOWN_FINAL`. Implementations MUST NOT rewrite an earlier receipt or automatically replay an irreversible action.
 
 ### 8.1 Decision record (normative fields)
 
@@ -506,16 +506,17 @@ The initial Rust approval profile durably retains canonical Authorized Action co
 
 The accepted operator-action schema has no expiry outcome. The local 3.4 candidate therefore stores `APPROVAL_EXPIRED` and its trusted sequence transactionally but emits no private portable expiry record. This is an explicit evidence gap, not 0.2 conformance for approval-expiry evidence.
 
-### 8.5 Deferred execution and revocation evidence
+### 8.5 Execution receipt closure and deferred revocation evidence
 
-The accepted 2.3 core does not yet define complete execution, cancellation/reconciliation, or revocation evidence. In particular:
+The accepted 2.3 core did not define complete execution, cancellation/reconciliation, or revocation evidence. Slice 3.6 closes the execution-receipt shape as follows:
 
-- the provisional execution schema does not yet close the bounded-result and audit-integrity requirements from §4.3;
-- cancellation distinctions from §7.4 are not yet represented;
-- `RECONCILIATION_REQUIRED` has not yet been classified as an emitted receipt state or authority-process state;
+- every terminal receipt requires at least one non-empty bounded result summary, result digest, or external evidence reference;
+- audit integrity remains an evidence-envelope/storage property and MUST NOT be copied into private receipt fields;
+- cancellation receipts name the observed cancellation outcome from §7.4;
+- `EXECUTION_OUTCOME_UNKNOWN` and `RECONCILIATION_REQUIRED` are authority-process states, not terminal receipt states; and
 - there is no accepted `tlpx.revocation` record or immutable successor-evidence shape.
 
-Sealing is an evidence envelope/storage property unless a later explicit contract revision says otherwise. Implementations MUST NOT bolt a private seal hash onto `tlpx.execution` or mutate an issuance record into revocation evidence and claim Minimum conformance. These contracts should close with their emitter/state implementation and dedicated conformance cases.
+Implementations MUST NOT bolt a private seal hash onto `tlpx.execution` or mutate an issuance record into revocation evidence and claim Minimum conformance. The execution contract is not accepted merely because it is drafted or builder-tested; runtime and independent conformance evidence remain required. Revocation evidence still must close with a later emitter and dedicated conformance cases.
 
 ---
 
@@ -568,6 +569,17 @@ Slice 2.3 publishes the full catalog. The following codes are already normative 
 | `POLICY_INACTIVE` | Issuing policy is no longer active at claim |
 | `AUTHORIZATION_SCOPE_DENIED` | Presented target is outside stored resource scope |
 | `AUTHORIZATION_CAPABILITY_DENIED` | Presented adapter is outside stored capability |
+| `EXECUTION_CLAIM_INVALID` | No durable successful claim exists for the requested execution |
+| `EXECUTION_TIME_INVALID` | Execution or reconciliation timestamps violate trusted ordering |
+| `EXECUTION_LEASE_ACTIVE` | Recovery was requested before the execution lease expired |
+| `EXECUTION_RESULT_INVALID` | Terminal result evidence is absent, unbounded, malformed, or inconsistent with cancellation state |
+| `EXECUTION_STATE_INVALID` | Requested transition is not valid for that actor or lifecycle stage |
+| `EXECUTION_TERMINAL` | A terminal execution outcome already exists |
+| `EXECUTION_NOT_FOUND` | The named execution does not exist |
+| `EXECUTION_OUTCOME_NOT_UNKNOWN` | Reconciliation was requested before an unknown outcome was established |
+| `RECONCILIATION_REQUIRED` | Direct completion is forbidden after an unknown outcome |
+| `RECONCILIATION_NOT_READY` | A final reconciliation result was supplied before the reconciliation-required state |
+| `ADAPTER_INTEGRITY_INVALID` | Adapter binary identity/digest is malformed or cannot be trusted |
 
 ### 9.4 Operator-action blocks
 

@@ -15,6 +15,7 @@ pub enum LocalRole {
     Operator,
     Executor,
     EmergencyCanceller,
+    Reconciler,
 }
 
 #[derive(Debug, Clone)]

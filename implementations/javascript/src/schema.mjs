@@ -82,7 +82,6 @@ function walk(schema, value, root, path, errors) {
       return inner.length === 0;
     });
     if (!ok) errors.push(`${path}: does not match anyOf`);
-    return;
   }
   if (schema.allOf) {
     for (const sub of schema.allOf) walk(sub, value, root, path, errors);
@@ -116,6 +115,9 @@ function walk(schema, value, root, path, errors) {
   if (typeof value === "string") {
     if (schema.minLength != null && value.length < schema.minLength) {
       errors.push(`${path}: shorter than ${schema.minLength}`);
+    }
+    if (schema.maxLength != null && value.length > schema.maxLength) {
+      errors.push(`${path}: longer than ${schema.maxLength}`);
     }
     if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
       errors.push(`${path}: does not match ${schema.pattern}`);

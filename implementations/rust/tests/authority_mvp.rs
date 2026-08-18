@@ -7,11 +7,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
     exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation, ApprovalState,
     AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, AuthzState,
-    CancellationReason, CancellationRole, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
-    EvidenceConfig, ExecutedAction, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
-    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
-    PolicyIssuerType, PolicyRule, Principal, RevocationReason, RevocationScope, Risk,
-    SubmittedIntent, Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    CancellationOutcome, CancellationReason, CancellationRole, CapabilityRegistry,
+    ConfiguredPolicyBundle, Decision, EvidenceConfig, ExecutedAction, ExecutionResultEvidence,
+    ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, RevocationReason, RevocationScope, Risk, SubmittedIntent, Switchboard, Value,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -1702,6 +1703,433 @@ fn authorization_revocation_and_claim_have_one_transactional_winner() {
         (Err(error), Ok(_)) => assert_eq!(error.code(), "AUTHORIZATION_REVOKED"),
         _ => unreachable!(),
     }
+    clean_db(&path);
+}
+
+fn execution_result(summary: &str) -> ExecutionResultEvidence {
+    ExecutionResultEvidence {
+        result_summary: Some(summary.into()),
+        result_hash: None,
+        external_evidence_reference: None,
+    }
+}
+
+fn executor_identity() -> AuthenticatedIdentity {
+    authenticated_identity(
+        "runtime.mailer",
+        PartyType::Machine,
+        vec![LocalRole::Executor],
+        vec![],
+    )
+}
+
+fn reconciler_identity() -> AuthenticatedIdentity {
+    authenticated_identity(
+        "authority.reconciler",
+        PartyType::Machine,
+        vec![LocalRole::Reconciler],
+        vec![],
+    )
+}
+
+#[test]
+fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-execution"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let executor = executor_identity();
+    let lease = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            Some(&hash('9')),
+            &executor,
+            NOW + 2,
+        )
+        .unwrap();
+    assert_eq!(lease.state, ExecutionState::Started);
+    let retry = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            Some(&hash('9')),
+            &executor,
+            NOW + 3,
+        )
+        .unwrap();
+    assert_eq!(retry, lease);
+    let conflict = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            "different-key",
+            Some(&hash('9')),
+            &executor,
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(conflict.code(), "IDEMPOTENCY_CONFLICT");
+
+    let result = execution_result("protected system confirmed completion");
+    let receipt = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Completed,
+            result.clone(),
+            None,
+            NOW + 4,
+        )
+        .unwrap();
+    assert_eq!(receipt.state, ExecutionState::Completed);
+    assert_eq!(receipt.adapter_binary_hash, Some(hash('9')));
+    let terminal_retry = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Completed,
+            result,
+            None,
+            NOW + 4,
+        )
+        .unwrap();
+    assert_eq!(terminal_retry, receipt);
+    let changed = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Failed,
+            execution_result("changed retry"),
+            None,
+            NOW + 4,
+        )
+        .unwrap_err();
+    assert_eq!(changed.code(), "IDEMPOTENCY_CONFLICT");
+    let resumed = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            Some(&hash('9')),
+            &executor,
+            NOW + 5,
+        )
+        .unwrap();
+    assert_eq!(resumed.state, ExecutionState::Completed);
+    assert!(authority
+        .pending_evidence(100)
+        .unwrap()
+        .iter()
+        .any(|row| row.record_type == "tlpx.execution"));
+}
+
+#[test]
+fn execution_result_identity_and_cancellation_fail_closed() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-exec-invalid"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let executor = executor_identity();
+    let lease = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            None,
+            &executor,
+            NOW + 2,
+        )
+        .unwrap();
+    let empty = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Completed,
+            ExecutionResultEvidence {
+                result_summary: None,
+                result_hash: None,
+                external_evidence_reference: None,
+            },
+            None,
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(empty.code(), "EXECUTION_RESULT_INVALID");
+    let wrong_cancel = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Cancelled,
+            execution_result("cancelled"),
+            None,
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(wrong_cancel.code(), "EXECUTION_RESULT_INVALID");
+    let other = authenticated_identity(
+        "runtime.other",
+        PartyType::Machine,
+        vec![LocalRole::Executor],
+        vec![],
+    );
+    let wrong_executor = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &other,
+            ExecutionState::Failed,
+            execution_result("failed"),
+            None,
+            NOW + 3,
+        )
+        .unwrap_err();
+    assert_eq!(wrong_executor.code(), "EXECUTOR_MISMATCH");
+    let cancelled = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor,
+            ExecutionState::Cancelled,
+            execution_result("stopped before external acceptance"),
+            Some(CancellationOutcome::CancelledBeforeSideEffect),
+            NOW + 3,
+        )
+        .unwrap();
+    assert_eq!(cancelled.state, ExecutionState::Cancelled);
+}
+
+#[test]
+fn unknown_outcome_requires_reconciliation_and_never_reopens() {
+    let path = temp_db("execution-reconciliation");
+    let (issued, claim, lease) = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-unknown"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap();
+        let claim = authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap();
+        let lease = authority
+            .begin_execution_authenticated_at(
+                &claim.claim_id,
+                &issued.idempotency_key,
+                None,
+                &executor_identity(),
+                NOW + 2,
+            )
+            .unwrap();
+        authority
+            .mark_execution_outcome_unknown_authenticated_at(
+                &lease.execution_id,
+                &executor_identity(),
+                NOW + 3,
+            )
+            .unwrap();
+        (issued, claim, lease)
+    };
+    let authority = Authority::open(&path, config()).unwrap();
+    assert_eq!(
+        authority.execution_state(&lease.execution_id).unwrap(),
+        Some(ExecutionState::ExecutionOutcomeUnknown)
+    );
+    let direct_finish = authority
+        .finish_execution_authenticated_at(
+            &lease.execution_id,
+            &executor_identity(),
+            ExecutionState::Completed,
+            execution_result("must not bypass reconciliation"),
+            None,
+            NOW + 4,
+        )
+        .unwrap_err();
+    assert_eq!(direct_finish.code(), "RECONCILIATION_REQUIRED");
+    let reconciler = reconciler_identity();
+    authority
+        .require_reconciliation_authenticated_at(&lease.execution_id, &reconciler, NOW + 4)
+        .unwrap();
+    let result = ExecutionResultEvidence {
+        result_summary: Some("external status could not be established".into()),
+        result_hash: None,
+        external_evidence_reference: Some("incident:unknown-1".into()),
+    };
+    let receipt = authority
+        .reconcile_execution_authenticated_at(
+            &lease.execution_id,
+            &reconciler,
+            ExecutionState::OutcomeUnknownFinal,
+            result.clone(),
+            NOW + 5,
+        )
+        .unwrap();
+    assert_eq!(receipt.state, ExecutionState::OutcomeUnknownFinal);
+    let retry = authority
+        .reconcile_execution_authenticated_at(
+            &lease.execution_id,
+            &reconciler,
+            ExecutionState::OutcomeUnknownFinal,
+            result,
+            NOW + 5,
+        )
+        .unwrap();
+    assert_eq!(retry, receipt);
+    let begin_retry = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            None,
+            &executor_identity(),
+            NOW + 6,
+        )
+        .unwrap();
+    assert_eq!(begin_retry.state, ExecutionState::OutcomeUnknownFinal);
+    drop(authority);
+    clean_db(&path);
+}
+
+#[test]
+fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let unstarted = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-unstarted-expiry"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let unstarted_claim = authority
+        .claim_at(
+            &unstarted.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let recovered = authority
+        .recover_expired_claim_at(
+            &unstarted_claim.claim_id,
+            unstarted_claim.lease_expires_at_ms,
+        )
+        .unwrap();
+    assert_eq!(recovered, ExecutionState::LeaseExpired);
+
+    let started = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-started-expiry"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let started_claim = authority
+        .claim_at(
+            &started.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let lease = authority
+        .begin_execution_authenticated_at(
+            &started_claim.claim_id,
+            &started.idempotency_key,
+            None,
+            &executor_identity(),
+            NOW + 2,
+        )
+        .unwrap();
+    let recovered = authority
+        .recover_expired_claim_at(&started_claim.claim_id, started_claim.lease_expires_at_ms)
+        .unwrap();
+    assert_eq!(recovered, ExecutionState::ExecutionOutcomeUnknown);
+    assert_eq!(
+        authority.execution_state(&lease.execution_id).unwrap(),
+        Some(ExecutionState::ExecutionOutcomeUnknown)
+    );
+}
+
+#[test]
+fn separate_connections_have_one_terminal_execution_winner() {
+    let path = temp_db("execution-terminal-race");
+    let (execution_id, ended_at_ms) = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-terminal-race"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap();
+        let claim = authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap();
+        let lease = authority
+            .begin_execution_authenticated_at(
+                &claim.claim_id,
+                &issued.idempotency_key,
+                None,
+                &executor_identity(),
+                NOW + 2,
+            )
+            .unwrap();
+        (lease.execution_id, NOW + 3)
+    };
+    let authorities = [
+        Authority::open(&path, config()).unwrap(),
+        Authority::open(&path, config()).unwrap(),
+    ];
+    let barrier = Arc::new(Barrier::new(3));
+    let mut handles = Vec::new();
+    for (state, authority) in [ExecutionState::Completed, ExecutionState::Failed]
+        .into_iter()
+        .zip(authorities)
+    {
+        let barrier = Arc::clone(&barrier);
+        let execution_id = execution_id.clone();
+        handles.push(thread::spawn(move || {
+            let executor = executor_identity();
+            barrier.wait();
+            authority.finish_execution_authenticated_at(
+                &execution_id,
+                &executor,
+                state,
+                execution_result(if state == ExecutionState::Completed {
+                    "completed"
+                } else {
+                    "failed"
+                }),
+                None,
+                ended_at_ms,
+            )
+        }));
+    }
+    barrier.wait();
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect();
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
     clean_db(&path);
 }
 

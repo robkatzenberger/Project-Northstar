@@ -35,7 +35,8 @@ const kindByType = new Map([
   ["tlpx.evaluation_error", "evaluation-error"],
   ["tlpx.operator_action", "operator-action"],
   ["tlpx.authorization", "authorization"],
-  ["tlpx.authorization_claim", "authorization-claim"]
+  ["tlpx.authorization_claim", "authorization-claim"],
+  ["tlpx.execution", "execution"]
 ]);
 const lines = run.stdout.trim().split("\n").filter(Boolean);
 const seen = new Set();
@@ -86,8 +87,8 @@ if (approvals !== 1) {
   console.log(`  FAIL  expected one schema-valid APPROVE record, got ${approvals}`);
   failures += 1;
 }
-if (lines.length !== 9) {
-  console.log(`  FAIL  expected 9 bounded records, got ${lines.length}`);
+if (lines.length !== 10) {
+  console.log(`  FAIL  expected 10 bounded records, got ${lines.length}`);
   failures += 1;
 }
 

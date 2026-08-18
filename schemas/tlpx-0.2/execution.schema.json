@@ -22,10 +22,15 @@
     "policy_bundle_version",
     "policy_bundle_hash",
     "adapter",
+    "adapter_binary_hash",
     "sequence",
     "started_at",
     "ended_at",
-    "state"
+    "state",
+    "result_summary",
+    "result_hash",
+    "external_evidence_reference",
+    "cancellation_outcome"
   ],
   "properties": {
     "record_type": { "const": "tlpx.execution" },
@@ -45,6 +50,9 @@
     "policy_bundle_version": { "type": "string", "minLength": 1 },
     "policy_bundle_hash": { "$ref": "common.schema.json#/$defs/hashString" },
     "adapter": { "$ref": "common.schema.json#/$defs/adapter" },
+    "adapter_binary_hash": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
     "sequence": { "$ref": "common.schema.json#/$defs/sequence" },
     "started_at": { "$ref": "common.schema.json#/$defs/isoTime" },
     "ended_at": { "$ref": "common.schema.json#/$defs/isoTime" },
@@ -54,15 +62,34 @@
         "FAILED",
         "CANCELLED",
         "LEASE_EXPIRED",
-        "EXECUTION_OUTCOME_UNKNOWN",
         "COMPLETED_CONFIRMED",
         "FAILED_CONFIRMED",
         "OUTCOME_UNKNOWN_FINAL"
       ]
     },
-    "result_summary": { "type": ["string", "null"] },
+    "result_summary": { "type": ["string", "null"], "maxLength": 2048 },
     "result_hash": {
       "anyOf": [{ "$ref": "common.schema.json#/$defs/hashString" }, { "type": "null" }]
+    },
+    "external_evidence_reference": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "cancellation_outcome": {
+      "enum": [
+        null,
+        "CANCELLED_BEFORE_SIDE_EFFECT",
+        "CANCELLATION_REQUESTED",
+        "CANCELLED_DURING_EXECUTION",
+        "CANCELLATION_UNSUPPORTED",
+        "COMPLETED_BEFORE_CANCELLATION"
+      ]
     }
-  }
+  },
+  "anyOf": [
+    { "properties": { "result_summary": { "type": "string", "minLength": 1 } } },
+    { "properties": { "result_hash": { "$ref": "common.schema.json#/$defs/hashString" } } },
+    { "properties": { "external_evidence_reference": { "type": "string", "minLength": 1 } } }
+  ]
 }

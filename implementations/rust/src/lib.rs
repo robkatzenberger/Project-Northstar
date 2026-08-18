@@ -15,9 +15,10 @@ pub mod types;
 
 pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
-    Authority, AuthorityConfig, AuthzState, CancellationReason, CancellationRecord,
-    CancellationRole, ClaimRecord, EvaluationOutcome, IssuedAuthorization, PendingApprovalView,
-    Retryability, RevocationReason, RevocationRecord, RevocationScope,
+    Authority, AuthorityConfig, AuthzState, CancellationOutcome, CancellationReason,
+    CancellationRecord, CancellationRole, ClaimRecord, EvaluationOutcome, ExecutionLease,
+    ExecutionReceipt, ExecutionResultEvidence, ExecutionState, IssuedAuthorization,
+    PendingApprovalView, Retryability, RevocationReason, RevocationRecord, RevocationScope,
 };
 pub use error::{Error, Result};
 pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};

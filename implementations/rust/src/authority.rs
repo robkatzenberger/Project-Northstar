@@ -30,7 +30,7 @@ pub enum AuthzState {
 }
 
 impl AuthzState {
-    pub(crate) fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::AuthorizedUnclaimed => "AUTHORIZED_UNCLAIMED",
             Self::Claimed => "CLAIMED",
@@ -136,6 +136,7 @@ pub struct IssuedAuthorization {
     pub environment: String,
     pub tenant: String,
     pub authorization_nonce: String,
+    pub idempotency_key: String,
     pub issued_at_ms: i64,
     pub claim_expires_at_ms: i64,
     pub execution_lease_ms: i64,
@@ -236,6 +237,182 @@ pub struct RevocationRecord {
     pub revoking_principal: String,
     pub reason: RevocationReason,
     pub revoked_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionState {
+    Started,
+    ExecutionOutcomeUnknown,
+    ReconciliationRequired,
+    Completed,
+    Failed,
+    Cancelled,
+    LeaseExpired,
+    CompletedConfirmed,
+    FailedConfirmed,
+    OutcomeUnknownFinal,
+}
+
+impl ExecutionState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Started => "STARTED",
+            Self::ExecutionOutcomeUnknown => "EXECUTION_OUTCOME_UNKNOWN",
+            Self::ReconciliationRequired => "RECONCILIATION_REQUIRED",
+            Self::Completed => "COMPLETED",
+            Self::Failed => "FAILED",
+            Self::Cancelled => "CANCELLED",
+            Self::LeaseExpired => "LEASE_EXPIRED",
+            Self::CompletedConfirmed => "COMPLETED_CONFIRMED",
+            Self::FailedConfirmed => "FAILED_CONFIRMED",
+            Self::OutcomeUnknownFinal => "OUTCOME_UNKNOWN_FINAL",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self> {
+        match value {
+            "STARTED" => Ok(Self::Started),
+            "EXECUTION_OUTCOME_UNKNOWN" => Ok(Self::ExecutionOutcomeUnknown),
+            "RECONCILIATION_REQUIRED" => Ok(Self::ReconciliationRequired),
+            "COMPLETED" => Ok(Self::Completed),
+            "FAILED" => Ok(Self::Failed),
+            "CANCELLED" => Ok(Self::Cancelled),
+            "LEASE_EXPIRED" => Ok(Self::LeaseExpired),
+            "COMPLETED_CONFIRMED" => Ok(Self::CompletedConfirmed),
+            "FAILED_CONFIRMED" => Ok(Self::FailedConfirmed),
+            "OUTCOME_UNKNOWN_FINAL" => Ok(Self::OutcomeUnknownFinal),
+            _ => Err(Error::authority(format!("unknown execution state {value}"))),
+        }
+    }
+
+    pub(crate) fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Completed
+                | Self::Failed
+                | Self::Cancelled
+                | Self::LeaseExpired
+                | Self::CompletedConfirmed
+                | Self::FailedConfirmed
+                | Self::OutcomeUnknownFinal
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CancellationOutcome {
+    CancelledBeforeSideEffect,
+    CancellationRequested,
+    CancelledDuringExecution,
+    CancellationUnsupported,
+    CompletedBeforeCancellation,
+}
+
+impl CancellationOutcome {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::CancelledBeforeSideEffect => "CANCELLED_BEFORE_SIDE_EFFECT",
+            Self::CancellationRequested => "CANCELLATION_REQUESTED",
+            Self::CancelledDuringExecution => "CANCELLED_DURING_EXECUTION",
+            Self::CancellationUnsupported => "CANCELLATION_UNSUPPORTED",
+            Self::CompletedBeforeCancellation => "COMPLETED_BEFORE_CANCELLATION",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self> {
+        match value {
+            "CANCELLED_BEFORE_SIDE_EFFECT" => Ok(Self::CancelledBeforeSideEffect),
+            "CANCELLATION_REQUESTED" => Ok(Self::CancellationRequested),
+            "CANCELLED_DURING_EXECUTION" => Ok(Self::CancelledDuringExecution),
+            "CANCELLATION_UNSUPPORTED" => Ok(Self::CancellationUnsupported),
+            "COMPLETED_BEFORE_CANCELLATION" => Ok(Self::CompletedBeforeCancellation),
+            _ => Err(Error::authority(format!(
+                "unknown cancellation outcome {value}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionResultEvidence {
+    pub result_summary: Option<String>,
+    pub result_hash: Option<String>,
+    pub external_evidence_reference: Option<String>,
+}
+
+impl ExecutionResultEvidence {
+    fn validate(&self) -> Result<()> {
+        if self
+            .result_summary
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.chars().count() > 2_048)
+            || self
+                .external_evidence_reference
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.chars().count() > 2_048)
+        {
+            return Err(Error::coded(
+                "EXECUTION_RESULT_INVALID",
+                "result summary and external evidence reference must be non-empty and bounded",
+            ));
+        }
+        if let Some(result_hash) = &self.result_hash {
+            assert_hash_string(result_hash).map_err(|_| {
+                Error::coded(
+                    "EXECUTION_RESULT_INVALID",
+                    "result hash must be a canonical sha256 digest",
+                )
+            })?;
+        }
+        if self.result_summary.is_none()
+            && self.result_hash.is_none()
+            && self.external_evidence_reference.is_none()
+        {
+            return Err(Error::coded(
+                "EXECUTION_RESULT_INVALID",
+                "terminal execution requires bounded result evidence",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionLease {
+    pub execution_id: String,
+    pub claim_id: String,
+    pub authorization_id: String,
+    pub idempotency_key: String,
+    pub executing_principal: String,
+    pub started_at_ms: i64,
+    pub lease_expires_at_ms: i64,
+    pub state: ExecutionState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionReceipt {
+    pub execution_id: String,
+    pub claim_id: String,
+    pub authorization_id: String,
+    pub receipt_id: String,
+    pub requesting_principal: String,
+    pub executing_principal: String,
+    pub intent_hash: String,
+    pub authorized_action_hash: String,
+    pub executed_action_hash: String,
+    pub target: String,
+    pub policy_bundle_id: String,
+    pub policy_bundle_version: String,
+    pub policy_bundle_hash: String,
+    pub adapter_id: String,
+    pub adapter_version: String,
+    pub adapter_binary_hash: Option<String>,
+    pub sequence: i64,
+    pub started_at_ms: i64,
+    pub ended_at_ms: i64,
+    pub state: ExecutionState,
+    pub result: ExecutionResultEvidence,
+    pub cancellation_outcome: Option<CancellationOutcome>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -600,6 +777,57 @@ impl Authority {
                    revoked_at_ms INTEGER NOT NULL CHECK(revoked_at_ms >= 0),
                    UNIQUE(scope_type, scope_id)
                  );
+                 CREATE TABLE IF NOT EXISTS tlpx_executions (
+                   execution_id TEXT PRIMARY KEY,
+                   claim_id TEXT NOT NULL UNIQUE REFERENCES tlpx_claims(claim_id),
+                   authorization_id TEXT NOT NULL REFERENCES tlpx_authorizations(authorization_id),
+                   receipt_id TEXT NOT NULL REFERENCES tlpx_evaluations(receipt_id),
+                   idempotency_key TEXT NOT NULL UNIQUE,
+                   requesting_principal TEXT NOT NULL,
+                   executing_principal TEXT NOT NULL,
+                   intent_hash TEXT NOT NULL,
+                   authorized_action_hash TEXT NOT NULL,
+                   executed_action_hash TEXT NOT NULL,
+                   target TEXT NOT NULL,
+                   policy_bundle_id TEXT NOT NULL,
+                   policy_bundle_version TEXT NOT NULL,
+                   policy_bundle_hash TEXT NOT NULL,
+                   adapter_id TEXT NOT NULL,
+                   adapter_version TEXT NOT NULL,
+                   adapter_binary_hash TEXT,
+                   started_at_ms INTEGER NOT NULL,
+                   lease_expires_at_ms INTEGER NOT NULL,
+                   state TEXT NOT NULL CHECK(state IN (
+                     'STARTED','EXECUTION_OUTCOME_UNKNOWN','RECONCILIATION_REQUIRED',
+                     'COMPLETED','FAILED','CANCELLED','LEASE_EXPIRED',
+                     'COMPLETED_CONFIRMED','FAILED_CONFIRMED','OUTCOME_UNKNOWN_FINAL'
+                   )),
+                   outcome_unknown_at_ms INTEGER,
+                   reconciliation_required_at_ms INTEGER,
+                   terminal_sequence INTEGER UNIQUE,
+                   ended_at_ms INTEGER,
+                   result_summary TEXT,
+                   result_hash TEXT,
+                   external_evidence_reference TEXT,
+                   cancellation_outcome TEXT CHECK(cancellation_outcome IS NULL OR cancellation_outcome IN (
+                     'CANCELLED_BEFORE_SIDE_EFFECT','CANCELLATION_REQUESTED',
+                     'CANCELLED_DURING_EXECUTION','CANCELLATION_UNSUPPORTED',
+                     'COMPLETED_BEFORE_CANCELLATION'
+                   )),
+                   CHECK(lease_expires_at_ms > started_at_ms),
+                   CHECK(
+                     (state IN ('STARTED','EXECUTION_OUTCOME_UNKNOWN','RECONCILIATION_REQUIRED')
+                       AND terminal_sequence IS NULL AND ended_at_ms IS NULL
+                       AND result_summary IS NULL AND result_hash IS NULL
+                       AND external_evidence_reference IS NULL AND cancellation_outcome IS NULL)
+                     OR
+                     (state IN ('COMPLETED','FAILED','CANCELLED','LEASE_EXPIRED',
+                                'COMPLETED_CONFIRMED','FAILED_CONFIRMED','OUTCOME_UNKNOWN_FINAL')
+                       AND terminal_sequence IS NOT NULL AND ended_at_ms IS NOT NULL
+                       AND (result_summary IS NOT NULL OR result_hash IS NOT NULL
+                            OR external_evidence_reference IS NOT NULL))
+                   )
+                 );
                  CREATE TABLE IF NOT EXISTS tlpx_evidence_outbox (
                    outbox_id INTEGER PRIMARY KEY AUTOINCREMENT,
                    authority_sequence INTEGER NOT NULL CHECK(authority_sequence >= 1),
@@ -607,7 +835,7 @@ impl Authority {
                    record_type TEXT NOT NULL CHECK(record_type IN (
                      'tlpx.decision', 'tlpx.evaluation_error',
                      'tlpx.authorization', 'tlpx.authorization_claim',
-                     'tlpx.operator_action'
+                     'tlpx.operator_action', 'tlpx.execution'
                    )),
                    source_id TEXT NOT NULL,
                    record_json TEXT NOT NULL,
@@ -1081,6 +1309,518 @@ impl Authority {
         )?;
         transaction.commit().map_err(db_error)?;
         Ok(claim)
+    }
+
+    /// Durably opens one execution attempt before a protected side effect may
+    /// begin. Repeating the exact request returns the existing state.
+    pub fn begin_execution_authenticated_at(
+        &self,
+        claim_id: &str,
+        idempotency_key: &str,
+        adapter_binary_hash: Option<&str>,
+        executor: &AuthenticatedIdentity,
+        started_at_ms: i64,
+    ) -> Result<ExecutionLease> {
+        executor.require_role(LocalRole::Executor)?;
+        if let Some(binary_hash) = adapter_binary_hash {
+            assert_hash_string(binary_hash)
+                .map_err(|_| Error::coded("ADAPTER_INTEGRITY_INVALID", "invalid binary hash"))?;
+        }
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        if let Some(existing) = load_execution_by_claim(&transaction, claim_id)? {
+            if existing.idempotency_key != idempotency_key
+                || existing.executing_principal != executor.principal_id()
+                || existing.adapter_binary_hash.as_deref() != adapter_binary_hash
+            {
+                return Err(Error::coded(
+                    "IDEMPOTENCY_CONFLICT",
+                    "execution retry differs from the durable attempt",
+                ));
+            }
+            return Ok(existing.lease());
+        }
+        let context = load_claim_execution_context(&transaction, claim_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_CLAIM_INVALID", "claim does not exist"))?;
+        if context.executing_principal != executor.principal_id() {
+            return Err(Error::claim("EXECUTOR_MISMATCH"));
+        }
+        let expected_idempotency_key = evidence::authorization_idempotency_key(
+            &context.authorization_id,
+            &context.executing_principal,
+            &context.authorized_action_hash,
+        )?;
+        if idempotency_key != expected_idempotency_key {
+            return Err(Error::coded(
+                "IDEMPOTENCY_CONFLICT",
+                "execution idempotency key is not bound to this authorization",
+            ));
+        }
+        if started_at_ms < context.claimed_at_ms {
+            return Err(Error::coded(
+                "EXECUTION_TIME_INVALID",
+                "execution cannot start before claim",
+            ));
+        }
+        let (policy_bundle_id, policy_bundle_version) =
+            policy_identity_for_hash(&self.config, &context.policy_bundle_hash)?;
+        let execution_id = random_id("execution")?;
+        let late = started_at_ms >= context.lease_expires_at_ms;
+        let stored_started_at_ms = if late {
+            context.claimed_at_ms
+        } else {
+            started_at_ms
+        };
+        transaction
+            .execute(
+                "INSERT INTO tlpx_executions (
+                   execution_id, claim_id, authorization_id, receipt_id, idempotency_key,
+                   requesting_principal, executing_principal, intent_hash,
+                   authorized_action_hash, executed_action_hash, target,
+                   policy_bundle_id, policy_bundle_version, policy_bundle_hash,
+                   adapter_id, adapter_version, adapter_binary_hash,
+                   started_at_ms, lease_expires_at_ms, state,
+                   outcome_unknown_at_ms, reconciliation_required_at_ms,
+                   terminal_sequence, ended_at_ms, result_summary, result_hash,
+                   external_evidence_reference, cancellation_outcome
+                 ) VALUES (
+                   ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+                   ?15, ?16, ?17, ?18, ?19, ?20, NULL, NULL, ?21, ?22, ?23, NULL, NULL, NULL
+                 )",
+                params![
+                    execution_id,
+                    context.claim_id,
+                    context.authorization_id,
+                    context.receipt_id,
+                    idempotency_key,
+                    context.requesting_principal,
+                    context.executing_principal,
+                    context.intent_hash,
+                    context.authorized_action_hash,
+                    context.executed_action_hash,
+                    context.target,
+                    policy_bundle_id,
+                    policy_bundle_version,
+                    context.policy_bundle_hash,
+                    context.adapter_id,
+                    context.adapter_version,
+                    adapter_binary_hash,
+                    stored_started_at_ms,
+                    context.lease_expires_at_ms,
+                    if late { "LEASE_EXPIRED" } else { "STARTED" },
+                    if late {
+                        Some(next_sequence(&transaction)?)
+                    } else {
+                        None
+                    },
+                    if late { Some(started_at_ms) } else { None },
+                    if late {
+                        Some("claim lease expired before protected execution began")
+                    } else {
+                        None
+                    },
+                ],
+            )
+            .map_err(db_error)?;
+        let stored = load_execution_by_id(&transaction, &execution_id)?
+            .ok_or_else(|| Error::authority("inserted execution is missing"))?;
+        if late {
+            let receipt = stored.receipt()?;
+            let record = evidence::execution_record(&receipt)?;
+            evidence::enqueue(
+                &transaction,
+                &self.config.evidence,
+                receipt.sequence,
+                0,
+                "tlpx.execution",
+                &receipt.execution_id,
+                &record,
+            )?;
+        }
+        transaction.commit().map_err(db_error)?;
+        Ok(stored.lease())
+    }
+
+    pub fn finish_execution_authenticated_at(
+        &self,
+        execution_id: &str,
+        executor: &AuthenticatedIdentity,
+        terminal_state: ExecutionState,
+        result: ExecutionResultEvidence,
+        cancellation_outcome: Option<CancellationOutcome>,
+        ended_at_ms: i64,
+    ) -> Result<ExecutionReceipt> {
+        executor.require_role(LocalRole::Executor)?;
+        if !matches!(
+            terminal_state,
+            ExecutionState::Completed | ExecutionState::Failed | ExecutionState::Cancelled
+        ) {
+            return Err(Error::coded(
+                "EXECUTION_STATE_INVALID",
+                "executor may finish only as COMPLETED, FAILED, or CANCELLED",
+            ));
+        }
+        validate_terminal_execution_input(terminal_state, &result, cancellation_outcome)?;
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let stored = load_execution_by_id(&transaction, execution_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
+        if stored.executing_principal != executor.principal_id() {
+            return Err(Error::claim("EXECUTOR_MISMATCH"));
+        }
+        if stored.state.is_terminal() {
+            let receipt = stored.receipt()?;
+            if receipt.state == terminal_state
+                && receipt.result == result
+                && receipt.cancellation_outcome == cancellation_outcome
+                && receipt.ended_at_ms == ended_at_ms
+            {
+                return Ok(receipt);
+            }
+            return Err(Error::coded(
+                "IDEMPOTENCY_CONFLICT",
+                "terminal execution retry differs from the durable receipt",
+            ));
+        }
+        if stored.state != ExecutionState::Started {
+            return Err(Error::coded(
+                "RECONCILIATION_REQUIRED",
+                "unknown execution outcome must be reconciled, not directly finished",
+            ));
+        }
+        let receipt = finalize_execution(
+            &transaction,
+            &self.config,
+            stored,
+            terminal_state,
+            result,
+            cancellation_outcome,
+            ended_at_ms,
+        )?;
+        transaction.commit().map_err(db_error)?;
+        Ok(receipt)
+    }
+
+    pub fn mark_execution_outcome_unknown_authenticated_at(
+        &self,
+        execution_id: &str,
+        actor: &AuthenticatedIdentity,
+        observed_at_ms: i64,
+    ) -> Result<ExecutionState> {
+        if !actor.has_role(LocalRole::Executor) && !actor.has_role(LocalRole::Reconciler) {
+            return Err(Error::coded(
+                "AUTHENTICATION_FAILED",
+                "authenticated local principal lacks executor or reconciler role",
+            ));
+        }
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let stored = load_execution_by_id(&transaction, execution_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
+        if actor.has_role(LocalRole::Executor)
+            && stored.executing_principal != actor.principal_id()
+            && !actor.has_role(LocalRole::Reconciler)
+        {
+            return Err(Error::claim("EXECUTOR_MISMATCH"));
+        }
+        match stored.state {
+            ExecutionState::Started => {
+                if observed_at_ms < stored.started_at_ms {
+                    return Err(Error::coded(
+                        "EXECUTION_TIME_INVALID",
+                        "unknown outcome cannot precede execution start",
+                    ));
+                }
+                transaction
+                    .execute(
+                        "UPDATE tlpx_executions
+                         SET state = 'EXECUTION_OUTCOME_UNKNOWN', outcome_unknown_at_ms = ?1
+                         WHERE execution_id = ?2 AND state = 'STARTED'",
+                        params![observed_at_ms, execution_id],
+                    )
+                    .map_err(db_error)?;
+                transaction.commit().map_err(db_error)?;
+                Ok(ExecutionState::ExecutionOutcomeUnknown)
+            }
+            ExecutionState::ExecutionOutcomeUnknown | ExecutionState::ReconciliationRequired => {
+                Ok(stored.state)
+            }
+            _ => Err(Error::coded(
+                "EXECUTION_TERMINAL",
+                "terminal execution cannot become unknown",
+            )),
+        }
+    }
+
+    pub fn require_reconciliation_authenticated_at(
+        &self,
+        execution_id: &str,
+        reconciler: &AuthenticatedIdentity,
+        required_at_ms: i64,
+    ) -> Result<ExecutionState> {
+        reconciler.require_role(LocalRole::Reconciler)?;
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let stored = load_execution_by_id(&transaction, execution_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
+        match stored.state {
+            ExecutionState::ExecutionOutcomeUnknown => {
+                if required_at_ms < stored.outcome_unknown_at_ms.unwrap_or(stored.started_at_ms) {
+                    return Err(Error::coded(
+                        "EXECUTION_TIME_INVALID",
+                        "reconciliation cannot precede unknown outcome",
+                    ));
+                }
+                transaction
+                    .execute(
+                        "UPDATE tlpx_executions
+                         SET state = 'RECONCILIATION_REQUIRED', reconciliation_required_at_ms = ?1
+                         WHERE execution_id = ?2 AND state = 'EXECUTION_OUTCOME_UNKNOWN'",
+                        params![required_at_ms, execution_id],
+                    )
+                    .map_err(db_error)?;
+                transaction.commit().map_err(db_error)?;
+                Ok(ExecutionState::ReconciliationRequired)
+            }
+            ExecutionState::ReconciliationRequired => Ok(stored.state),
+            ExecutionState::Started => Err(Error::coded(
+                "EXECUTION_OUTCOME_NOT_UNKNOWN",
+                "execution must first be marked outcome unknown",
+            )),
+            _ => Err(Error::coded(
+                "EXECUTION_TERMINAL",
+                "terminal execution cannot require reconciliation",
+            )),
+        }
+    }
+
+    pub fn reconcile_execution_authenticated_at(
+        &self,
+        execution_id: &str,
+        reconciler: &AuthenticatedIdentity,
+        terminal_state: ExecutionState,
+        result: ExecutionResultEvidence,
+        ended_at_ms: i64,
+    ) -> Result<ExecutionReceipt> {
+        reconciler.require_role(LocalRole::Reconciler)?;
+        if !matches!(
+            terminal_state,
+            ExecutionState::CompletedConfirmed
+                | ExecutionState::FailedConfirmed
+                | ExecutionState::OutcomeUnknownFinal
+        ) {
+            return Err(Error::coded(
+                "EXECUTION_STATE_INVALID",
+                "reconciliation must choose a confirmed or honestly unknown terminal state",
+            ));
+        }
+        validate_terminal_execution_input(terminal_state, &result, None)?;
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        let stored = load_execution_by_id(&transaction, execution_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
+        if stored.state.is_terminal() {
+            let receipt = stored.receipt()?;
+            if receipt.state == terminal_state
+                && receipt.result == result
+                && receipt.ended_at_ms == ended_at_ms
+            {
+                return Ok(receipt);
+            }
+            return Err(Error::coded(
+                "IDEMPOTENCY_CONFLICT",
+                "reconciliation retry differs from the durable receipt",
+            ));
+        }
+        if stored.state != ExecutionState::ReconciliationRequired {
+            return Err(Error::coded(
+                "RECONCILIATION_NOT_READY",
+                "execution is not awaiting reconciliation",
+            ));
+        }
+        if ended_at_ms
+            < stored
+                .reconciliation_required_at_ms
+                .unwrap_or(stored.started_at_ms)
+        {
+            return Err(Error::coded(
+                "EXECUTION_TIME_INVALID",
+                "reconciliation result cannot precede the reconciliation requirement",
+            ));
+        }
+        let receipt = finalize_execution(
+            &transaction,
+            &self.config,
+            stored,
+            terminal_state,
+            result,
+            None,
+            ended_at_ms,
+        )?;
+        transaction.commit().map_err(db_error)?;
+        Ok(receipt)
+    }
+
+    /// Recovers an expired claimed execution. If no protected execution began,
+    /// this emits a terminal LEASE_EXPIRED receipt. If one began, it enters the
+    /// unknown-outcome process and must be reconciled without replay.
+    pub fn recover_expired_claim_at(
+        &self,
+        claim_id: &str,
+        recovered_at_ms: i64,
+    ) -> Result<ExecutionState> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_error)?;
+        evidence::reconcile(&transaction, &self.config.evidence)?;
+        if let Some(stored) = load_execution_by_claim(&transaction, claim_id)? {
+            if recovered_at_ms < stored.lease_expires_at_ms {
+                return Err(Error::coded(
+                    "EXECUTION_LEASE_ACTIVE",
+                    "execution lease has not expired",
+                ));
+            }
+            return match stored.state {
+                ExecutionState::Started => {
+                    transaction
+                        .execute(
+                            "UPDATE tlpx_executions
+                             SET state = 'EXECUTION_OUTCOME_UNKNOWN', outcome_unknown_at_ms = ?1
+                             WHERE execution_id = ?2 AND state = 'STARTED'",
+                            params![recovered_at_ms, stored.execution_id],
+                        )
+                        .map_err(db_error)?;
+                    transaction.commit().map_err(db_error)?;
+                    Ok(ExecutionState::ExecutionOutcomeUnknown)
+                }
+                _ => Ok(stored.state),
+            };
+        }
+        let context = load_claim_execution_context(&transaction, claim_id)?
+            .ok_or_else(|| Error::coded("EXECUTION_CLAIM_INVALID", "claim does not exist"))?;
+        if recovered_at_ms < context.lease_expires_at_ms {
+            return Err(Error::coded(
+                "EXECUTION_LEASE_ACTIVE",
+                "claim execution lease has not expired",
+            ));
+        }
+        let idempotency_key = evidence::authorization_idempotency_key(
+            &context.authorization_id,
+            &context.executing_principal,
+            &context.authorized_action_hash,
+        )?;
+        let (policy_bundle_id, policy_bundle_version) =
+            policy_identity_for_hash(&self.config, &context.policy_bundle_hash)?;
+        let execution_id = random_id("execution")?;
+        let sequence = next_sequence(&transaction)?;
+        transaction
+            .execute(
+                "INSERT INTO tlpx_executions (
+                   execution_id, claim_id, authorization_id, receipt_id, idempotency_key,
+                   requesting_principal, executing_principal, intent_hash,
+                   authorized_action_hash, executed_action_hash, target,
+                   policy_bundle_id, policy_bundle_version, policy_bundle_hash,
+                   adapter_id, adapter_version, adapter_binary_hash,
+                   started_at_ms, lease_expires_at_ms, state,
+                   outcome_unknown_at_ms, reconciliation_required_at_ms,
+                   terminal_sequence, ended_at_ms, result_summary, result_hash,
+                   external_evidence_reference, cancellation_outcome
+                 ) VALUES (
+                   ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+                   ?15, ?16, NULL, ?17, ?18, 'LEASE_EXPIRED', NULL, NULL,
+                   ?19, ?20, ?21, NULL, NULL, NULL
+                 )",
+                params![
+                    execution_id,
+                    context.claim_id,
+                    context.authorization_id,
+                    context.receipt_id,
+                    idempotency_key,
+                    context.requesting_principal,
+                    context.executing_principal,
+                    context.intent_hash,
+                    context.authorized_action_hash,
+                    context.executed_action_hash,
+                    context.target,
+                    policy_bundle_id,
+                    policy_bundle_version,
+                    context.policy_bundle_hash,
+                    context.adapter_id,
+                    context.adapter_version,
+                    context.claimed_at_ms,
+                    context.lease_expires_at_ms,
+                    sequence,
+                    recovered_at_ms,
+                    "claim lease expired before protected execution began",
+                ],
+            )
+            .map_err(db_error)?;
+        let receipt = load_execution_by_id(&transaction, &execution_id)?
+            .ok_or_else(|| Error::authority("inserted execution is missing"))?
+            .receipt()?;
+        let record = evidence::execution_record(&receipt)?;
+        evidence::enqueue(
+            &transaction,
+            &self.config.evidence,
+            receipt.sequence,
+            0,
+            "tlpx.execution",
+            &receipt.execution_id,
+            &record,
+        )?;
+        transaction.commit().map_err(db_error)?;
+        Ok(ExecutionState::LeaseExpired)
+    }
+
+    pub fn execution_state(&self, execution_id: &str) -> Result<Option<ExecutionState>> {
+        let connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        connection
+            .query_row(
+                "SELECT state FROM tlpx_executions WHERE execution_id = ?1",
+                [execution_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(db_error)?
+            .map(|state| ExecutionState::parse(&state))
+            .transpose()
     }
 
     pub fn revoke_at(&self, authorization_id: &str, revoked_at_ms: i64) -> Result<()> {
@@ -2409,8 +3149,15 @@ fn issue_authorization(
     let claim_expires_at_ms = issued_at_ms
         .checked_add(config.claim_window_ms)
         .ok_or_else(|| Error::authority("claim deadline overflow"))?;
+    let authorization_id = random_id("authz")?;
+    let authorized_action_hash = action.authorized_action_hash()?;
+    let idempotency_key = evidence::authorization_idempotency_key(
+        &authorization_id,
+        &action.executing_principal,
+        &authorized_action_hash,
+    )?;
     Ok(IssuedAuthorization {
-        authorization_id: random_id("authz")?,
+        authorization_id,
         receipt_id: receipt_id.to_string(),
         requesting_principal: action.requesting_principal.clone(),
         executing_principal: action.executing_principal.clone(),
@@ -2418,7 +3165,7 @@ fn issue_authorization(
         action: action.action.clone(),
         target: action.target.clone(),
         intent_hash: intent_hash.to_string(),
-        authorized_action_hash: action.authorized_action_hash()?,
+        authorized_action_hash,
         action_binding_hash: action.binding_hash()?,
         capability: action.capability.clone(),
         policy_bundle_hash: action.policy_bundle_hash.clone(),
@@ -2428,6 +3175,7 @@ fn issue_authorization(
         environment: action.environment.clone(),
         tenant: action.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
+        idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
         execution_lease_ms: config.execution_lease_ms,
@@ -2443,8 +3191,14 @@ fn issue_pending_authorization(
     let claim_expires_at_ms = issued_at_ms
         .checked_add(config.claim_window_ms)
         .ok_or_else(|| Error::authority("claim deadline overflow"))?;
+    let authorization_id = random_id("authz")?;
+    let idempotency_key = evidence::authorization_idempotency_key(
+        &authorization_id,
+        &pending.executing_principal,
+        &pending.authorized_action_hash,
+    )?;
     Ok(IssuedAuthorization {
-        authorization_id: random_id("authz")?,
+        authorization_id,
         receipt_id: pending.receipt_id.clone(),
         requesting_principal: pending.requesting_principal.clone(),
         executing_principal: pending.executing_principal.clone(),
@@ -2462,6 +3216,7 @@ fn issue_pending_authorization(
         environment: pending.environment.clone(),
         tenant: pending.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
+        idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
         execution_lease_ms: pending.execution_lease_ms,
@@ -2757,6 +3512,11 @@ fn load_issued(
 ) -> Result<Option<IssuedAuthorization>> {
     let row = load_authorization_row(transaction, authorization_id)?;
     row.map(|stored| {
+        let idempotency_key = evidence::authorization_idempotency_key(
+            authorization_id,
+            &stored.executing_principal,
+            &stored.authorized_action_hash,
+        )?;
         Ok(IssuedAuthorization {
             authorization_id: authorization_id.to_string(),
             receipt_id: stored.receipt_id,
@@ -2776,6 +3536,7 @@ fn load_issued(
             environment: stored.environment,
             tenant: stored.tenant,
             authorization_nonce: stored.authorization_nonce,
+            idempotency_key,
             issued_at_ms: stored.issued_at_ms,
             claim_expires_at_ms: stored.claim_expires_at_ms,
             execution_lease_ms: stored.execution_lease_ms,
@@ -2921,6 +3682,357 @@ fn authorization_has_active_revocation(
         .map_err(db_error)
 }
 
+struct ClaimExecutionContext {
+    claim_id: String,
+    authorization_id: String,
+    receipt_id: String,
+    requesting_principal: String,
+    executing_principal: String,
+    intent_hash: String,
+    authorized_action_hash: String,
+    executed_action_hash: String,
+    target: String,
+    policy_bundle_hash: String,
+    adapter_id: String,
+    adapter_version: String,
+    claimed_at_ms: i64,
+    lease_expires_at_ms: i64,
+}
+
+fn load_claim_execution_context(
+    transaction: &Transaction<'_>,
+    claim_id: &str,
+) -> Result<Option<ClaimExecutionContext>> {
+    transaction
+        .query_row(
+            "SELECT c.claim_id, c.authorization_id, c.receipt_id,
+                    a.requesting_principal, c.executing_principal, a.intent_hash,
+                    c.authorized_action_hash, c.executed_action_hash, a.target,
+                    a.policy_bundle_hash, c.adapter_id, c.adapter_version,
+                    c.claimed_at_ms, c.lease_expires_at_ms
+             FROM tlpx_claims c
+             JOIN tlpx_authorizations a ON a.authorization_id = c.authorization_id
+             WHERE c.claim_id = ?1",
+            [claim_id],
+            |row| {
+                Ok(ClaimExecutionContext {
+                    claim_id: row.get(0)?,
+                    authorization_id: row.get(1)?,
+                    receipt_id: row.get(2)?,
+                    requesting_principal: row.get(3)?,
+                    executing_principal: row.get(4)?,
+                    intent_hash: row.get(5)?,
+                    authorized_action_hash: row.get(6)?,
+                    executed_action_hash: row.get(7)?,
+                    target: row.get(8)?,
+                    policy_bundle_hash: row.get(9)?,
+                    adapter_id: row.get(10)?,
+                    adapter_version: row.get(11)?,
+                    claimed_at_ms: row.get(12)?,
+                    lease_expires_at_ms: row.get(13)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(db_error)
+}
+
+struct StoredExecution {
+    execution_id: String,
+    claim_id: String,
+    authorization_id: String,
+    receipt_id: String,
+    idempotency_key: String,
+    requesting_principal: String,
+    executing_principal: String,
+    intent_hash: String,
+    authorized_action_hash: String,
+    executed_action_hash: String,
+    target: String,
+    policy_bundle_id: String,
+    policy_bundle_version: String,
+    policy_bundle_hash: String,
+    adapter_id: String,
+    adapter_version: String,
+    adapter_binary_hash: Option<String>,
+    started_at_ms: i64,
+    lease_expires_at_ms: i64,
+    state: ExecutionState,
+    outcome_unknown_at_ms: Option<i64>,
+    reconciliation_required_at_ms: Option<i64>,
+    terminal_sequence: Option<i64>,
+    ended_at_ms: Option<i64>,
+    result_summary: Option<String>,
+    result_hash: Option<String>,
+    external_evidence_reference: Option<String>,
+    cancellation_outcome: Option<CancellationOutcome>,
+}
+
+impl StoredExecution {
+    fn lease(&self) -> ExecutionLease {
+        ExecutionLease {
+            execution_id: self.execution_id.clone(),
+            claim_id: self.claim_id.clone(),
+            authorization_id: self.authorization_id.clone(),
+            idempotency_key: self.idempotency_key.clone(),
+            executing_principal: self.executing_principal.clone(),
+            started_at_ms: self.started_at_ms,
+            lease_expires_at_ms: self.lease_expires_at_ms,
+            state: self.state,
+        }
+    }
+
+    fn receipt(&self) -> Result<ExecutionReceipt> {
+        if !self.state.is_terminal() {
+            return Err(Error::authority(
+                "nonterminal execution does not have a terminal receipt",
+            ));
+        }
+        Ok(ExecutionReceipt {
+            execution_id: self.execution_id.clone(),
+            claim_id: self.claim_id.clone(),
+            authorization_id: self.authorization_id.clone(),
+            receipt_id: self.receipt_id.clone(),
+            requesting_principal: self.requesting_principal.clone(),
+            executing_principal: self.executing_principal.clone(),
+            intent_hash: self.intent_hash.clone(),
+            authorized_action_hash: self.authorized_action_hash.clone(),
+            executed_action_hash: self.executed_action_hash.clone(),
+            target: self.target.clone(),
+            policy_bundle_id: self.policy_bundle_id.clone(),
+            policy_bundle_version: self.policy_bundle_version.clone(),
+            policy_bundle_hash: self.policy_bundle_hash.clone(),
+            adapter_id: self.adapter_id.clone(),
+            adapter_version: self.adapter_version.clone(),
+            adapter_binary_hash: self.adapter_binary_hash.clone(),
+            sequence: self
+                .terminal_sequence
+                .ok_or_else(|| Error::authority("terminal execution sequence is missing"))?,
+            started_at_ms: self.started_at_ms,
+            ended_at_ms: self
+                .ended_at_ms
+                .ok_or_else(|| Error::authority("terminal execution timestamp is missing"))?,
+            state: self.state,
+            result: ExecutionResultEvidence {
+                result_summary: self.result_summary.clone(),
+                result_hash: self.result_hash.clone(),
+                external_evidence_reference: self.external_evidence_reference.clone(),
+            },
+            cancellation_outcome: self.cancellation_outcome,
+        })
+    }
+}
+
+fn load_execution_by_id(
+    transaction: &Transaction<'_>,
+    execution_id: &str,
+) -> Result<Option<StoredExecution>> {
+    load_execution(transaction, "execution_id", execution_id)
+}
+
+fn load_execution_by_claim(
+    transaction: &Transaction<'_>,
+    claim_id: &str,
+) -> Result<Option<StoredExecution>> {
+    load_execution(transaction, "claim_id", claim_id)
+}
+
+fn load_execution(
+    transaction: &Transaction<'_>,
+    column: &str,
+    value: &str,
+) -> Result<Option<StoredExecution>> {
+    let sql = format!(
+        "SELECT execution_id, claim_id, authorization_id, receipt_id, idempotency_key,
+                requesting_principal, executing_principal, intent_hash,
+                authorized_action_hash, executed_action_hash, target,
+                policy_bundle_id, policy_bundle_version, policy_bundle_hash,
+                adapter_id, adapter_version, adapter_binary_hash,
+                started_at_ms, lease_expires_at_ms, state,
+                outcome_unknown_at_ms, reconciliation_required_at_ms,
+                terminal_sequence, ended_at_ms, result_summary, result_hash,
+                external_evidence_reference, cancellation_outcome
+         FROM tlpx_executions WHERE {column} = ?1"
+    );
+    transaction
+        .query_row(&sql, [value], |row| {
+            let state = row.get::<_, String>(19)?;
+            let cancellation = row.get::<_, Option<String>>(27)?;
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
+                row.get::<_, String>(11)?,
+                row.get::<_, String>(12)?,
+                row.get::<_, String>(13)?,
+                row.get::<_, String>(14)?,
+                row.get::<_, String>(15)?,
+                row.get::<_, Option<String>>(16)?,
+                row.get::<_, i64>(17)?,
+                row.get::<_, i64>(18)?,
+                state,
+                row.get::<_, Option<i64>>(20)?,
+                row.get::<_, Option<i64>>(21)?,
+                row.get::<_, Option<i64>>(22)?,
+                row.get::<_, Option<i64>>(23)?,
+                row.get::<_, Option<String>>(24)?,
+                row.get::<_, Option<String>>(25)?,
+                row.get::<_, Option<String>>(26)?,
+                cancellation,
+            ))
+        })
+        .optional()
+        .map_err(db_error)?
+        .map(|row| {
+            Ok(StoredExecution {
+                execution_id: row.0,
+                claim_id: row.1,
+                authorization_id: row.2,
+                receipt_id: row.3,
+                idempotency_key: row.4,
+                requesting_principal: row.5,
+                executing_principal: row.6,
+                intent_hash: row.7,
+                authorized_action_hash: row.8,
+                executed_action_hash: row.9,
+                target: row.10,
+                policy_bundle_id: row.11,
+                policy_bundle_version: row.12,
+                policy_bundle_hash: row.13,
+                adapter_id: row.14,
+                adapter_version: row.15,
+                adapter_binary_hash: row.16,
+                started_at_ms: row.17,
+                lease_expires_at_ms: row.18,
+                state: ExecutionState::parse(&row.19)?,
+                outcome_unknown_at_ms: row.20,
+                reconciliation_required_at_ms: row.21,
+                terminal_sequence: row.22,
+                ended_at_ms: row.23,
+                result_summary: row.24,
+                result_hash: row.25,
+                external_evidence_reference: row.26,
+                cancellation_outcome: row
+                    .27
+                    .as_deref()
+                    .map(CancellationOutcome::parse)
+                    .transpose()?,
+            })
+        })
+        .transpose()
+}
+
+fn policy_identity_for_hash(
+    config: &AuthorityConfig,
+    policy_bundle_hash: &str,
+) -> Result<(String, String)> {
+    for configured in &config.policy.bundles {
+        if configured.manifest.manifest_hash()? == policy_bundle_hash {
+            return Ok((
+                configured.manifest.policy_bundle_id.clone(),
+                configured.manifest.policy_bundle_version.clone(),
+            ));
+        }
+    }
+    Err(Error::authority(
+        "issuing policy identity is unavailable for execution receipt",
+    ))
+}
+
+fn validate_terminal_execution_input(
+    terminal_state: ExecutionState,
+    result: &ExecutionResultEvidence,
+    cancellation_outcome: Option<CancellationOutcome>,
+) -> Result<()> {
+    if !terminal_state.is_terminal() {
+        return Err(Error::coded(
+            "EXECUTION_STATE_INVALID",
+            "execution receipt state must be terminal",
+        ));
+    }
+    result.validate()?;
+    let terminal_cancellation = matches!(
+        cancellation_outcome,
+        Some(
+            CancellationOutcome::CancelledBeforeSideEffect
+                | CancellationOutcome::CancelledDuringExecution
+        )
+    );
+    if (terminal_state == ExecutionState::Cancelled) != terminal_cancellation {
+        return Err(Error::coded(
+            "EXECUTION_RESULT_INVALID",
+            "CANCELLED requires an observed terminal cancellation point",
+        ));
+    }
+    Ok(())
+}
+
+fn finalize_execution(
+    transaction: &Transaction<'_>,
+    config: &AuthorityConfig,
+    stored: StoredExecution,
+    terminal_state: ExecutionState,
+    result: ExecutionResultEvidence,
+    cancellation_outcome: Option<CancellationOutcome>,
+    ended_at_ms: i64,
+) -> Result<ExecutionReceipt> {
+    if ended_at_ms < stored.started_at_ms {
+        return Err(Error::coded(
+            "EXECUTION_TIME_INVALID",
+            "execution end cannot precede start",
+        ));
+    }
+    let sequence = next_sequence(transaction)?;
+    let updated = transaction
+        .execute(
+            "UPDATE tlpx_executions
+             SET state = ?1, terminal_sequence = ?2, ended_at_ms = ?3,
+                 result_summary = ?4, result_hash = ?5,
+                 external_evidence_reference = ?6, cancellation_outcome = ?7
+             WHERE execution_id = ?8 AND state = ?9 AND terminal_sequence IS NULL",
+            params![
+                terminal_state.as_str(),
+                sequence,
+                ended_at_ms,
+                result.result_summary,
+                result.result_hash,
+                result.external_evidence_reference,
+                cancellation_outcome.map(CancellationOutcome::as_str),
+                stored.execution_id,
+                stored.state.as_str(),
+            ],
+        )
+        .map_err(db_error)?;
+    if updated != 1 {
+        return Err(Error::coded(
+            "EXECUTION_TERMINAL",
+            "another terminal execution outcome won",
+        ));
+    }
+    let receipt = load_execution_by_id(transaction, &stored.execution_id)?
+        .ok_or_else(|| Error::authority("finalized execution is missing"))?
+        .receipt()?;
+    let record = evidence::execution_record(&receipt)?;
+    evidence::enqueue(
+        transaction,
+        &config.evidence,
+        receipt.sequence,
+        0,
+        "tlpx.execution",
+        &receipt.execution_id,
+        &record,
+    )?;
+    Ok(receipt)
+}
+
 fn parse_decision(value: &str) -> Result<Decision> {
     match value {
         "ALLOW" => Ok(Decision::Allow),
@@ -2996,6 +4108,18 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             ] as &[&str],
         ),
         (
+            "tlpx_executions",
+            &[
+                "idempotency_key",
+                "adapter_binary_hash",
+                "outcome_unknown_at_ms",
+                "reconciliation_required_at_ms",
+                "terminal_sequence",
+                "external_evidence_reference",
+                "cancellation_outcome",
+            ] as &[&str],
+        ),
+        (
             "tlpx_evidence_outbox",
             &[
                 "authority_sequence",
@@ -3059,9 +4183,11 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
                     |row| row.get::<_, String>(0),
                 )
                 .map_err(db_error)?;
-            if !table_sql.contains("'tlpx.operator_action'") {
+            if !table_sql.contains("'tlpx.operator_action'")
+                || !table_sql.contains("'tlpx.execution'")
+            {
                 return Err(Error::authority(
-                    "incompatible pre-release authority database: evidence outbox does not permit operator-action evidence; use a fresh database",
+                    "incompatible pre-release authority database: evidence outbox does not permit all current authority records; use a fresh database",
                 ));
             }
         }

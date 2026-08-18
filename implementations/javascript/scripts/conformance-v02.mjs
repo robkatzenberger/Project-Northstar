@@ -423,15 +423,48 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
     policy_bundle_version: "1.0.0",
     policy_bundle_hash: H,
     adapter,
+    adapter_binary_hash: null,
     sequence: 4,
     started_at: T,
     ended_at: T,
-    state: "COMPLETED"
+    state: "COMPLETED",
+    result_summary: "protected system confirmed completion",
+    result_hash: null,
+    external_evidence_reference: null,
+    cancellation_outcome: null
   };
   check("execution receipt", validateV02("execution", execOk).ok);
   check(
     "receipt may store distinct authorized vs executed hashes",
     validateV02("execution", { ...execOk, executed_action_hash: H2 }).ok
+  );
+  check(
+    "receipt requires bounded result evidence",
+    !validateV02("execution", { ...execOk, result_summary: null }).ok
+  );
+  check(
+    "receipt rejects oversized result summary",
+    !validateV02("execution", { ...execOk, result_summary: "x".repeat(2049) }).ok
+  );
+  check(
+    "unknown outcome is authority process state, not terminal receipt",
+    !validateV02("execution", { ...execOk, state: "EXECUTION_OUTCOME_UNKNOWN" }).ok
+  );
+  check(
+    "reconciliation required is authority process state, not terminal receipt",
+    !validateV02("execution", { ...execOk, state: "RECONCILIATION_REQUIRED" }).ok
+  );
+  check(
+    "cancelled receipt names observed cancellation point",
+    validateV02("execution", {
+      ...execOk,
+      state: "CANCELLED",
+      cancellation_outcome: "CANCELLED_DURING_EXECUTION"
+    }).ok
+  );
+  check(
+    "cancelled receipt rejects absent cancellation outcome",
+    !validateV02("execution", { ...execOk, state: "CANCELLED" }).ok
   );
   check("bad hash string", !validateV02("authorization", { ...authz, intent_hash: "SHA256:" + "A".repeat(64) }).ok);
 }
@@ -466,6 +499,8 @@ console.log("TL-PX 0.2.0 record/schema conformance\n");
   );
   check("includes APPROVAL_NOT_EXPIRED", catalog.operator_action.includes("APPROVAL_NOT_EXPIRED"));
   check("includes APPROVAL_EXPIRED", catalog.operator_action.includes("APPROVAL_EXPIRED"));
+  check("includes EXECUTION_RESULT_INVALID", catalog.claim_and_execution.includes("EXECUTION_RESULT_INVALID"));
+  check("includes RECONCILIATION_REQUIRED", catalog.claim_and_execution.includes("RECONCILIATION_REQUIRED"));
 }
 
 {

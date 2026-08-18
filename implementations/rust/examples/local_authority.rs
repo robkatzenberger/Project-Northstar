@@ -3,11 +3,12 @@
 use std::os::unix::net::UnixStream;
 use tlpx::{
     exact_match_policy_content_hash, Adapter, ApprovalOutcome, ApprovalPresentation,
-    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, CancellationReason,
-    CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, LocalAuthenticator,
-    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
-    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    AuthenticatedIdentity, Authority, AuthorityConfig, AuthorizationTemplate, CancellationOutcome,
+    CancellationReason, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
+    ExecutionResultEvidence, ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
+    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 fn main() -> tlpx::Result<()> {
@@ -63,6 +64,26 @@ fn main() -> tlpx::Result<()> {
         adapter: intent.adapter,
     };
     let claim = authority.claim(&issued.authorization_id, "runtime.mailer", &executed)?;
+    let executor = pilot_authenticated_executor()?;
+    let execution = authority.begin_execution_authenticated_at(
+        &claim.claim_id,
+        &issued.idempotency_key,
+        None,
+        &executor,
+        claim.claimed_at_ms + 1,
+    )?;
+    let terminal = authority.finish_execution_authenticated_at(
+        &execution.execution_id,
+        &executor,
+        ExecutionState::Cancelled,
+        ExecutionResultEvidence {
+            result_summary: Some("schema example stopped before any protected side effect".into()),
+            result_hash: None,
+            external_evidence_reference: None,
+        },
+        Some(CancellationOutcome::CancelledBeforeSideEffect),
+        claim.claimed_at_ms + 2,
+    )?;
     if evidence_jsonl {
         let mut invalid = pilot_intent(format!("{}-error", issued.request_id));
         invalid.requesting_principal = "agent.untrusted-body".into();
@@ -101,8 +122,11 @@ fn main() -> tlpx::Result<()> {
         }
     } else {
         println!(
-            "claim={} state=CLAIMED executed_action_hash={}",
-            claim.claim_id, claim.executed_action_hash
+            "claim={} execution={} state={} executed_action_hash={}",
+            claim.claim_id,
+            terminal.execution_id,
+            terminal.state.as_str(),
+            claim.executed_action_hash
         );
     }
     Ok(())
@@ -222,6 +246,22 @@ fn pilot_authenticated_operator() -> tlpx::Result<AuthenticatedIdentity> {
         party_type: PartyType::Human,
         roles: vec![LocalRole::Operator],
         approval_routes: vec!["ops.deploy".into()],
+    }])?;
+    let (server, client) = UnixStream::pair()
+        .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;
+    let identity = authenticator.authenticate_stream(&server)?;
+    drop(client);
+    Ok(identity)
+}
+
+fn pilot_authenticated_executor() -> tlpx::Result<AuthenticatedIdentity> {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "runtime.mailer".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Executor],
+        approval_routes: vec![],
     }])?;
     let (server, client) = UnixStream::pair()
         .map_err(|error| tlpx::Error::authority(format!("local socket pair: {error}")))?;

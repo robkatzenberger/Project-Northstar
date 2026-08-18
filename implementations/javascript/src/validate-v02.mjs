@@ -84,5 +84,24 @@ export function validateV02(kind, value) {
     result.ok = false;
     result.errors.push("ACTION_MISMATCH: presented binding != stored action_binding_hash");
   }
+  if (kind === "execution") {
+    const started = Date.parse(value.started_at);
+    const ended = Date.parse(value.ended_at);
+    if (!Number.isFinite(started) || !Number.isFinite(ended) || ended < started) {
+      result.ok = false;
+      result.errors.push("execution timestamps must be valid and ended_at must not precede started_at");
+    }
+    const cancelled = value.state === "CANCELLED";
+    const terminalCancellation = [
+      "CANCELLED_BEFORE_SIDE_EFFECT",
+      "CANCELLED_DURING_EXECUTION"
+    ].includes(value.cancellation_outcome);
+    if (cancelled !== terminalCancellation) {
+      result.ok = false;
+      result.errors.push(
+        "CANCELLED requires a terminal cancellation outcome, and other states must not use one"
+      );
+    }
+  }
   return result;
 }

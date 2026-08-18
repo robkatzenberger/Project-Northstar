@@ -1,19 +1,37 @@
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
-    exact_match_policy_content_hash, Adapter, Authority, AuthorityConfig, AuthorizationTemplate,
-    AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, ExecutedAction,
-    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
-    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
-    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    exact_match_policy_content_hash, Adapter, AuthenticatedIdentity, Authority, AuthorityConfig,
+    AuthorizationTemplate, AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
+    ExecutedAction, ExecutionResultEvidence, ExecutionState, LocalAuthenticator,
+    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
+    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
+    Switchboard, Value, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
 
 fn hash(ch: char) -> String {
     format!("sha256:{}", ch.to_string().repeat(64))
+}
+
+fn executor_identity() -> AuthenticatedIdentity {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "runtime.mailer".into(),
+        party_type: PartyType::Machine,
+        roles: vec![LocalRole::Executor],
+        approval_routes: vec![],
+    }])
+    .unwrap();
+    let (server, client) = UnixStream::pair().unwrap();
+    let identity = authenticator.authenticate_stream(&server).unwrap();
+    drop(client);
+    identity
 }
 
 fn config() -> AuthorityConfig {
@@ -401,6 +419,90 @@ fn claim_outbox_failure_does_not_consume_authorization() {
         assert_eq!(authority.pending_evidence(10).unwrap().len(), 3);
         authority.reconcile_evidence().unwrap();
     }
+    clean_db(&path);
+}
+
+#[test]
+fn execution_outbox_failure_does_not_create_a_ghost_terminal_receipt() {
+    let path = temp_db("execution-rollback");
+    let (execution_id, ended_at_ms) = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-execution-fail"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap();
+        let claim = authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap();
+        let lease = authority
+            .begin_execution_authenticated_at(
+                &claim.claim_id,
+                &issued.idempotency_key,
+                None,
+                &executor_identity(),
+                NOW + 2,
+            )
+            .unwrap();
+        (lease.execution_id, NOW + 3)
+    };
+    let connection = Connection::open(&path).unwrap();
+    connection
+        .execute_batch(
+            "CREATE TRIGGER fail_execution_outbox
+             BEFORE INSERT ON tlpx_evidence_outbox
+             WHEN NEW.record_type = 'tlpx.execution'
+             BEGIN SELECT RAISE(FAIL, 'injected execution outbox failure'); END;",
+        )
+        .unwrap();
+    let authority = Authority::open(&path, config()).unwrap();
+    let error = authority
+        .finish_execution_authenticated_at(
+            &execution_id,
+            &executor_identity(),
+            ExecutionState::Completed,
+            ExecutionResultEvidence {
+                result_summary: Some("completed".into()),
+                result_hash: None,
+                external_evidence_reference: None,
+            },
+            None,
+            ended_at_ms,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "AUTHORITY_INTERNAL_ERROR");
+    assert_eq!(
+        authority.execution_state(&execution_id).unwrap(),
+        Some(ExecutionState::Started)
+    );
+    assert_eq!(authority.pending_evidence(10).unwrap().len(), 3);
+    drop(authority);
+    connection
+        .execute_batch("DROP TRIGGER fail_execution_outbox;")
+        .unwrap();
+    drop(connection);
+    let authority = Authority::open(&path, config()).unwrap();
+    authority
+        .finish_execution_authenticated_at(
+            &execution_id,
+            &executor_identity(),
+            ExecutionState::Completed,
+            ExecutionResultEvidence {
+                result_summary: Some("completed".into()),
+                result_hash: None,
+                external_evidence_reference: None,
+            },
+            None,
+            ended_at_ms,
+        )
+        .unwrap();
+    assert_eq!(authority.pending_evidence(10).unwrap().len(), 4);
+    authority.reconcile_evidence().unwrap();
     clean_db(&path);
 }
 

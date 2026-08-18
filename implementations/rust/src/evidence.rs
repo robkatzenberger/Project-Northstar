@@ -4,7 +4,8 @@
 //! Chain hashes and HMAC seals are outbox columns, not private record fields.
 
 use crate::authority::{
-    ApprovalResolution, CancellationRecord, ClaimRecord, IssuedAuthorization, Retryability,
+    ApprovalResolution, CancellationRecord, ClaimRecord, ExecutionReceipt, IssuedAuthorization,
+    Retryability,
 };
 use crate::error::{Error, Result};
 use crate::jcs::{canonicalize, parse, Canonical, Value};
@@ -281,21 +282,29 @@ pub(crate) fn evaluation_error_record(input: ErrorEvidenceInput<'_>) -> Result<C
     canonicalize(&Value::Object(fields))
 }
 
+pub(crate) fn authorization_idempotency_key(
+    authorization_id: &str,
+    executing_principal: &str,
+    authorized_action_hash: &str,
+) -> Result<String> {
+    Ok(prefixed_sha256(
+        IDEMPOTENCY_PREFIX,
+        canonicalize(&Value::Object(vec![
+            string("authorization_id", authorization_id),
+            string("executing_principal", executing_principal),
+            string("authorized_action_hash", authorized_action_hash),
+        ]))?
+        .as_str()
+        .as_bytes(),
+    ))
+}
+
 pub(crate) fn authorization_record(issued: &IssuedAuthorization) -> Result<Canonical> {
     let lease_seconds = issued
         .execution_lease_ms
         .checked_div(1_000)
         .filter(|seconds| *seconds > 0)
         .ok_or_else(|| Error::authority("execution lease is not whole positive seconds"))?;
-    let idempotency_key = prefixed_sha256(
-        IDEMPOTENCY_PREFIX,
-        canonicalize(&Value::Object(vec![
-            string("authenticated_requester", &issued.requesting_principal),
-            string("request_id", &issued.request_id),
-        ]))?
-        .as_str()
-        .as_bytes(),
-    );
     canonicalize(&Value::Object(vec![
         string("record_type", "tlpx.authorization"),
         string("standard", "TL-PX"),
@@ -322,7 +331,7 @@ pub(crate) fn authorization_record(issued: &IssuedAuthorization) -> Result<Canon
         ),
         ("execution_lease_seconds".into(), Value::Int(lease_seconds)),
         string("authorization_nonce", &issued.authorization_nonce),
-        string("idempotency_key", &idempotency_key),
+        string("idempotency_key", &issued.idempotency_key),
         string("state", "AUTHORIZED_UNCLAIMED"),
     ]))
 }
@@ -350,6 +359,67 @@ pub(crate) fn claim_record(claim: &ClaimRecord) -> Result<Canonical> {
         ),
         ("sequence".into(), Value::Int(claim.sequence)),
         string("state", "CLAIMED"),
+    ]))
+}
+
+pub(crate) fn execution_record(receipt: &ExecutionReceipt) -> Result<Canonical> {
+    if !receipt.state.is_terminal() {
+        return Err(Error::authority(
+            "only terminal execution state may produce tlpx.execution evidence",
+        ));
+    }
+    let nullable_string = |value: &Option<String>| {
+        value
+            .as_ref()
+            .map_or(Value::Null, |value| Value::String(value.clone()))
+    };
+    canonicalize(&Value::Object(vec![
+        string("record_type", "tlpx.execution"),
+        string("standard", "TL-PX"),
+        string("standard_version", "0.2.0"),
+        string("execution_id", &receipt.execution_id),
+        string("claim_id", &receipt.claim_id),
+        string("authorization_id", &receipt.authorization_id),
+        string("receipt_id", &receipt.receipt_id),
+        string("requesting_principal", &receipt.requesting_principal),
+        string("executing_principal", &receipt.executing_principal),
+        string("intent_hash", &receipt.intent_hash),
+        string("authorized_action_hash", &receipt.authorized_action_hash),
+        string("executed_action_hash", &receipt.executed_action_hash),
+        string("target", &receipt.target),
+        string("policy_bundle_id", &receipt.policy_bundle_id),
+        string("policy_bundle_version", &receipt.policy_bundle_version),
+        string("policy_bundle_hash", &receipt.policy_bundle_hash),
+        (
+            "adapter".into(),
+            adapter(&receipt.adapter_id, &receipt.adapter_version),
+        ),
+        (
+            "adapter_binary_hash".into(),
+            nullable_string(&receipt.adapter_binary_hash),
+        ),
+        ("sequence".into(), Value::Int(receipt.sequence)),
+        string("started_at", &iso8601_from_ms(receipt.started_at_ms)?),
+        string("ended_at", &iso8601_from_ms(receipt.ended_at_ms)?),
+        string("state", receipt.state.as_str()),
+        (
+            "result_summary".into(),
+            nullable_string(&receipt.result.result_summary),
+        ),
+        (
+            "result_hash".into(),
+            nullable_string(&receipt.result.result_hash),
+        ),
+        (
+            "external_evidence_reference".into(),
+            nullable_string(&receipt.result.external_evidence_reference),
+        ),
+        (
+            "cancellation_outcome".into(),
+            receipt.cancellation_outcome.map_or(Value::Null, |outcome| {
+                Value::String(outcome.as_str().into())
+            }),
+        ),
     ]))
 }
 
@@ -559,6 +629,7 @@ fn verify_envelope_binding(record: &Value, row: &SealedEvidence) -> Result<()> {
         "tlpx.operator_action" => "receipt_id",
         "tlpx.authorization" => "authorization_id",
         "tlpx.authorization_claim" => "claim_id",
+        "tlpx.execution" => "execution_id",
         _ => return Err(Error::authority("unsupported evidence record type")),
     };
     let Some(Value::String(source_id)) = field(source_field) else {
@@ -622,10 +693,27 @@ fn verify_coverage(connection: &Connection) -> Result<()> {
             |row| row.get(0),
         )
         .map_err(db_error)?;
+    let missing_terminal_executions: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM tlpx_executions e
+             WHERE e.state IN (
+               'COMPLETED','FAILED','CANCELLED','LEASE_EXPIRED',
+               'COMPLETED_CONFIRMED','FAILED_CONFIRMED','OUTCOME_UNKNOWN_FINAL'
+             )
+               AND NOT EXISTS (
+                 SELECT 1 FROM tlpx_evidence_outbox o
+                 WHERE o.record_type = 'tlpx.execution'
+                   AND o.source_id = e.execution_id
+               )",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db_error)?;
     if missing_evaluations != 0
         || missing_authorizations != 0
         || missing_claims != 0
         || missing_operator_actions != 0
+        || missing_terminal_executions != 0
     {
         return Err(Error::authority(
             "authority state and evidence outbox are not fully reconciled",
@@ -640,6 +728,7 @@ fn verify_source(connection: &Connection, row: &SealedEvidence) -> Result<()> {
         "tlpx.operator_action" => ("tlpx_operator_actions", "receipt_id"),
         "tlpx.authorization" => ("tlpx_authorizations", "authorization_id"),
         "tlpx.authorization_claim" => ("tlpx_claims", "claim_id"),
+        "tlpx.execution" => ("tlpx_executions", "execution_id"),
         _ => return Err(Error::authority("unsupported evidence record type")),
     };
     let sql = format!("SELECT 1 FROM {table} WHERE {column} = ?1");
