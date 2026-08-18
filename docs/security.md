@@ -2,7 +2,7 @@
 
 This document is **engineering guidance**, not a formal certification or legal opinion.
 
-**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local state; later unaccepted candidates through local 3.4 commit `133cd94` add sealed evidence, manifest activation, typed hashes, Unix peer roles, pending cancellation, and human-only display-bound approval/rejection plus expiry. Rust still trusts its peer map, socket/renderer setup, manifest issuer assertions, clock, and raw embedding APIs, and has no execution receipt, hardened service, or protected-execution PEP. Neither path currently establishes forced mediation.
+**Current scope:** the executor, audit-chain, operator, and `allowEphemeral` controls below describe the cooperative JavaScript TL-PX 0.1 reference. The Rust authority accepted at `aed80e2` separately provides durable local state; later unaccepted candidates through local 3.6 commit `9028346` add sealed evidence, policy activation, typed hashes, Unix peer roles, approval/revocation state, and a durable terminal execution-receipt/reconciliation boundary. Rust still trusts its peer map, socket/renderer/adapter setup, manifest issuer assertions, clock, and raw embedding APIs, and performs no protected side effect. Neither path currently establishes forced mediation.
 
 ## Security goals
 

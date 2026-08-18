@@ -56,6 +56,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md](../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.3 commit `c19b1d2` |
 | [../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.4 commit `133cd94` |
 | [../tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md](../tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.5 commit `ad95653` |
+| [../tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md](../tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.6 commit `9028346` |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |
