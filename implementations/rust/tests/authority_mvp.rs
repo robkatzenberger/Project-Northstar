@@ -43,6 +43,118 @@ fn authenticated_identity(
     identity
 }
 
+/// Test-only compatibility seam for deterministic clocks and adversarial
+/// principal cases. Production callers cannot select principal strings; every
+/// call below is routed through the authenticated public facade.
+trait AuthenticatedTestAuthority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome>;
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &tlpx::ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord>;
+    fn revoke_at(&self, authorization_id: &str, revoked_at_ms: i64) -> tlpx::Result<()>;
+    fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> tlpx::Result<i64>;
+    fn recover_expired_claim_at(
+        &self,
+        claim_id: &str,
+        recovered_at_ms: i64,
+    ) -> tlpx::Result<ExecutionState>;
+}
+
+impl AuthenticatedTestAuthority for Authority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome> {
+        self.evaluate_authenticated_at(
+            &authenticated_identity(
+                requester,
+                PartyType::Machine,
+                vec![LocalRole::Requester],
+                vec![],
+            ),
+            intent,
+            evaluated_at_ms,
+        )
+    }
+
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &tlpx::ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord> {
+        self.claim_authenticated_at(
+            authorization_id,
+            &authenticated_identity(
+                executor,
+                PartyType::Machine,
+                vec![LocalRole::Executor],
+                vec![],
+            ),
+            executed,
+            claimed_at_ms,
+        )
+    }
+
+    fn revoke_at(&self, authorization_id: &str, revoked_at_ms: i64) -> tlpx::Result<()> {
+        self.revoke_authenticated_at(
+            &authenticated_identity(
+                "authority.test-revoker",
+                PartyType::Machine,
+                vec![LocalRole::EmergencyCanceller],
+                vec![],
+            ),
+            RevocationScope::Authorization,
+            authorization_id,
+            RevocationReason::AuthorizationWithdrawn,
+            revoked_at_ms,
+        )
+        .map(|_| ())
+    }
+
+    fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> tlpx::Result<i64> {
+        self.expire_pending_authenticated_at(
+            &authenticated_identity(
+                "authority.test-scheduler",
+                PartyType::Machine,
+                vec![LocalRole::Authority],
+                vec![],
+            ),
+            receipt_id,
+            expired_at_ms,
+        )
+    }
+
+    fn recover_expired_claim_at(
+        &self,
+        claim_id: &str,
+        recovered_at_ms: i64,
+    ) -> tlpx::Result<ExecutionState> {
+        self.recover_expired_claim_authenticated_at(
+            &authenticated_identity(
+                "authority.test-reconciler",
+                PartyType::Machine,
+                vec![LocalRole::Reconciler],
+                vec![],
+            ),
+            claim_id,
+            recovered_at_ms,
+        )
+    }
+}
+
 fn config() -> AuthorityConfig {
     let policy = PolicyBundle {
         rules: vec![
@@ -1951,6 +2063,8 @@ fn execution_start_authenticates_adapter_integrity_and_exact_mapping() {
             &hash('8'),
             NOW + 2,
         )
+        .unwrap()
+        .into_started()
         .unwrap();
     assert_eq!(lease.state, ExecutionState::Started);
 }
@@ -2028,6 +2142,8 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
             &hash('8'),
             NOW + 2,
         )
+        .unwrap()
+        .into_started()
         .unwrap();
     assert_eq!(lease.state, ExecutionState::Started);
     let retry = authority
@@ -2041,7 +2157,7 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
             NOW + 3,
         )
         .unwrap();
-    assert_eq!(retry, lease);
+    assert_eq!(retry, tlpx::ExecutionStart::NotStarted(lease.clone()));
     let conflict = authority
         .begin_execution_authenticated_at(
             &claim.claim_id,
@@ -2105,7 +2221,67 @@ fn execution_start_and_terminal_receipt_are_exactly_idempotent() {
             NOW + 5,
         )
         .unwrap();
-    assert_eq!(resumed.state, ExecutionState::Completed);
+    assert_eq!(
+        resumed,
+        tlpx::ExecutionStart::NotStarted(tlpx::ExecutionLease {
+            state: ExecutionState::Completed,
+            ..lease.clone()
+        })
+    );
+    assert!(authority
+        .pending_evidence(100)
+        .unwrap()
+        .iter()
+        .any(|row| row.record_type == "tlpx.execution"));
+}
+
+#[test]
+fn execution_start_after_lease_expiry_never_returns_spawn_permission() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-late-execution"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let start = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            claim.lease_expires_at_ms,
+        )
+        .unwrap();
+    assert!(matches!(
+        start,
+        tlpx::ExecutionStart::NotStarted(tlpx::ExecutionLease {
+            state: ExecutionState::LeaseExpired,
+            ..
+        })
+    ));
+    let retry = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            claim.lease_expires_at_ms + 1,
+        )
+        .unwrap();
+    let error = retry.into_started().unwrap_err();
+    assert_eq!(error.code(), "EXECUTION_STATE_INVALID");
     assert!(authority
         .pending_evidence(100)
         .unwrap()
@@ -2140,6 +2316,8 @@ fn execution_result_identity_and_cancellation_fail_closed() {
             &hash('8'),
             NOW + 2,
         )
+        .unwrap()
+        .into_started()
         .unwrap();
     let empty = authority
         .finish_execution_authenticated_at(
@@ -2225,6 +2403,8 @@ fn unknown_outcome_requires_reconciliation_and_never_reopens() {
                 &hash('8'),
                 NOW + 2,
             )
+            .unwrap()
+            .into_started()
             .unwrap();
         authority
             .mark_execution_outcome_unknown_authenticated_at(
@@ -2291,7 +2471,13 @@ fn unknown_outcome_requires_reconciliation_and_never_reopens() {
             NOW + 6,
         )
         .unwrap();
-    assert_eq!(begin_retry.state, ExecutionState::OutcomeUnknownFinal);
+    assert!(matches!(
+        begin_retry,
+        tlpx::ExecutionStart::NotStarted(tlpx::ExecutionLease {
+            state: ExecutionState::OutcomeUnknownFinal,
+            ..
+        })
+    ));
     drop(authority);
     clean_db(&path);
 }
@@ -2343,6 +2529,8 @@ fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
             &hash('8'),
             NOW + 2,
         )
+        .unwrap()
+        .into_started()
         .unwrap();
     let recovered = authority
         .recover_expired_claim_at(&started_claim.claim_id, started_claim.lease_expires_at_ms)
@@ -2382,6 +2570,8 @@ fn separate_connections_have_one_terminal_execution_winner() {
                 &hash('8'),
                 NOW + 2,
             )
+            .unwrap()
+            .into_started()
             .unwrap();
         (lease.execution_id, NOW + 3)
     };

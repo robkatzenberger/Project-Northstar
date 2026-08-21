@@ -28,9 +28,10 @@ export function resolveDomain(domain) {
   if (typeof domain !== "string" || domain.length === 0) {
     throw new Error("hash: domain required");
   }
-  return Object.prototype.hasOwnProperty.call(HASH_DOMAINS, domain)
-    ? HASH_DOMAINS[domain]
-    : domain;
+  if (!Object.prototype.hasOwnProperty.call(HASH_DOMAINS, domain)) {
+    throw new Error(`hash: unknown domain ${JSON.stringify(domain)}`);
+  }
+  return HASH_DOMAINS[domain];
 }
 
 export function digestBytes(domain, canonical) {

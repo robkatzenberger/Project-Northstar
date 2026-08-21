@@ -20,13 +20,13 @@ fn hash(ch: char) -> String {
     format!("sha256:{}", ch.to_string().repeat(64))
 }
 
-fn executor_identity() -> AuthenticatedIdentity {
+fn role_identity(principal_id: &str, role: LocalRole) -> AuthenticatedIdentity {
     let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
         uid: nix::unistd::Uid::effective().as_raw(),
         gid: nix::unistd::Gid::effective().as_raw(),
-        principal_id: "runtime.mailer".into(),
+        principal_id: principal_id.into(),
         party_type: PartyType::Machine,
-        roles: vec![LocalRole::Executor],
+        roles: vec![role],
         approval_routes: vec![],
     }])
     .unwrap();
@@ -34,6 +34,59 @@ fn executor_identity() -> AuthenticatedIdentity {
     let identity = authenticator.authenticate_stream(&server).unwrap();
     drop(client);
     identity
+}
+
+fn executor_identity() -> AuthenticatedIdentity {
+    role_identity("runtime.mailer", LocalRole::Executor)
+}
+
+/// Test-only compatibility seam. The crate's public API accepts authenticated
+/// identities; deterministic test calls cannot reach raw principal-string
+/// authority methods.
+trait AuthenticatedTestAuthority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome>;
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord>;
+}
+
+impl AuthenticatedTestAuthority for Authority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome> {
+        self.evaluate_authenticated_at(
+            &role_identity(requester, LocalRole::Requester),
+            intent,
+            evaluated_at_ms,
+        )
+    }
+
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord> {
+        self.claim_authenticated_at(
+            authorization_id,
+            &role_identity(executor, LocalRole::Executor),
+            executed,
+            claimed_at_ms,
+        )
+    }
 }
 
 fn adapter_identity() -> AuthenticatedAdapterSession {
@@ -495,6 +548,8 @@ fn execution_outbox_failure_does_not_create_a_ghost_terminal_receipt() {
                 &hash('8'),
                 NOW + 2,
             )
+            .unwrap()
+            .into_started()
             .unwrap();
         (lease.execution_id, NOW + 3)
     };

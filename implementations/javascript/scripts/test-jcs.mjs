@@ -110,6 +110,7 @@ console.log("TL-PX 0.2 JCS / hash fixtures\n");
   throws(() => assertHashString("sha256:" + "A".repeat(64)), "expected sha256", "uppercase hex rejected");
   throws(() => assertHashString("0x" + "a".repeat(64)), "expected sha256", "0x rejected");
   throws(() => assertHashString("sha256:" + "a".repeat(63)), "expected sha256", "truncated rejected");
+  throws(() => hashString("northstar:caller-prefix:v1\0", "{}"), "unknown domain", "unknown domain rejected");
 }
 
 {

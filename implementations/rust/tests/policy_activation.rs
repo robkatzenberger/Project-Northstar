@@ -1,16 +1,80 @@
 use serde_json::Value as JsonValue;
 use std::fs;
+use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use tlpx::{
     exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry, Authority,
     AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
-    EvidenceConfig, ExecutedAction, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, PolicySupersedes, Principal, Risk,
-    SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE,
-    POLICY_PRECEDENCE,
+    EvidenceConfig, ExecutedAction, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
+    PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, PolicySupersedes, Principal, Risk, SubmittedIntent, Switchboard,
+    Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
+
+fn identity(principal_id: &str, role: LocalRole) -> tlpx::AuthenticatedIdentity {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: principal_id.into(),
+        party_type: PartyType::Machine,
+        roles: vec![role],
+        approval_routes: vec![],
+    }])
+    .unwrap();
+    let (server, client) = UnixStream::pair().unwrap();
+    let identity = authenticator.authenticate_stream(&server).unwrap();
+    drop(client);
+    identity
+}
+
+/// Test-only deterministic-clock facade over the authenticated public API.
+trait AuthenticatedTestAuthority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome>;
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord>;
+}
+
+impl AuthenticatedTestAuthority for Authority {
+    fn evaluate_and_issue_at(
+        &self,
+        requester: &str,
+        intent: &SubmittedIntent,
+        evaluated_at_ms: i64,
+    ) -> tlpx::Result<tlpx::EvaluationOutcome> {
+        self.evaluate_authenticated_at(
+            &identity(requester, LocalRole::Requester),
+            intent,
+            evaluated_at_ms,
+        )
+    }
+
+    fn claim_at(
+        &self,
+        authorization_id: &str,
+        executor: &str,
+        executed: &ExecutedAction,
+        claimed_at_ms: i64,
+    ) -> tlpx::Result<tlpx::ClaimRecord> {
+        self.claim_authenticated_at(
+            authorization_id,
+            &identity(executor, LocalRole::Executor),
+            executed,
+            claimed_at_ms,
+        )
+    }
+}
 
 fn exact_match_policy() -> PolicyBundle {
     PolicyBundle {

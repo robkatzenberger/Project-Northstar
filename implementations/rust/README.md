@@ -7,8 +7,10 @@
 **Slice 3.2 local commit:** Shared typed-action/hash fixtures and parity tests at `e835c4e` — bounded exact-commit checks passed, not independently accepted
 **Slice 3.3 local commit:** Kernel-derived Unix peer identity, authenticated role facades, policy-bound approval routes, and atomic pending cancellation at `c19b1d2` — full exact-commit builder matrix passed, not independently accepted
 **Slice 3.4 local commit:** Human-only route approval/rejection, canonical display binding, fresh post-approval issuance, and atomic approval expiry at `133cd94` — full exact-commit builder matrix passed, not independently accepted
+**Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
+**Slice 3.8 working-tree candidate:** bounded `CooperativeShellRunner` plus `tlpx-run-demo`; not yet a named or verified artifact
 **Crate:** `tlpx` 0.2.0  
-**Not yet:** post-claim cancellation, execution/revocation evidence, authenticated adapter integrity, side effects, a hardened service, or a forced-mediation PEP
+**Not yet:** active post-claim cancellation, portable revocation/expiry evidence, a hardened service, or forced mediation
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
@@ -38,6 +40,8 @@ rust/
   src/local_auth.rs             Unix peer credentials, exact identity map, opaque roles
   src/policy.rs                 exact-match policy, Switchboard, capabilities
   src/policy_manifest.rs        manifest parsing, content binding, supersession, activation
+  src/shell_runner.rs           bounded direct-argv cooperative command runner
+  src/bin/tlpx-run-demo.rs      narrow same-UID marker-creation demonstration
   src/jcs.rs                    Northstar RFC 8785 profile
   src/hash.rs                   domain-separated hashes
   src/types.rs                  distinct 0.2 contract objects
@@ -46,6 +50,8 @@ rust/
   tests/action_types.rs         shared typed-object/canonical/hash fixture parity
   tests/jcs_golden.rs           cross-language canonical/hash oracle
   tests/policy_activation.rs    provenance, activation, durable-error, and claim recheck tests
+  tests/cooperative_shell_runner.rs
+                                mutation, allowlist, output, timeout, spawn, race, and replay tests
 ```
 
 ## Commands
@@ -63,6 +69,9 @@ cargo run --example local_authority -- :memory: schema-check --evidence-jsonl
 
 # From implementations/javascript: validate those Rust records with the JS oracle.
 npm run test:rust-evidence
+
+# Cooperative 3.8 demonstration; creates only a previously absent marker.
+cargo run --bin tlpx-run-demo -- /tmp/northstar-runner.sqlite /tmp/northstar-marker request-1
 ```
 
 Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
@@ -97,10 +106,14 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - Pending requester, route-authorized operator, and emergency-authority cancellation is reason-scoped, atomic, and coupled to one schema-valid sealed operator-action row; concurrent cancellation has one winner.
 - Human approval/rejection requires a route-authorized human, exact displayed Authorized Action hash, and renderer identity/version. Approval creates a fresh authorization/nonce and starts the claim timer at approval; rejection creates none.
 - Approval, rejection, cancellation, and approval expiry are atomic terminal transitions across SQLite connections.
+- Adapter sessions authenticate the configured local peer mappings in both directions and verify the activated adapter/version/digest/capability/action/material-field contract before execution start. Same-UID socket-pair tests cover mapping and contract logic, not distinct-peer separation.
+- Public authority mutation paths require `AuthenticatedIdentity`; raw principal-string evaluation and claim functions are private internals. Approval expiry and claim recovery likewise require authenticated authority/reconciler roles.
+- Only a newly created `ExecutionStart::Started` grants spawn permission. An exact retry or an already-closed attempt returns `NotStarted`, so an `Ok(ExecutionLease)` retry cannot be mistaken for permission.
+- The cooperative runner requires a complete issuance-matching Authorized Action, exact direct-argv plan, configured executable plus check-before-spawn digest comparison, activated cwd/environment, bounded output/duration, claim, and fresh durable start before spawn. It clears inherited environment, kills the spawned process group on timeout, and does not write output content into audit evidence.
 
 ## Deliberate boundary
 
-The 3.3 facade derives identity from a connected Unix peer, but the original public methods that accept principal strings remain available to trusted library embeddings. A network or shell caller is not authenticated merely because it can type a principal name; untrusted adapters and the eventual PEP must use the authenticated facade. The UID/GID map, socket ownership/mode, and configuration remain process-owned deployment inputs. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
+The public authority path derives identity from authenticated context; its local profile resolves connected Unix peer UID/GID through a process-owned map. Same-UID unit fixtures intentionally use separate maps to exercise role and contract lookup and do not prove OS identity separation. The UID/GID map, socket ownership/mode, and configuration remain process-owned deployment inputs. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
 
 The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect a minimum 32-byte HMAC key. Key storage, rotation, recovery, external export transport, and retention are not implemented. SQLite and export-acknowledgement state remain trusted. The fixed key in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
@@ -108,7 +121,7 @@ The evidence envelope is local implementation behavior, not an accepted portable
 
 The SQLite schema is pre-release and intentionally has no migration-compatibility promise. Previous incompatible databases, including the earlier outbox record-type constraint, are rejected before schema mutation. Use a fresh database after trust-path schema changes until a versioned migration policy is introduced.
 
-There is no protected side effect in this crate. A process that can reach a capability directly can still bypass Northstar. Forced mediation remains slice 3.9 and requires separate OS identities and an OS-protected target.
+The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. Executable digest comparison also has a check-to-exec replacement window. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program. Forced mediation and the `tlpx-run` name remain slice 3.9; acceptance requires separate OS identities, an OS-protected target, and proof that the restricted agent has no alternate writer route.
 
 ## Requirements
 
@@ -120,4 +133,4 @@ There is no protected side effect in this crate. A process that can reach a capa
 
 ## Next implementation
 
-Continue with bounded slice 3.5: transactional revocation/state closure around the existing atomic claim. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Verify and commit bounded slice 3.8, then build the separate-identity slice 3.9 forced-mediation acceptance test. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.

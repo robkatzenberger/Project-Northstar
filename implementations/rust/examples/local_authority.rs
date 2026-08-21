@@ -35,7 +35,8 @@ fn main() -> tlpx::Result<()> {
 
     let authority = Authority::open(database, pilot_config()?)?;
     let intent = pilot_intent(request_id);
-    let outcome = authority.evaluate_and_issue("agent.requester", &intent)?;
+    let requester = pilot_authenticated_requester()?;
+    let outcome = authority.evaluate_authenticated(&requester, &intent)?;
     if !evidence_jsonl {
         println!(
             "decision={} receipt={}",
@@ -64,18 +65,20 @@ fn main() -> tlpx::Result<()> {
         artifact_hash: intent.artifact_hash,
         adapter: intent.adapter,
     };
-    let claim = authority.claim(&issued.authorization_id, "runtime.mailer", &executed)?;
     let executor = pilot_authenticated_executor()?;
+    let claim = authority.claim_authenticated(&issued.authorization_id, &executor, &executed)?;
     let adapter = pilot_authenticated_adapter()?;
-    let execution = authority.begin_execution_authenticated_at(
-        &claim.claim_id,
-        &issued.idempotency_key,
-        &executed,
-        &executor,
-        &adapter,
-        &format!("sha256:{}", "8".repeat(64)),
-        claim.claimed_at_ms + 1,
-    )?;
+    let execution = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed,
+            &executor,
+            &adapter,
+            &format!("sha256:{}", "8".repeat(64)),
+            claim.claimed_at_ms + 1,
+        )?
+        .into_started()?;
     let terminal = authority.finish_execution_authenticated_at(
         &execution.execution_id,
         &executor,
@@ -92,12 +95,11 @@ fn main() -> tlpx::Result<()> {
         let mut invalid = pilot_intent(format!("{}-error", issued.request_id));
         invalid.requesting_principal = "agent.untrusted-body".into();
         let error = authority
-            .evaluate_and_issue("agent.requester", &invalid)
+            .evaluate_authenticated(&requester, &invalid)
             .expect_err("authentication mismatch must fail");
         if error.code() != "AUTHENTICATION_FAILED" {
             return Err(error);
         }
-        let requester = pilot_authenticated_requester()?;
         let mut pending = pilot_intent(format!("{}-pending", issued.request_id));
         pending.action = "deploy".into();
         let pending = authority.evaluate_authenticated(&requester, &pending)?;

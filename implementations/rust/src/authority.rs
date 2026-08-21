@@ -428,6 +428,30 @@ pub struct ExecutionLease {
     pub state: ExecutionState,
 }
 
+/// Outcome of an execution-start request. Only `Started` authorizes this
+/// caller to begin the protected side effect. `NotStarted` reports durable
+/// state for a retry or a lease that closed before start; it is never spawn
+/// permission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionStart {
+    Started(ExecutionLease),
+    NotStarted(ExecutionLease),
+}
+
+impl ExecutionStart {
+    /// Returns the lease only when this call created the durable `STARTED`
+    /// transition. Retried or already-closed attempts fail closed.
+    pub fn into_started(self) -> Result<ExecutionLease> {
+        match self {
+            Self::Started(lease) => Ok(lease),
+            Self::NotStarted(_) => Err(Error::coded(
+                "EXECUTION_STATE_INVALID",
+                "this call did not create the durable STARTED transition",
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionReceipt {
     pub execution_id: String,
@@ -899,12 +923,12 @@ impl Authority {
         })
     }
 
-    pub fn evaluate_and_issue(
+    fn evaluate_trusted_embedding(
         &self,
         authenticated_requester: &str,
         intent: &SubmittedIntent,
     ) -> Result<EvaluationOutcome> {
-        self.evaluate_and_issue_at(authenticated_requester, intent, now_ms()?)
+        self.evaluate_trusted_embedding_at(authenticated_requester, intent, now_ms()?)
     }
 
     pub fn evaluate_authenticated(
@@ -913,7 +937,7 @@ impl Authority {
         intent: &SubmittedIntent,
     ) -> Result<EvaluationOutcome> {
         requester.require_role(LocalRole::Requester)?;
-        self.evaluate_and_issue(requester.principal_id(), intent)
+        self.evaluate_trusted_embedding(requester.principal_id(), intent)
     }
 
     pub fn evaluate_authenticated_at(
@@ -923,10 +947,10 @@ impl Authority {
         evaluated_at_ms: i64,
     ) -> Result<EvaluationOutcome> {
         requester.require_role(LocalRole::Requester)?;
-        self.evaluate_and_issue_at(requester.principal_id(), intent, evaluated_at_ms)
+        self.evaluate_trusted_embedding_at(requester.principal_id(), intent, evaluated_at_ms)
     }
 
-    pub fn evaluate_and_issue_at(
+    fn evaluate_trusted_embedding_at(
         &self,
         authenticated_requester: &str,
         intent: &SubmittedIntent,
@@ -1151,13 +1175,13 @@ impl Authority {
         )
     }
 
-    pub fn claim(
+    fn claim_trusted_embedding(
         &self,
         authorization_id: &str,
         authenticated_executor: &str,
         executed: &ExecutedAction,
     ) -> Result<ClaimRecord> {
-        self.claim_at(
+        self.claim_trusted_embedding_at(
             authorization_id,
             authenticated_executor,
             executed,
@@ -1172,7 +1196,7 @@ impl Authority {
         executed: &ExecutedAction,
     ) -> Result<ClaimRecord> {
         executor.require_role(LocalRole::Executor)?;
-        self.claim(authorization_id, executor.principal_id(), executed)
+        self.claim_trusted_embedding(authorization_id, executor.principal_id(), executed)
     }
 
     pub fn claim_authenticated_at(
@@ -1183,7 +1207,7 @@ impl Authority {
         claimed_at_ms: i64,
     ) -> Result<ClaimRecord> {
         executor.require_role(LocalRole::Executor)?;
-        self.claim_at(
+        self.claim_trusted_embedding_at(
             authorization_id,
             executor.principal_id(),
             executed,
@@ -1191,7 +1215,7 @@ impl Authority {
         )
     }
 
-    pub fn claim_at(
+    fn claim_trusted_embedding_at(
         &self,
         authorization_id: &str,
         authenticated_executor: &str,
@@ -1353,7 +1377,9 @@ impl Authority {
     }
 
     /// Durably opens one execution attempt before a protected side effect may
-    /// begin. Repeating the exact request returns the existing state.
+    /// begin. Only `ExecutionStart::Started` grants this call permission to
+    /// start the side effect. An exact retry returns `NotStarted`, including
+    /// when the durable attempt itself remains in `STARTED`.
     #[allow(clippy::too_many_arguments)] // Every security-relevant presentation stays explicit.
     pub fn begin_execution_authenticated_at(
         &self,
@@ -1364,7 +1390,7 @@ impl Authority {
         adapter: &AuthenticatedAdapterSession,
         adapter_binary_hash: &str,
         started_at_ms: i64,
-    ) -> Result<ExecutionLease> {
+    ) -> Result<ExecutionStart> {
         executor.require_role(LocalRole::Executor)?;
         let presented_action_hash = executed.executed_action_hash()?;
         assert_hash_string(adapter_binary_hash)
@@ -1389,7 +1415,7 @@ impl Authority {
                     "execution retry differs from the durable attempt",
                 ));
             }
-            return Ok(existing.lease());
+            return Ok(ExecutionStart::NotStarted(existing.lease()));
         }
         let context = load_claim_execution_context(&transaction, claim_id)?
             .ok_or_else(|| Error::coded("EXECUTION_CLAIM_INVALID", "claim does not exist"))?;
@@ -1501,7 +1527,11 @@ impl Authority {
             )?;
         }
         transaction.commit().map_err(db_error)?;
-        Ok(stored.lease())
+        if late {
+            Ok(ExecutionStart::NotStarted(stored.lease()))
+        } else {
+            Ok(ExecutionStart::Started(stored.lease()))
+        }
     }
 
     pub fn finish_execution_authenticated_at(
@@ -1751,7 +1781,17 @@ impl Authority {
     /// Recovers an expired claimed execution. If no protected execution began,
     /// this emits a terminal LEASE_EXPIRED receipt. If one began, it enters the
     /// unknown-outcome process and must be reconciled without replay.
-    pub fn recover_expired_claim_at(
+    pub fn recover_expired_claim_authenticated_at(
+        &self,
+        reconciler: &AuthenticatedIdentity,
+        claim_id: &str,
+        recovered_at_ms: i64,
+    ) -> Result<ExecutionState> {
+        reconciler.require_role(LocalRole::Reconciler)?;
+        self.recover_expired_claim_at(claim_id, recovered_at_ms)
+    }
+
+    fn recover_expired_claim_at(
         &self,
         claim_id: &str,
         recovered_at_ms: i64,
@@ -1878,17 +1918,6 @@ impl Authority {
             .map_err(db_error)?
             .map(|state| ExecutionState::parse(&state))
             .transpose()
-    }
-
-    pub fn revoke_at(&self, authorization_id: &str, revoked_at_ms: i64) -> Result<()> {
-        self.revoke_scope_at(
-            "trusted-embedding.local",
-            RevocationScope::Authorization,
-            authorization_id,
-            RevocationReason::AuthorizationWithdrawn,
-            revoked_at_ms,
-        )?;
-        Ok(())
     }
 
     pub fn revoke_authenticated(
@@ -2350,7 +2379,17 @@ impl Authority {
         Ok(resolution)
     }
 
-    pub fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> Result<i64> {
+    pub fn expire_pending_authenticated_at(
+        &self,
+        system_authority: &AuthenticatedIdentity,
+        receipt_id: &str,
+        expired_at_ms: i64,
+    ) -> Result<i64> {
+        system_authority.require_role(LocalRole::Authority)?;
+        self.expire_pending_at(receipt_id, expired_at_ms)
+    }
+
+    fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> Result<i64> {
         let mut connection = self
             .db
             .lock()
