@@ -18,6 +18,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md`](../tests/reports/slice-3.2-typed-action-hash-builder-verification-2026-08-17.md) | Bounded exact-commit evidence and limits for local slice 3.2 commit `e835c4e` |
 | [`../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.3 commit `c19b1d2` |
 | [`../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.4 commit `133cd94` |
+| [`../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative slice 3.8 commit `7c41450` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -31,7 +32,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority MVP** | Commit `aed80e2` independently accepted; later unaccepted commits add sealed evidence, policy activation, and typed-hash parity. Local 3.3 commit `c19b1d2` adds kernel-derived Unix peer roles and atomic pending cancellation with sealed operator evidence. Full Section 3 verification is deferred. No approval resolution, execution receipt, hardened service, or PEP yet. |
+| [`rust/`](./rust/) | **Local authority + cooperative runner candidate** | Commit `aed80e2` independently accepted; later unaccepted commits through 3.8 `7c41450` add sealed evidence, policy activation, typed hashes, peer roles, approval/revocation/execution lifecycle, adapter contracts, and one same-UID cooperative direct-argv side effect. Full Section 3 verification is deferred. No separate-identity forced-mediation PEP yet. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

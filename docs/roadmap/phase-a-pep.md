@@ -6,7 +6,7 @@
 
 A16 remains real: calling the library is optional, so this is not yet an enforcement boundary. That diagnosis stands.
 
-Do not implement the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as the acceptance test. An unauthenticated prototype may exist later only if labeled as such. Slice 3.9 requires separate OS identities and the eight acceptance assertions in the build sheet. Forced mediation is not current implementation status; the 2.3 object/evaluation/authorization schema core and bounded `aed80e2` Rust authority are accepted, while named commit `c9bdd0f` is only builder-verified and still performs no protected side effect.
+Do not treat the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as the acceptance test. Slice 3.8 now provides the explicitly labeled cooperative `tlpx-run-demo` at local commit `7c41450`; it runs under the caller's UID and is bypassable. Slice 3.9 requires separate OS identities and the eight acceptance assertions in the build sheet. Forced mediation is not current implementation status; only the bounded `aed80e2` Rust evaluate/issue/claim scope is independently accepted.
 
 ## Goal
 

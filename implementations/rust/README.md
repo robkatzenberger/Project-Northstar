@@ -8,7 +8,7 @@
 **Slice 3.3 local commit:** Kernel-derived Unix peer identity, authenticated role facades, policy-bound approval routes, and atomic pending cancellation at `c19b1d2` — full exact-commit builder matrix passed, not independently accepted
 **Slice 3.4 local commit:** Human-only route approval/rejection, canonical display binding, fresh post-approval issuance, and atomic approval expiry at `133cd94` — full exact-commit builder matrix passed, not independently accepted
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
-**Slice 3.8 working-tree candidate:** bounded `CooperativeShellRunner` plus `tlpx-run-demo`; not yet a named or verified artifact
+**Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** active post-claim cancellation, portable revocation/expiry evidence, a hardened service, or forced mediation
 
@@ -117,7 +117,7 @@ The public authority path derives identity from authenticated context; its local
 
 The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect a minimum 32-byte HMAC key. Key storage, rotation, recovery, external export transport, and retention are not implemented. SQLite and export-acknowledgement state remain trusted. The fixed key in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
-`tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, `tlpx.authorization_claim`, and pending-cancellation `tlpx.operator_action` are emitted. Revocation and expiration still change authority state without a claimed 0.2 evidence record; execution receipts and post-claim cancellation/reconciliation evidence remain deferred until their contracts close. Cancellation reason and role are stored transactionally in SQLite because the accepted portable `CANCEL` schema has no stable fields for them.
+`tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, `tlpx.authorization_claim`, pending-cancellation `tlpx.operator_action`, and terminal `tlpx.execution` records are emitted. Revocation and expiration still change authority state without a claimed portable 0.2 evidence record; active post-claim cancellation and portable reconciliation-process evidence remain deferred. Cancellation reason and role are stored transactionally in SQLite because the accepted portable `CANCEL` schema has no stable fields for them.
 
 The SQLite schema is pre-release and intentionally has no migration-compatibility promise. Previous incompatible databases, including the earlier outbox record-type constraint, are rejected before schema mutation. Use a fresh database after trust-path schema changes until a versioned migration policy is introduced.
 
@@ -133,4 +133,4 @@ The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, bu
 
 ## Next implementation
 
-Verify and commit bounded slice 3.8, then build the separate-identity slice 3.9 forced-mediation acceptance test. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Build the separate-identity slice 3.9 forced-mediation acceptance test. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.

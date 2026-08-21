@@ -16,7 +16,7 @@ Open-source intent: a **minimum standard** people can implement, test (conforman
 Public story: https://trust-layer-ai.github.io/Trust-Layer-AI/
 
 Normative 0.1: `docs/standard/SPEC-v0.1.md` (frozen)  
-Draft 0.2: `docs/standard/SPEC-v0.2.md` (accepted evaluation/authorization schema core through 2.3; accepted Rust 2.3d at `aed80e2`; builder-verified evidence/outbox at `c9bdd0f`, not independently accepted; local 2.4/3.1 candidates at `a87f822`/`1addb5c`; bounded exact-commit verified 3.2 typed-action/hash oracle at `e835c4e`; full Section 3 verification deferred and no acceptance claim)
+Draft 0.2: `docs/standard/SPEC-v0.2.md` (accepted evaluation/authorization schema core through 2.3; accepted Rust 2.3d at `aed80e2`; builder-verified evidence/outbox at `c9bdd0f`, not independently accepted; local candidates through exact-commit builder-verified cooperative 3.8 at `7c41450`; full Section 3 verification deferred and no acceptance or forced-mediation claim)
 Full documentation hub: `docs/README.md`
 
 ## Non-negotiables

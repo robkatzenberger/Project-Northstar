@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope, unaccepted local 2.4/3.1 commits, and bounded exact-commit verified 3.2 typed-action/hash commit `e835c4e`. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and unaccepted local candidates through exact-commit builder-verified cooperative slice 3.8 `7c41450`. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -58,6 +58,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md](../tests/reports/slice-3.5-transactional-revocation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.5 commit `ad95653` |
 | [../tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md](../tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.6 commit `9028346` |
 | [../tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md](../tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and explicit limits for local slice 3.7 commit `518899a` |
+| [../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and explicit limits for local cooperative slice 3.8 commit `7c41450` |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |

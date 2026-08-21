@@ -120,17 +120,19 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 3.7 local candidate:** commit `518899a` adds a mutually authenticated local Unix adapter session and an activated contract for both principals, adapter id/version, canonical binary digest, capability/action coverage, and the exact material-field projection. Execution start re-hashes the Executed Action and verifies the consumed claim plus this contract; adapter-started terminal receipts bind principal and digest. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`. Executable measurement/configuration and process isolation remain deployment trust boundaries, and no PEP exists yet.
 
-**3.9** remains the system-level claim. The 3.3 candidate authenticates Unix peers at a bounded facade, but the Rust crate still exposes trusted-embedding string APIs and performs no side effect; there is no hardened service or OS-protected PEP. The authority work is real implementation progress, not forced mediation.
+**Slice 3.8 local candidate:** commit `7c41450ff4e4bd22155b91149a2c0ef6366cf5f6` adds the bounded same-UID `CooperativeShellRunner` and deliberately named `tlpx-run-demo`. It binds an authority-issued action to an exact direct-argv plan, activated executable/digest, cwd, environment names, output/duration limits, authenticated claim, adapter session, and a fresh durable start before one cooperative marker side effect. Public authority mutation paths now require authenticated identities; execution-start retries are non-permission results; child process groups are terminated on timeout/cleanup; unknown JavaScript hash domains fail closed. The full exact-commit builder matrix passed; evidence and limits are in `tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`. Its digest check has a check-to-exec window, argv binding is not operand confinement, and callers with direct capability access can bypass it.
+
+**3.9** remains the system-level claim. The public Rust mutation API now requires identity objects, but the process-owned peer map, identity construction, service configuration, and socket ownership remain trusted deployment inputs. Slice 3.8 performs a cooperative side effect under the caller's UID; there is still no separate-identity, OS-protected PEP. The authority and runner work are real implementation progress, not forced mediation.
 
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** continue Section 3 from 3.8. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. The `tlpx-run` prototype, active post-claim cancellation, portable revocation/expiry evidence, and the OS-enforced PEP remain open.
+**Immediate next gates:** build slice 3.9 as the separate-identity, protected-target acceptance environment in Build Specification §14.1. When Section 3 is complete, run the full Section 3 matrix over the named 2.4/3.x history and obtain independent review; separately inspect `c9bdd0f`. Do not infer acceptance from builder tests or documentation. Active post-claim cancellation, portable revocation/expiry evidence, and production hardening remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.7 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, and the dated slice 2.4–3.8 reports under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

@@ -2,7 +2,7 @@
 
 **Minimum Profile** — the open, testable contract for real-world adopters.
 
-TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3, unaccepted local 2.4/3.1 commits, and bounded exact-commit verified 3.2 typed-action/hash commit `e835c4e`. Execution-receipt, cancellation/reconciliation, and revocation-evidence schema closure remains deferred. Implementation-driven 2.3d is independently accepted at exact commit `aed80e2`. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/typed-action/JCS/hash oracle.
+TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3 and unaccepted local implementation candidates through exact-commit builder-verified cooperative slice 3.8 `7c41450`. Execution-receipt, cancellation/reconciliation, and revocation-evidence schema closure remains deferred. Implementation-driven 2.3d is independently accepted at exact commit `aed80e2`. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/typed-action/JCS/hash oracle.
 
 ## Why a standard (not only a demo)
 
@@ -22,7 +22,7 @@ Enterprise product features (Glass full suite: signed tokens, multi-tenant ops, 
 ## Start here
 
 1. Project docs hub: **[../README.md](../README.md)**  
-2. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)** (frozen 0.1) and **[SPEC-v0.2.md](./SPEC-v0.2.md)** (draft 0.2 with accepted 2.3 core, accepted 2.3d scope, and a working-tree 2.4 candidate)
+2. Read **[SPEC-v0.1.md](./SPEC-v0.1.md)** (frozen 0.1) and **[SPEC-v0.2.md](./SPEC-v0.2.md)** (draft 0.2 with accepted 2.3 core, accepted 2.3d scope, and unaccepted local 2.4/3.x candidates)
 3. Inspect schemas in `../../schemas/tlpx-0.1/` (frozen) and `../../schemas/tlpx-0.2/` (draft).
 4. JCS/hash golden fixtures: `../../tests/fixtures/tlpx-0.2/jcs/`  
 5. Run the **0.1** suite and the **0.2 schema/JCS** checks:
@@ -46,7 +46,7 @@ npm run demo
 ```text
 Prism          → optional intent signal dialect
 TL-PX 0.1      → frozen historical minimum (47 fixtures)  
-TL-PX 0.2      → draft contract; accepted 2.3/2.3d scope plus unaccepted 2.4 candidate
+TL-PX 0.2      → draft contract; accepted 2.3/2.3d scope plus unaccepted local 2.4/3.x candidates
 APEX-Lite      → early playable reference (concept)
 This reference → conforming TL-PX 0.1 implementation + 0.2 contract oracles
 Glass product  → enterprise extensions on top of TL-PX
