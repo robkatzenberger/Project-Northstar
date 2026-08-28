@@ -19,6 +19,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.3 commit `c19b1d2` |
 | [`../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.4 commit `133cd94` |
 | [`../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative slice 3.8 commit `7c41450` |
+| [`../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; separate-identity acceptance test not yet run |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -32,7 +33,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority + cooperative runner candidate** | Commit `aed80e2` independently accepted; later unaccepted commits through 3.8 `7c41450` add sealed evidence, policy activation, typed hashes, peer roles, approval/revocation/execution lifecycle, adapter contracts, and one same-UID cooperative direct-argv side effect. Full Section 3 verification is deferred. No separate-identity forced-mediation PEP yet. |
+| [`rust/`](./rust/) | **Local authority + unverified restricted-PEP candidate** | Commit `aed80e2` independently accepted; later unaccepted commits through 3.8 `7c41450` add sealed evidence, policy activation, typed hashes, peer roles, approval/revocation/execution lifecycle, adapter contracts, and one same-UID cooperative side effect. Candidate `e6f2bb0` adds the restricted service and test harness, but the required separate-identity run is deferred. Full Section 3 and forced mediation remain unverified. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

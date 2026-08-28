@@ -9,8 +9,9 @@
 **Slice 3.4 local commit:** Human-only route approval/rejection, canonical display binding, fresh post-approval issuance, and atomic approval expiry at `133cd94` — full exact-commit builder matrix passed, not independently accepted
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
+**Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
 **Crate:** `tlpx` 0.2.0  
-**Not yet:** active post-claim cancellation, portable revocation/expiry evidence, a hardened service, or forced mediation
+**Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
@@ -42,6 +43,10 @@ rust/
   src/policy_manifest.rs        manifest parsing, content binding, supersession, activation
   src/shell_runner.rs           bounded direct-argv cooperative command runner
   src/bin/tlpx-run-demo.rs      narrow same-UID marker-creation demonstration
+  src/restricted_pep.rs         bounded protected-marker PEP candidate
+  src/bin/tlpx-run.rs           serve/request/verify CLI for the 3.9 candidate
+  scripts/restricted-agent-acceptance.sh
+                                required separate-identity 3.9 acceptance run
   src/jcs.rs                    Northstar RFC 8785 profile
   src/hash.rs                   domain-separated hashes
   src/types.rs                  distinct 0.2 contract objects
@@ -52,6 +57,7 @@ rust/
   tests/policy_activation.rs    provenance, activation, durable-error, and claim recheck tests
   tests/cooperative_shell_runner.rs
                                 mutation, allowlist, output, timeout, spawn, race, and replay tests
+  tests/restricted_pep.rs       same-identity service/protocol checks; not 3.9 acceptance
 ```
 
 ## Commands
@@ -72,6 +78,10 @@ npm run test:rust-evidence
 
 # Cooperative 3.8 demonstration; creates only a previously absent marker.
 cargo run --bin tlpx-run-demo -- /tmp/northstar-runner.sqlite /tmp/northstar-marker request-1
+
+# REQUIRED before claiming slice 3.9: real PEP/agent OS-identity separation.
+# On macOS this asks for the administrator password; it uses and cleans a random /tmp tree.
+sudo ./scripts/restricted-agent-acceptance.sh
 ```
 
 Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
@@ -121,7 +131,9 @@ The evidence envelope is local implementation behavior, not an accepted portable
 
 The SQLite schema is pre-release and intentionally has no migration-compatibility promise. Previous incompatible databases, including the earlier outbox record-type constraint, are rejected before schema mutation. Use a fresh database after trust-path schema changes until a versioned migration policy is introduced.
 
-The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. Executable digest comparison also has a check-to-exec replacement window. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program. Forced mediation and the `tlpx-run` name remain slice 3.9; acceptance requires separate OS identities, an OS-protected target, and proof that the restricted agent has no alternate writer route.
+The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. Executable digest comparison also has a check-to-exec replacement window. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program.
+
+The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected marker capability. The service and acceptance harness are committed, and ordinary tests pass, but the defining separate-identity run has not been performed. Same-identity integration tests do not establish OS enforcement. Until `sudo ./scripts/restricted-agent-acceptance.sh` passes, do not claim forced mediation, alternate-route resistance, 3.9 completion, Section 3 completion, or acceptance. The precise evidence and remaining assertions are recorded in [`../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md).
 
 ## Requirements
 
@@ -131,6 +143,6 @@ The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, bu
 - No LLM or dynamic policy code in the decision path.
 - Do not implement the abandoned `AUTHORIZED` snapshot token.
 
-## Next implementation
+## Next gate
 
-Build the separate-identity slice 3.9 forced-mediation acceptance test. After Section 3 is complete, run the full exact-commit Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Run the separate-identity slice 3.9 acceptance script with administrator privileges. If it passes, record an exact-commit rerun, then run the full Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
