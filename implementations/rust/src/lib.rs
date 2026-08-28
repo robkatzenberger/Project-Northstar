@@ -8,6 +8,7 @@ pub mod audit_export;
 pub mod authority;
 pub mod error;
 pub mod evidence;
+pub mod handoff;
 pub mod hash;
 pub mod jcs;
 pub mod keys;
