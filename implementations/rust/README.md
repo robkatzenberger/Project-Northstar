@@ -12,6 +12,7 @@
 **Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
 **Slice 4.1 local candidate:** separated role keys, verify-only rotation, authorization proofs, and durable key-revocation enforcement at `980327d`, exact-verified through `efa7f0f` — not independently accepted
 **Slice 4.2 local candidate:** bounded append-and-sync-before-ack audit export and exact prefix recovery at `833d8d4` — full exact-commit builder/red-team matrix passed, not independently accepted
+**Slice 4.3 local candidate:** persistent trusted-time rollback guard plus bounded race/deadline/restart assurance at `eb0e624` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
@@ -108,6 +109,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - SQLite stores decisions, evaluation errors, and claimable authorizations durably. `(authenticated principal, request_id)` is immutable once a terminal outcome commits.
 - Exact error retries return the stored error; changed intent under the same id blocks with `IDEMPOTENCY_CONFLICT`; an eligible successor uses a new id and may link only to a retryable receipt owned by the same authenticated principal.
 - One authority-wide transactional sequence orders decisions, evaluation errors, and successful claims.
+- Normal process time advances from a monotonic anchor. A transactional SQLite watermark rejects negative or backward time on new time-bearing authority transitions across connections and restarts.
 - Decision, evaluation-error, authorization, and claim JSON is canonical JCS and matches the accepted 0.2 schemas under the JS oracle.
 - Decision requester party type is explicit trusted-embedding configuration; use separate authority instances when requester populations have different party types.
 - Record JSON and the local storage envelope remain distinct. Record/chain hashes, HMAC seals, key ids, and export state are outbox columns, not private protocol fields.
@@ -149,4 +151,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Build slice 4.3 concurrency, trusted-time, cancellation-race, and crash-recovery assurance. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Build slice 4.4 operational readiness and incident response. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
