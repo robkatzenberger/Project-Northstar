@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -14,6 +15,8 @@ struct Fixture {
     marker: PathBuf,
 }
 
+static FIXTURE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.root);
@@ -22,12 +25,13 @@ impl Drop for Fixture {
 
 fn fixture(max_connections: usize, claim_window_ms: i64, claim_delay_ms: u64) -> Fixture {
     let root = PathBuf::from("/tmp").join(format!(
-        "nsp-{}-{}",
+        "nsp-{}-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
+            .as_nanos(),
+        FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));
     let state = root.join("state");
     let endpoint = root.join("endpoint");
