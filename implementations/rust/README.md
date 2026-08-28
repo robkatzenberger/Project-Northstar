@@ -10,6 +10,7 @@
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
 **Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
+**Slice 4.1 local candidate:** separated role keys, verify-only rotation, authorization proofs, and durable key-revocation enforcement at `980327d`, exact-verified through `efa7f0f` — not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
@@ -48,6 +49,7 @@ rust/
   scripts/restricted-agent-acceptance.sh
                                 required separate-identity 3.9 acceptance run
   src/jcs.rs                    Northstar RFC 8785 profile
+  src/keys.rs                   purpose-bound key registry, rotation, and proof verification
   src/hash.rs                   domain-separated hashes
   src/types.rs                  distinct 0.2 contract objects
   tests/authority_mvp.rs        negative, race, restart, and replay tests
@@ -125,7 +127,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 
 The public authority path derives identity from authenticated context; its local profile resolves connected Unix peer UID/GID through a process-owned map. Same-UID unit fixtures intentionally use separate maps to exercise role and contract lookup and do not prove OS identity separation. The UID/GID map, socket ownership/mode, and configuration remain process-owned deployment inputs. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
 
-The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect a minimum 32-byte HMAC key. Key storage, rotation, recovery, external export transport, and retention are not implemented. SQLite and export-acknowledgement state remain trusted. The fixed key in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
+The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect independent role keys. Slice 4.1 supports purpose binding, verify-only rotation, and durable revocation enforcement; hardware-backed storage, custody automation, recovery, external export transport, and retention remain open. SQLite and export-acknowledgement state remain trusted. The fixed role-key bundle in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
 `tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, `tlpx.authorization_claim`, pending-cancellation `tlpx.operator_action`, and terminal `tlpx.execution` records are emitted. Revocation and expiration still change authority state without a claimed portable 0.2 evidence record; active post-claim cancellation and portable reconciliation-process evidence remain deferred. Cancellation reason and role are stored transactionally in SQLite because the accepted portable `CANCEL` schema has no stable fields for them.
 

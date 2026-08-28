@@ -1,9 +1,9 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; slices 2.4 and 3.1–3.8 are local commits through `7c41450`. Slice 3.8 passed its full exact-commit builder matrix. Full Section 3 verification is deferred; none of 2.4/3.1–3.8 is independently accepted. Portable revocation and approval-expiry evidence remain deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; later local candidates include 3.8 `7c41450`, unverified 3.9 `e6f2bb0`, and exact-builder-verified 4.1 key separation through `efa7f0f`. Section 3 and Phase 4 independent verification are deferred. Portable revocation and approval-expiry evidence remain deferred.
 **Profile:** Minimum  
-**Date:** 2026-08-20
+**Date:** 2026-08-27
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
 
 **Document role:** normative protocol semantics, records, states, hashing, and (from slice 2.3) schemas. Delivery sequence and acceptance bars live in [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md).
@@ -24,6 +24,8 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 3.6 | Local commit `9028346`: terminal execution-receipt closure, authorization-bound idempotency, durable direct/unknown/reconciliation states, and atomic sealed terminal evidence. Full exact-commit builder matrix passed; not independently accepted. |
 | 3.7 | Local commit `518899a`: mutually authenticated local adapter session, activated version/digest/capability/action/material mapping, execution-start revalidation, and adapter-bound receipts. Full exact-commit builder matrix passed; not independently accepted. |
 | 3.8 | Local commit `7c41450`: bounded same-UID cooperative direct-argv runner, fresh-start-only spawn permission, public identity-only authority mutation paths, and fail-closed unknown JavaScript hash domains. Full exact-commit builder matrix passed; no normative protocol or portable reason-code expansion; not independently accepted or forced mediation. |
+| 3.9 | Local candidate `e6f2bb0`: bounded restricted-marker service and separate-identity acceptance harness. The required administrator-backed run was not performed; incomplete and unaccepted. |
+| 4.1 | Local implementation `980327d`, exact-verified through `efa7f0f`: purpose-bound independent role keys, verify-only rotation, authority-local authorization proofs, and durable key-revocation enforcement. No portable record expansion; independent review deferred. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 

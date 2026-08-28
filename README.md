@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later unaccepted local commits through exact-commit builder-verified 3.8 `7c41450`; restricted-PEP candidate `e6f2bb0` still needs its separate-identity administrator-backed test, so Section 3 and forced mediation remain unverified
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later unaccepted candidates include 3.8 `7c41450`, unverified restricted PEP `e6f2bb0`, and exact-builder-verified separated role keys through 4.1 `efa7f0f`. The 3.9 administrator-backed test and independent Phase 4 review remain outstanding.
 
 **Who should read what**
 
@@ -61,6 +61,7 @@ northstar/
 | [`tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`](tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.7 commit `518899a` |
 | [`tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative 3.8 commit `7c41450` |
 | [`tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; required separate-identity acceptance test not yet run |
+| [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f`; independent review deferred |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -127,6 +128,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 3.7 authenticated adapter contract and integrity tests local commit `518899a` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.8 bounded cooperative shell runner local commit `7c41450` (full exact-commit builder matrix passed; not forced mediation or independently accepted)
 - [ ] Slice 3.9 restricted-PEP candidate local commit `e6f2bb0` (ordinary checks passed; required `sudo` separate-identity acceptance test not run)
+- [x] Slice 4.1 separated key roles, rotation, and revocation through local commit `efa7f0f` (exact builder/red-team matrix passed; not independently accepted)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust active cancellation, portable revocation/expiry evidence, production transport, and protected-execution PEP
 - [ ] Python adapter

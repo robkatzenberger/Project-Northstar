@@ -20,6 +20,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md`](../tests/reports/slice-3.4-approval-expiry-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local slice 3.4 commit `133cd94` |
 | [`../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative slice 3.8 commit `7c41450` |
 | [`../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; separate-identity acceptance test not yet run |
+| [`../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
