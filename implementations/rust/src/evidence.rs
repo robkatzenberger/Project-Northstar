@@ -496,6 +496,24 @@ pub(crate) fn pending(connection: &Connection, limit: usize) -> Result<Vec<Seale
     Ok(rows)
 }
 
+pub(crate) fn all(connection: &Connection) -> Result<Vec<SealedEvidence>> {
+    let mut statement = connection
+        .prepare(
+            "SELECT outbox_id, authority_sequence, ordinal, record_type, source_id,
+                    record_json, record_hash, previous_chain_hash, chain_hash,
+                    seal_algorithm, seal_key_id, seal, exported_at_ms
+             FROM tlpx_evidence_outbox
+             ORDER BY outbox_id",
+        )
+        .map_err(db_error)?;
+    let rows = statement
+        .query_map([], row_to_evidence)
+        .map_err(db_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db_error)?;
+    Ok(rows)
+}
+
 pub(crate) fn mark_exported(
     connection: &mut Connection,
     config: &EvidenceConfig,
@@ -517,6 +535,9 @@ pub(crate) fn mark_exported(
              WHERE outbox_id = ?2 AND chain_hash = ?3 AND exported_at_ms IS NULL
                AND outbox_id = (
                  SELECT MIN(outbox_id) FROM tlpx_evidence_outbox WHERE exported_at_ms IS NULL
+               )
+               AND ?1 >= COALESCE(
+                 (SELECT MAX(exported_at_ms) FROM tlpx_evidence_outbox), 0
                )",
             params![exported_at_ms, outbox_id, expected_chain_hash],
         )
@@ -537,7 +558,7 @@ pub(crate) fn mark_exported(
     match existing {
         Some((chain_hash, Some(_))) if chain_hash == expected_chain_hash => Ok(false),
         Some((chain_hash, None)) if chain_hash == expected_chain_hash => Err(Error::authority(
-            "evidence export acknowledgements must preserve outbox order",
+            "evidence export acknowledgements must preserve outbox order and time",
         )),
         Some(_) => Err(Error::authority("evidence export acknowledgement mismatch")),
         None => Err(Error::authority("unknown evidence outbox row")),
@@ -564,6 +585,8 @@ pub(crate) fn reconcile(
     let mut expected_previous: Option<String> = None;
     let mut pending_count = 0_i64;
     let mut exported_count = 0_i64;
+    let mut saw_pending = false;
+    let mut last_exported_at_ms: Option<i64> = None;
     for row in &rows {
         if key_is_durably_revoked(connection, &row.seal_key_id)? {
             return Err(Error::coded(
@@ -599,9 +622,23 @@ pub(crate) fn reconcile(
         verify_envelope_binding(&parsed, row)?;
         verify_source(connection, row)?;
         expected_previous = Some(row.chain_hash.clone());
-        if row.exported_at_ms.is_some() {
+        if let Some(exported_at_ms) = row.exported_at_ms {
+            if saw_pending {
+                return Err(Error::authority(
+                    "exported evidence rows must form an ordered outbox prefix",
+                ));
+            }
+            if exported_at_ms < 0
+                || last_exported_at_ms.is_some_and(|previous| exported_at_ms < previous)
+            {
+                return Err(Error::authority(
+                    "evidence export timestamps must be nonnegative and monotonic",
+                ));
+            }
+            last_exported_at_ms = Some(exported_at_ms);
             exported_count += 1;
         } else {
+            saw_pending = true;
             pending_count += 1;
         }
     }

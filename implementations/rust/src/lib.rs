@@ -4,6 +4,7 @@
 //! a bounded cooperative shell-runner prototype; it is not forced mediation.
 
 pub mod adapter;
+pub mod audit_export;
 pub mod authority;
 pub mod error;
 pub mod evidence;
@@ -20,6 +21,7 @@ pub mod types;
 pub use adapter::{
     AdapterContract, AdapterRegistry, AuthenticatedAdapterSession, ADAPTER_MATERIAL_FIELDS,
 };
+pub use audit_export::{AuditExportSummary, FileAuditExporter};
 pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
     Authority, AuthorityConfig, AuthzState, CancellationOutcome, CancellationReason,

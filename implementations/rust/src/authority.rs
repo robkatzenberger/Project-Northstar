@@ -2503,9 +2503,9 @@ impl Authority {
         evidence::pending(&connection, limit)
     }
 
-    /// Acknowledges one exported row by id and chain hash. Repeating the same
-    /// acknowledgement is safe and returns `false`.
-    pub fn mark_evidence_exported_at(
+    /// Internal acknowledgement used only after a durable exporter has synced
+    /// the corresponding row. Repeating the same acknowledgement is safe.
+    pub(crate) fn mark_evidence_exported_at(
         &self,
         outbox_id: i64,
         expected_chain_hash: &str,
@@ -2522,6 +2522,15 @@ impl Authority {
             expected_chain_hash,
             exported_at_ms,
         )
+    }
+
+    pub(crate) fn evidence_snapshot(&self) -> Result<Vec<SealedEvidence>> {
+        let connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        evidence::reconcile(&connection, &self.config.evidence)?;
+        evidence::all(&connection)
     }
 
     /// Verifies canonical payloads, record/chain hashes, HMAC seals, source

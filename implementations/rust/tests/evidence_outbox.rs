@@ -1,5 +1,8 @@
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::os::unix::fs::{symlink, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,8 +10,8 @@ use tlpx::{
     exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry,
     AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
     AuthorizationTemplate, AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
-    ExecutedAction, ExecutionResultEvidence, ExecutionState, KeyPurpose, KeyRing,
-    LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    ExecutedAction, ExecutionResultEvidence, ExecutionState, FileAuditExporter, KeyPurpose,
+    KeyRing, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
     PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
     Principal, RevocationReason, RevocationScope, Risk, RoleKey, SubmittedIntent, Switchboard,
     Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
@@ -272,6 +275,20 @@ fn clean_db(path: &Path) {
     let _ = std::fs::remove_file(format!("{}-shm", path.display()));
 }
 
+fn temp_export_dir(label: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "northstar-audit-export-{label}-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir(&path).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+    path
+}
+
 fn json(record: &str) -> JsonValue {
     serde_json::from_str(record).unwrap()
 }
@@ -387,45 +404,243 @@ fn evaluation_error_is_schema_shaped_sealed_and_restart_durable() {
 }
 
 #[test]
-fn export_ack_is_idempotent_and_restart_durable() {
-    let path = temp_db("export-ack");
-    let first_id;
-    let first_hash;
+fn durable_file_export_is_ordered_bounded_idempotent_and_restart_safe() {
+    let directory = temp_export_dir("ordered");
+    let database = directory.join("authority.sqlite");
+    let sink = directory.join("audit.jsonl");
     {
-        let authority = Authority::open(&path, config()).unwrap();
+        let authority = Authority::open(&database, config()).unwrap();
         authority
             .evaluate_and_issue_at("agent.requester", &intent("req-export"), NOW)
             .unwrap();
-        let mut rows = authority.pending_evidence(10).unwrap();
-        let second = rows.pop().unwrap();
-        let first = rows.pop().unwrap();
-        first_id = first.outbox_id;
-        first_hash = first.chain_hash;
-        let order_error = authority
-            .mark_evidence_exported_at(second.outbox_id, &second.chain_hash, NOW + 1_000)
-            .unwrap_err();
-        assert!(order_error.message().contains("preserve outbox order"));
-        assert!(authority
-            .mark_evidence_exported_at(first_id, &first_hash, NOW + 2_000)
-            .unwrap());
-        assert!(!authority
-            .mark_evidence_exported_at(first_id, &first_hash, NOW + 3_000)
-            .unwrap());
-        assert!(authority
-            .mark_evidence_exported_at(first_id, &hash('f'), NOW + 3_000)
-            .is_err());
+        let exporter = FileAuditExporter::new(&sink);
+        let first = exporter
+            .export_pending_at(&authority, 1, NOW + 1_000)
+            .unwrap();
+        assert_eq!(first.appended, 1);
+        assert_eq!(first.total_in_sink, 1);
+        assert_eq!(authority.reconcile_evidence().unwrap().exported, 1);
+        assert_eq!(authority.pending_evidence(10).unwrap().len(), 1);
     }
     {
-        let authority = Authority::open(&path, config()).unwrap();
-        let pending = authority.pending_evidence(10).unwrap();
-        assert_eq!(pending.len(), 1);
-        assert_ne!(pending[0].outbox_id, first_id);
+        let authority = Authority::open(&database, config()).unwrap();
+        let exporter = FileAuditExporter::new(&sink);
+        let second = exporter
+            .export_pending_at(&authority, 10, NOW + 2_000)
+            .unwrap();
+        assert_eq!(second.appended, 1);
+        assert_eq!(second.total_in_sink, 2);
+        let repeated = exporter
+            .export_pending_at(&authority, 10, NOW + 3_000)
+            .unwrap();
+        assert_eq!(repeated.appended, 0);
+        assert_eq!(repeated.recovered, 0);
+        assert_eq!(repeated.total_in_sink, 2);
         let reconciliation = authority.reconcile_evidence().unwrap();
-        assert_eq!(reconciliation.total, 2);
-        assert_eq!(reconciliation.exported, 1);
-        assert_eq!(reconciliation.pending, 1);
+        assert_eq!(reconciliation.exported, 2);
+        assert_eq!(reconciliation.pending, 0);
     }
-    clean_db(&path);
+    let text = fs::read_to_string(&sink).unwrap();
+    assert_eq!(text.lines().count(), 2);
+    let first: JsonValue = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+    assert_eq!(first["format"], "tlpx.local-audit-export");
+    assert_eq!(first["format_version"], "1");
+    assert_eq!(first["record"]["record_type"], "tlpx.decision");
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn complete_append_ahead_of_ack_is_recovered_without_duplication() {
+    let directory = temp_export_dir("recover");
+    let database = directory.join("authority.sqlite");
+    let sink = directory.join("audit.jsonl");
+    let authority = Authority::open(&database, config()).unwrap();
+    authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-recover"), NOW)
+        .unwrap();
+    let exporter = FileAuditExporter::new(&sink);
+    exporter
+        .export_pending_at(&authority, 10, NOW + 1_000)
+        .unwrap();
+    let before = fs::read(&sink).unwrap();
+    Connection::open(&database)
+        .unwrap()
+        .execute(
+            "UPDATE tlpx_evidence_outbox SET exported_at_ms = NULL WHERE outbox_id = 2",
+            [],
+        )
+        .unwrap();
+
+    let recovered = exporter
+        .export_pending_at(&authority, 10, NOW + 2_000)
+        .unwrap();
+    assert_eq!(recovered.recovered, 1);
+    assert_eq!(recovered.appended, 0);
+    assert_eq!(fs::read(&sink).unwrap(), before);
+    assert_eq!(authority.reconcile_evidence().unwrap().exported, 2);
+    drop(authority);
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn exporter_rejects_missing_mutated_reordered_extra_and_torn_sink_rows() {
+    for attack in ["missing", "mutated", "reordered", "extra", "torn"] {
+        let directory = temp_export_dir(attack);
+        let database = directory.join("authority.sqlite");
+        let sink = directory.join("audit.jsonl");
+        let authority = Authority::open(&database, config()).unwrap();
+        authority
+            .evaluate_and_issue_at("agent.requester", &intent(&format!("req-{attack}")), NOW)
+            .unwrap();
+        let exporter = FileAuditExporter::new(&sink);
+        exporter
+            .export_pending_at(&authority, 10, NOW + 1_000)
+            .unwrap();
+        let original = fs::read_to_string(&sink).unwrap();
+        let mut lines: Vec<&str> = original.lines().collect();
+        let attacked = match attack {
+            "missing" => format!("{}\n", lines[0]),
+            "mutated" => format!("{}x\n{}\n", lines[0], lines[1]),
+            "reordered" => {
+                lines.swap(0, 1);
+                format!("{}\n{}\n", lines[0], lines[1])
+            }
+            "extra" => format!("{original}{}\n", lines[1]),
+            "torn" => original.trim_end_matches('\n').to_owned(),
+            _ => unreachable!(),
+        };
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(&sink)
+            .unwrap();
+        file.write_all(attacked.as_bytes()).unwrap();
+        file.sync_all().unwrap();
+        let error = exporter
+            .export_pending_at(&authority, 10, NOW + 2_000)
+            .unwrap_err();
+        assert_eq!(error.code(), "AUDIT_EXPORT_FAILED", "attack={attack}");
+        drop(authority);
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
+
+#[test]
+fn exporter_rejects_symlinks_permissions_and_concurrent_lock_holder() {
+    for attack in ["symlink", "permissions", "lock", "parent"] {
+        let directory = temp_export_dir(attack);
+        let database = directory.join("authority.sqlite");
+        let sink = directory.join("audit.jsonl");
+        let authority = Authority::open(&database, config()).unwrap();
+        authority
+            .evaluate_and_issue_at("agent.requester", &intent(&format!("req-{attack}")), NOW)
+            .unwrap();
+        match attack {
+            "symlink" => {
+                let target = directory.join("attacker-file");
+                FileAuditExporter::new(&target)
+                    .export_pending_at(&authority, 10, NOW + 1)
+                    .unwrap();
+                symlink(&target, &sink).unwrap();
+            }
+            "permissions" => {
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(false)
+                    .mode(0o600)
+                    .open(&sink)
+                    .unwrap();
+                fs::set_permissions(&sink, fs::Permissions::from_mode(0o644)).unwrap();
+            }
+            "lock" => {
+                OpenOptions::new()
+                    .create_new(true)
+                    .write(true)
+                    .mode(0o600)
+                    .open(directory.join("audit.jsonl.lock"))
+                    .unwrap();
+            }
+            "parent" => {
+                fs::set_permissions(&directory, fs::Permissions::from_mode(0o770)).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        let error = FileAuditExporter::new(&sink)
+            .export_pending_at(&authority, 10, NOW + 2)
+            .unwrap_err();
+        assert_eq!(error.code(), "AUDIT_EXPORT_FAILED", "attack={attack}");
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+        drop(authority);
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
+
+#[test]
+fn reconciliation_rejects_export_gaps_and_time_rollback() {
+    for attack in ["gap", "negative", "rollback"] {
+        let directory = temp_export_dir(attack);
+        let database = directory.join("authority.sqlite");
+        let sink = directory.join("audit.jsonl");
+        let authority = Authority::open(&database, config()).unwrap();
+        let issued = authority
+            .evaluate_and_issue_at("agent.requester", &intent(&format!("req-{attack}")), NOW)
+            .unwrap()
+            .authorization
+            .unwrap();
+        authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap();
+        FileAuditExporter::new(&sink)
+            .export_pending_at(&authority, 3, NOW + 100)
+            .unwrap();
+        let mutation = match attack {
+            "gap" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = NULL WHERE outbox_id = 2",
+            "negative" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = -1 WHERE outbox_id = 1",
+            "rollback" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = 1 WHERE outbox_id = 3",
+            _ => unreachable!(),
+        };
+        Connection::open(&database)
+            .unwrap()
+            .execute(mutation, [])
+            .unwrap();
+        assert!(authority.reconcile_evidence().is_err(), "attack={attack}");
+        drop(authority);
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
+
+#[test]
+fn timestamp_rollback_leaves_recoverable_sink_ahead_of_ack() {
+    let directory = temp_export_dir("timestamp-recovery");
+    let database = directory.join("authority.sqlite");
+    let sink = directory.join("audit.jsonl");
+    let authority = Authority::open(&database, config()).unwrap();
+    authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-time-recovery"), NOW)
+        .unwrap();
+    let exporter = FileAuditExporter::new(&sink);
+    exporter
+        .export_pending_at(&authority, 1, NOW + 100)
+        .unwrap();
+    let error = exporter
+        .export_pending_at(&authority, 1, NOW + 99)
+        .unwrap_err();
+    assert!(error.message().contains("order and time"));
+    assert_eq!(fs::read_to_string(&sink).unwrap().lines().count(), 2);
+    let recovered = exporter
+        .export_pending_at(&authority, 1, NOW + 101)
+        .unwrap();
+    assert_eq!(recovered.recovered, 1);
+    assert_eq!(recovered.appended, 0);
+    assert_eq!(authority.reconcile_evidence().unwrap().exported, 2);
+    drop(authority);
+    fs::remove_dir_all(directory).unwrap();
 }
 
 #[test]
