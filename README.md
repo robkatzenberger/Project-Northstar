@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later unaccepted candidates include unverified restricted PEP `e6f2bb0`, separated role keys through 4.1 `efa7f0f`, durable local audit export at 4.2 `833d8d4`, time/race/restart assurance at 4.3 `eb0e624`, local operations/incident readiness at 4.4 `bdd8a00`, and authenticated non-transitive handoff at 4.5 `536111a`. The 3.9 administrator-backed test and independent Phase 4 review remain outstanding.
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later unaccepted candidates include unverified restricted PEP `e6f2bb0` and builder-complete Phase 4 hardening through review-package commit `d51e46c` for security-code target `64d0820`. The 3.9 administrator-backed test and independent Phase 4 review remain outstanding.
 
 **Who should read what**
 
@@ -62,11 +62,12 @@ northstar/
 | [`tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`](tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.7 commit `518899a` |
 | [`tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative 3.8 commit `7c41450` |
 | [`tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; required separate-identity acceptance test not yet run |
-| [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f`; independent review deferred |
-| [`tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4`; independent review deferred |
-| [`tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded time/race/restart assurance at `eb0e624`; independent review deferred |
-| [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00`; independent review deferred |
-| [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a`; independent review deferred |
+| [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f`; independent review pending |
+| [`tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4`; independent review pending |
+| [`tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded time/race/restart assurance at `eb0e624`; independent review pending |
+| [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00`; independent review pending |
+| [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a`; independent review pending |
+| [`tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Exact-commit full Phase 4 builder matrix and external-review package evidence at `d51e46c`; independent review pending |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -138,6 +139,8 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 4.3 concurrency, trusted-time, cancellation-race, and crash/restart assurance at `eb0e624` (exact builder/red-team matrix passed; not independently accepted)
 - [x] Slice 4.4 operational readiness and incident-response profile at `bdd8a00` (exact builder/red-team matrix passed; not production automation or independently accepted)
 - [x] Slice 4.5 explicit non-transitive multi-agent handoff at `536111a` (exact builder/red-team matrix passed; no portable handoff credential or independent acceptance)
+- [x] Slice 4.6 external security review readiness package at `d51e46c` (exact full matrix and package red team passed; independent review pending)
+- [ ] Independent Phase 4 review of security-code target `64d0820` using package commit `d51e46c`
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust active cancellation, portable revocation/expiry evidence, production transport, and protected-execution PEP
 - [ ] Python adapter

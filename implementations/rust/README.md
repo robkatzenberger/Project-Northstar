@@ -15,6 +15,7 @@
 **Slice 4.3 local candidate:** persistent trusted-time rollback guard plus bounded race/deadline/restart assurance at `eb0e624` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Slice 4.4 local candidate:** integrity-gated aggregate health, audit hard-stop enforcement, and bounded operations/incident profile at `bdd8a00` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Slice 4.5 local candidate:** authenticated distinct A-to-B fresh-evaluation handoff profile at `536111a` — full exact-commit builder/red-team matrix passed, no bearer handoff credential, not independently accepted
+**Slice 4.6 local candidate:** external security review package at `d51e46c` for security-code target `64d0820` — full exact-commit Phase 4 builder matrix and package red team passed, independent review pending
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
@@ -154,4 +155,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Build slice 4.6 external security review readiness package, then run the full exact-history Phase 4 matrix. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Independently review security-code target `64d0820` using review-package commit `d51e46c` and record a per-slice Phase 4 disposition. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
