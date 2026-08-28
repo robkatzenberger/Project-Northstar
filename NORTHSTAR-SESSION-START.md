@@ -132,11 +132,13 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 4.4 local candidate:** commit `bdd8a00` adds integrity-gated aggregate health, pre-append audit capacity enforcement, explicit bounded-test readiness/backup/change rules, fail-closed incident playbooks, and a runbook safety check. The full exact-commit builder/red-team matrix passed; evidence and limits are in `tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`. This is a local operations profile, not production automation, safe sink rotation, HA, or acceptance.
 
+**Slice 4.5 local candidate:** commit `536111a` adds an explicit authenticated A-to-B handoff entry point that always performs a fresh ordinary evaluation, names B as the only executor, and creates no bearer handoff credential. Substitution, self-handoff, implied parent authority, mutation, forwarding, and replay fail closed; an onward hop requires a separate requester role and new decision. The full exact-commit builder/red-team matrix passed; evidence and limits are in `tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`. Portable parent/child linkage, transport, and federation remain deferred.
+
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** build and red-team slice 4.5 explicit non-transitive multi-agent handoff profile. The separate `sudo ./scripts/restricted-agent-acceptance.sh` gate for 3.9 remains outstanding and Phase 4 work must not be used to imply that it passed. After Phase 4 is complete, run its full exact-history matrix and obtain independent review. Active post-claim cancellation, portable revocation/expiry evidence, and production hardening remain open.
+**Immediate next gates:** build slice 4.6 external security review readiness package, then run the full exact-history Phase 4 matrix and hand the named package to an independent reviewer. The separate `sudo ./scripts/restricted-agent-acceptance.sh` gate for 3.9 remains outstanding and Phase 4 work must not be used to imply that it passed. Active post-claim cancellation, portable revocation/expiry/handoff-link evidence, and production hardening remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 

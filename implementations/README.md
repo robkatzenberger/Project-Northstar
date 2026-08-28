@@ -24,6 +24,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4` |
 | [`../tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](../tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded time/race/restart assurance at `eb0e624` |
 | [`../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00` |
+| [`../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -37,7 +38,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority + unaccepted hardening candidates** | Commit `aed80e2` independently accepted; later unaccepted commits add execution lifecycle and PEP experiments, separated role keys through `efa7f0f`, durable local audit export at `833d8d4`, time/race/restart assurance at `eb0e624`, and local operations readiness at `bdd8a00`. Candidate `e6f2bb0` still needs the separate-identity run. Full Section 3, Phase 4, and forced mediation remain unverified. |
+| [`rust/`](./rust/) | **Local authority + unaccepted hardening candidates** | Commit `aed80e2` independently accepted; later unaccepted commits add execution lifecycle and PEP experiments plus Phase 4 hardening through authenticated non-transitive handoff at `536111a`. Candidate `e6f2bb0` still needs the separate-identity run. Full Section 3, Phase 4, and forced mediation remain unverified. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

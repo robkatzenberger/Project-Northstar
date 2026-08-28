@@ -1,6 +1,6 @@
 # Bounded multi-agent handoff profile
 
-**Status:** slice 4.5 local candidate; builder verification and independent review are separate gates
+**Status:** slice 4.5 local candidate at `536111a`; full exact-commit builder/red-team matrix passed; independent review is deferred
 
 This profile defines a handoff as a fresh TL-PX evaluation for one exact action. It does not transfer an existing authorization and it does not create a bearer handoff token.
 

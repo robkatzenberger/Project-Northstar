@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and later unaccepted candidates through exact-builder-verified slice 4.4 `bdd8a00`. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run. Execution-side evidence schema acceptance remains deferred. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and later unaccepted candidates through exact-builder-verified slice 4.5 `536111a`. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run. Execution-side evidence schema acceptance remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -64,6 +64,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md](../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4`; independent review deferred |
 | [../tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md](../tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded time/race/restart assurance at `eb0e624`; independent review deferred |
 | [../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md](../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00`; independent review deferred |
+| [../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md](../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a`; independent review deferred |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |
@@ -93,6 +94,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [testing.md](./testing.md) | Unit, conformance, red-team, technical test #1 |
 | [operations/README.md](./operations/README.md) | Bounded local readiness, health, backup/restore, capacity, and change profile |
 | [operations/INCIDENT-RESPONSE.md](./operations/INCIDENT-RESPONSE.md) | Fail-closed incident classification, playbooks, and recovery gate |
+| [MULTI-AGENT-HANDOFF.md](./MULTI-AGENT-HANDOFF.md) | Bounded authenticated A-to-B fresh-evaluation profile; no bearer or transitive permission |
 | [MVP.md](./MVP.md) | Historical MVP handoff brief |
 | [changelog.md](./changelog.md) | Project changelog |
 | [**roadmap/**](./roadmap/README.md) | **Ideas & next phases (H-M/M-M, PEP, tokens, handoff)** |

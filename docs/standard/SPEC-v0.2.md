@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; later local candidates include unverified 3.9 `e6f2bb0`, 4.1 key separation through `efa7f0f`, bounded local audit export at 4.2 `833d8d4`, time/race/restart assurance at 4.3 `eb0e624`, and local operations readiness at 4.4 `bdd8a00`. Section 3 and Phase 4 independent verification are deferred. Portable revocation and approval-expiry evidence remain deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; later local candidates include unverified 3.9 `e6f2bb0` and Phase 4 candidates through authenticated non-transitive handoff at 4.5 `536111a`. Section 3 and Phase 4 independent verification are deferred. Portable revocation, approval-expiry, and handoff-link evidence remain deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-27
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -29,6 +29,7 @@ This document is the normative TL-PX 0.2 contract. It is not a 0.2 runtime imple
 | 4.2 | Local commit `833d8d4`: protected append-and-sync-before-ack file export, exact sealed-prefix reconciliation, no-duplicate crash recovery, and acknowledgement order/time checks. Local storage behavior only; no portable record/envelope expansion; independent review deferred. |
 | 4.3 | Local commit `eb0e624`: persistent nondecreasing authority-time watermark, monotonic process clock, exact deadline checks, repeated SQLite-connection races, and restart-through-reconciliation assurance. No portable contract expansion; not formal verification or active post-claim cancellation; independent review deferred. |
 | 4.4 | Local commit `bdd8a00`: integrity-gated aggregate operational health, pre-append audit capacity enforcement, bounded readiness/backup/change guidance, incident playbooks, and runbook safety checks. No portable contract expansion; not production automation or independent acceptance. |
+| 4.5 | Local commit `536111a`: authenticated distinct A-to-B fresh evaluation, exact requester/executor binding, no bearer handoff credential, and non-transitive onward-hop tests. No portable record expansion; independent review deferred. |
 
 **2.3 acceptance clarification (2026-08-14):** earlier 2.3 evidence exercised the object and evaluation/authorization record set, not the execution-side lifecycle. The current execution-receipt schema is not accepted as complete, and no `tlpx.revocation` contract exists yet. This is a recorded scope correction, not a claim that the earlier documents never named those requirements.
 
@@ -811,3 +812,4 @@ The slice 3.2 typed-object vectors live at `tests/fixtures/tlpx-0.2/actions/gold
 | 0.2.0-draft.4.2 | Records the non-normative bounded local audit file exporter: exact sealed-prefix comparison, append-and-sync-before-ack ordering, complete-row crash recovery, protected sink/lock checks, and monotonic acknowledgement reconciliation. Local commit `833d8d4`; no portable envelope change; not independently accepted. |
 | 0.2.0-draft.4.3 | Records the non-normative trusted-time rollback guard and bounded concurrency/deadline/restart assurance suite. Local commit `eb0e624`; no portable contract change; not formal verification, power-loss testing, or independently accepted. |
 | 0.2.0-draft.4.4 | Records the non-normative bounded local operations and incident-response profile plus integrity-gated aggregate health and audit capacity hard stop. Local commit `bdd8a00`; no portable contract change; not production readiness or independently accepted. |
+| 0.2.0-draft.4.5 | Records the non-normative authenticated local A-to-B fresh-evaluation profile and its non-transitive forwarding/substitution/replay tests. Local commit `536111a`; no bearer credential or portable record change; not independently accepted. |
