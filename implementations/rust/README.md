@@ -13,6 +13,7 @@
 **Slice 4.1 local candidate:** separated role keys, verify-only rotation, authorization proofs, and durable key-revocation enforcement at `980327d`, exact-verified through `efa7f0f` — not independently accepted
 **Slice 4.2 local candidate:** bounded append-and-sync-before-ack audit export and exact prefix recovery at `833d8d4` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Slice 4.3 local candidate:** persistent trusted-time rollback guard plus bounded race/deadline/restart assurance at `eb0e624` — full exact-commit builder/red-team matrix passed, not independently accepted
+**Slice 4.4 local candidate:** integrity-gated aggregate health, audit hard-stop enforcement, and bounded operations/incident profile at `bdd8a00` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
@@ -152,4 +153,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Build slice 4.4 operational readiness and incident response. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Build slice 4.5 explicit non-transitive multi-agent handoff. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
