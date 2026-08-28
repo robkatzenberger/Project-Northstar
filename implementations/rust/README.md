@@ -11,6 +11,7 @@
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
 **Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
 **Slice 4.1 local candidate:** separated role keys, verify-only rotation, authorization proofs, and durable key-revocation enforcement at `980327d`, exact-verified through `efa7f0f` — not independently accepted
+**Slice 4.2 local candidate:** bounded append-and-sync-before-ack audit export and exact prefix recovery at `833d8d4` — full exact-commit builder/red-team matrix passed, not independently accepted
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
 
@@ -39,6 +40,7 @@ rust/
   examples/local_authority.rs   runnable authority-only pilot
   src/authority.rs              SQLite issuance, idempotency, revocation, claim, outbox coupling
   src/evidence.rs               canonical records, local hash/HMAC envelope, reconciliation
+  src/audit_export.rs           protected append-only local export and crash recovery
   src/local_auth.rs             Unix peer credentials, exact identity map, opaque roles
   src/policy.rs                 exact-match policy, Switchboard, capabilities
   src/policy_manifest.rs        manifest parsing, content binding, supersession, activation
@@ -109,7 +111,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - Decision, evaluation-error, authorization, and claim JSON is canonical JCS and matches the accepted 0.2 schemas under the JS oracle.
 - Decision requester party type is explicit trusted-embedding configuration; use separate authority instances when requester populations have different party types.
 - Record JSON and the local storage envelope remain distinct. Record/chain hashes, HMAC seals, key ids, and export state are outbox columns, not private protocol fields.
-- State and evidence commit atomically. Pending export reads are ordered, acknowledgements are chain-hash bound and idempotent, and later rows cannot be acknowledged first.
+- State and evidence commit atomically. The bounded local file exporter validates an exact sealed prefix, appends and syncs before internal acknowledgement, recovers complete append-before-ack crashes without duplication, and rejects acknowledgement gaps or time rollback.
 - Reconciliation verifies canonical payloads, the record/hash/HMAC chain, envelope-to-record type/source binding, source references, and coverage for the four supported record types.
 - Evaluation, claim, pending export reads, and export acknowledgements reconcile existing evidence first and fail closed on corruption.
 - Claim checks executor, current Switchboard action scope, the currently active manifest hash, capability, resource scope, exact Action Binding, expiry, and revocation.
@@ -127,7 +129,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 
 The public authority path derives identity from authenticated context; its local profile resolves connected Unix peer UID/GID through a process-owned map. Same-UID unit fixtures intentionally use separate maps to exercise role and contract lookup and do not prove OS identity separation. The UID/GID map, socket ownership/mode, and configuration remain process-owned deployment inputs. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
 
-The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect independent role keys. Slice 4.1 supports purpose binding, verify-only rotation, and durable revocation enforcement; hardware-backed storage, custody automation, recovery, external export transport, and retention remain open. SQLite and export-acknowledgement state remain trusted. The fixed role-key bundle in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
+The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect independent role keys. Slice 4.1 supports purpose binding, verify-only rotation, and durable revocation enforcement. Slice 4.2 adds a protected bounded local file sink, not remote transport, replication, retention automation, monitoring, or same-user tamper resistance. Hardware-backed storage and custody automation remain open; SQLite and the protected local filesystem remain trusted. The fixed role-key bundle in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
 `tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, `tlpx.authorization_claim`, pending-cancellation `tlpx.operator_action`, and terminal `tlpx.execution` records are emitted. Revocation and expiration still change authority state without a claimed portable 0.2 evidence record; active post-claim cancellation and portable reconciliation-process evidence remain deferred. Cancellation reason and role are stored transactionally in SQLite because the accepted portable `CANCEL` schema has no stable fields for them.
 
@@ -147,4 +149,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Run the separate-identity slice 3.9 acceptance script with administrator privileges. If it passes, record an exact-commit rerun, then run the full Section 3 matrix over the named history and obtain independent review. Do not broaden those acceptance gates into claims not exercised by the tests.
+Build slice 4.3 concurrency, trusted-time, cancellation-race, and crash-recovery assurance. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.

@@ -1,7 +1,7 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and unaccepted local candidates through exact-commit builder-verified cooperative slice 3.8 `7c41450`. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run. Execution-side evidence schema closure remains deferred. Gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope and later unaccepted candidates through exact-builder-verified slice 4.2 `833d8d4`. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run. Execution-side evidence schema acceptance remains deferred. Gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
 **Status:** Local development (not published to a remote by default)
@@ -61,6 +61,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and explicit limits for local cooperative slice 3.8 commit `7c41450` |
 | [../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md](../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Named restricted-PEP candidate `e6f2bb0`; defining separate-identity acceptance run is still required |
 | [../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md](../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f`; independent review deferred |
+| [../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md](../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4`; independent review deferred |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |

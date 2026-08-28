@@ -126,11 +126,13 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 4.1 local candidate:** implementation commit `980327d`, exact-verified through `efa7f0f`, separates five cryptographic roles, rejects reused material and cross-role substitution, supports verify-only historical rotation, signs authority-local authorizations, and enforces durable key revocation. The full exact-commit builder/red-team matrix passed; evidence and limits are in `tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`. Key custody/KMS integration, Phase 4 independent review, and acceptance remain deferred.
 
+**Slice 4.2 local candidate:** commit `833d8d4` adds bounded append-and-sync-before-ack audit export, exact sealed-prefix validation, no-duplicate append-before-ack crash recovery, protected sink/lock checks, and fail-closed acknowledgement order/time reconciliation. The full exact-commit builder/red-team matrix passed; evidence and limits are in `tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`. This is a local file profile, not external transport or independent acceptance.
+
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JS is the 0.1 reference and 0.2 oracle. Rust is the emerging authority. Go/Java/Python/TS become adapters.
 
-**Immediate next gates:** build and red-team slice 4.2 durable audit export/reconciliation. The separate `sudo ./scripts/restricted-agent-acceptance.sh` gate for 3.9 remains outstanding and Phase 4 work must not be used to imply that it passed. After Phase 4 is complete, run its full exact-history matrix and obtain independent review. Active post-claim cancellation, portable revocation/expiry evidence, and production hardening remain open.
+**Immediate next gates:** build and red-team slice 4.3 concurrency, trusted-time, cancellation-race, and crash-recovery assurance. The separate `sudo ./scripts/restricted-agent-acceptance.sh` gate for 3.9 remains outstanding and Phase 4 work must not be used to imply that it passed. After Phase 4 is complete, run its full exact-history matrix and obtain independent review. Active post-claim cancellation, portable revocation/expiry evidence, and production hardening remain open.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 

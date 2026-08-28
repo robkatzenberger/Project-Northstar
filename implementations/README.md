@@ -21,6 +21,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative slice 3.8 commit `7c41450` |
 | [`../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; separate-identity acceptance test not yet run |
 | [`../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](../tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f` |
+| [`../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](../tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4` |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -34,7 +35,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Active secondary** | Switchboard + sealed audit + ops + HTTP `tlpxd` |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Local authority + unverified restricted-PEP candidate** | Commit `aed80e2` independently accepted; later unaccepted commits through 3.8 `7c41450` add sealed evidence, policy activation, typed hashes, peer roles, approval/revocation/execution lifecycle, adapter contracts, and one same-UID cooperative side effect. Candidate `e6f2bb0` adds the restricted service and test harness, but the required separate-identity run is deferred. Full Section 3 and forced mediation remain unverified. |
+| [`rust/`](./rust/) | **Local authority + unaccepted hardening candidates** | Commit `aed80e2` independently accepted; later unaccepted commits add execution lifecycle and PEP experiments, with separated role keys through `efa7f0f` and bounded durable local audit export at `833d8d4`. Candidate `e6f2bb0` still needs the separate-identity run. Full Section 3, Phase 4, and forced mediation remain unverified. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---
