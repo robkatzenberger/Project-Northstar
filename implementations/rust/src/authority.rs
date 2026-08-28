@@ -21,8 +21,8 @@ use crate::policy_manifest::{ConfiguredPolicyBundle, PolicyCatalog};
 use crate::types::{ActionBinding, AuthorizedAction, ExecutedAction, SubmittedIntent};
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::Path;
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthzState {
@@ -653,6 +653,10 @@ impl Authority {
                    next_value INTEGER NOT NULL CHECK(next_value >= 1)
                  );
                  INSERT OR IGNORE INTO tlpx_sequence (singleton, next_value) VALUES (1, 1);
+                 CREATE TABLE IF NOT EXISTS tlpx_trusted_time (
+                   singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                   last_observed_ms INTEGER NOT NULL CHECK(last_observed_ms >= 0)
+                 );
                  CREATE TABLE IF NOT EXISTS tlpx_evaluations (
                    sequence INTEGER PRIMARY KEY,
                    receipt_id TEXT NOT NULL UNIQUE,
@@ -984,6 +988,7 @@ impl Authority {
                     (None, _) => false,
                 };
                 if conflicts {
+                    observe_trusted_time(&transaction, evaluated_at_ms)?;
                     return commit_evaluation_error(
                         transaction,
                         ErrorInput {
@@ -1009,6 +1014,7 @@ impl Authority {
                 return result;
             }
         }
+        observe_trusted_time(&transaction, evaluated_at_ms)?;
 
         if scoped_principal.is_none() {
             return commit_evaluation_error(
@@ -1244,6 +1250,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, claimed_at_ms)?;
         let stored = load_authorization_row(&transaction, authorization_id)?
             .ok_or_else(|| Error::claim("AUTHORIZATION_DENIED"))?;
 
@@ -1412,6 +1419,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, started_at_ms)?;
         if let Some(existing) = load_execution_by_claim(&transaction, claim_id)? {
             if existing.idempotency_key != idempotency_key
                 || existing.executing_principal != executor.principal_id()
@@ -1571,6 +1579,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, ended_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if stored.executing_principal != executor.principal_id() {
@@ -1629,6 +1638,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, observed_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if actor.has_role(LocalRole::Executor)
@@ -1681,6 +1691,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, required_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         match stored.state {
@@ -1743,6 +1754,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, ended_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if stored.state.is_terminal() {
@@ -1813,6 +1825,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, recovered_at_ms)?;
         if let Some(stored) = load_execution_by_claim(&transaction, claim_id)? {
             if recovered_at_ms < stored.lease_expires_at_ms {
                 return Err(Error::coded(
@@ -1996,6 +2009,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        observe_trusted_time(&transaction, revoked_at_ms)?;
         let already_active = transaction
             .query_row(
                 "SELECT EXISTS(
@@ -2102,6 +2116,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
+        observe_trusted_time(&transaction, cancelled_at_ms)?;
         if cancelled_at_ms >= pending.3 {
             expire_pending_transaction(&transaction, receipt_id, cancelled_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2210,6 +2225,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
+        observe_trusted_time(&transaction, viewed_at_ms)?;
         if viewed_at_ms >= pending.authorization.approval_expires_at_ms {
             expire_pending_transaction(&transaction, receipt_id, viewed_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2265,6 +2281,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
+        observe_trusted_time(&transaction, acted_at_ms)?;
         if acted_at_ms >= pending.authorization.approval_expires_at_ms {
             expire_pending_transaction(&transaction, receipt_id, acted_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2436,6 +2453,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
+        observe_trusted_time(&transaction, expired_at_ms)?;
         if expired_at_ms < pending.authorization.approval_expires_at_ms {
             return Err(Error::coded(
                 "APPROVAL_NOT_EXPIRED",
@@ -4398,11 +4416,52 @@ fn random_id(prefix: &str) -> Result<String> {
     Ok(value)
 }
 
+fn observe_trusted_time(transaction: &Transaction<'_>, observed_at_ms: i64) -> Result<()> {
+    if observed_at_ms < 0 {
+        return Err(Error::coded(
+            "TRUSTED_TIME_INVALID",
+            "trusted time must not be negative",
+        ));
+    }
+    transaction
+        .execute(
+            "INSERT OR IGNORE INTO tlpx_trusted_time (singleton, last_observed_ms)
+             VALUES (1, ?1)",
+            [observed_at_ms],
+        )
+        .map_err(db_error)?;
+    let updated = transaction
+        .execute(
+            "UPDATE tlpx_trusted_time SET last_observed_ms = ?1
+             WHERE singleton = 1 AND last_observed_ms <= ?1",
+            [observed_at_ms],
+        )
+        .map_err(db_error)?;
+    if updated != 1 {
+        return Err(Error::coded(
+            "TRUSTED_TIME_INVALID",
+            "trusted authority time moved backward",
+        ));
+    }
+    Ok(())
+}
+
 fn now_ms() -> Result<i64> {
-    let duration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| Error::authority("system clock before Unix epoch"))?;
-    i64::try_from(duration.as_millis()).map_err(|_| Error::authority("system clock overflow"))
+    static ANCHOR: OnceLock<Result<(i64, Instant)>> = OnceLock::new();
+    let anchor = ANCHOR.get_or_init(|| {
+        let duration = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| Error::authority("system clock before Unix epoch"))?;
+        let wall_anchor_ms = i64::try_from(duration.as_millis())
+            .map_err(|_| Error::authority("system clock overflow"))?;
+        Ok((wall_anchor_ms, Instant::now()))
+    });
+    let (wall_anchor_ms, monotonic_anchor) = anchor.as_ref().map_err(Clone::clone)?;
+    let elapsed_ms = i64::try_from(monotonic_anchor.elapsed().as_millis())
+        .map_err(|_| Error::authority("monotonic clock overflow"))?;
+    wall_anchor_ms
+        .checked_add(elapsed_ms)
+        .ok_or_else(|| Error::authority("trusted clock overflow"))
 }
 
 fn db_error(error: rusqlite::Error) -> Error {
@@ -4411,6 +4470,7 @@ fn db_error(error: rusqlite::Error) -> Error {
 
 fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
     for (table, required_columns) in [
+        ("tlpx_trusted_time", &["last_observed_ms"] as &[&str]),
         ("tlpx_evaluations", &["policy_id"] as &[&str]),
         (
             "tlpx_pending_approvals",

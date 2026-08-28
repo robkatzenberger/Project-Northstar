@@ -1609,19 +1609,19 @@ fn expiry_and_revocation_fail_closed() {
     );
 
     let revoked = authority
-        .evaluate_and_issue_at("agent.requester", &intent("req-revoke"), NOW)
+        .evaluate_and_issue_at("agent.requester", &intent("req-revoke"), NOW + 5_001)
         .unwrap()
         .authorization
         .unwrap();
     authority
-        .revoke_at(&revoked.authorization_id, NOW + 1)
+        .revoke_at(&revoked.authorization_id, NOW + 5_002)
         .unwrap();
     let error = authority
         .claim_at(
             &revoked.authorization_id,
             "runtime.mailer",
             &executed(),
-            NOW + 2,
+            NOW + 5_003,
         )
         .unwrap_err();
     assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
@@ -2512,8 +2512,9 @@ fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
         .unwrap();
     assert_eq!(recovered, ExecutionState::LeaseExpired);
 
+    let started_at = unstarted_claim.lease_expires_at_ms;
     let started = authority
-        .evaluate_and_issue_at("agent.requester", &intent("req-started-expiry"), NOW)
+        .evaluate_and_issue_at("agent.requester", &intent("req-started-expiry"), started_at)
         .unwrap()
         .authorization
         .unwrap();
@@ -2522,7 +2523,7 @@ fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
             &started.authorization_id,
             "runtime.mailer",
             &executed(),
-            NOW + 1,
+            started_at + 1,
         )
         .unwrap();
     let lease = authority
@@ -2533,7 +2534,7 @@ fn expired_claim_is_terminal_if_no_execution_started_but_unknown_if_started() {
             &executor_identity(),
             &adapter_identity(),
             &hash('8'),
-            NOW + 2,
+            started_at + 2,
         )
         .unwrap()
         .into_started()
@@ -2752,5 +2753,338 @@ fn separate_sqlite_connections_still_have_one_claim_winner() {
         .collect();
     assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
     assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
+    clean_db(&path);
+}
+
+#[test]
+fn trusted_time_rollback_is_rejected_and_persists_across_restart() {
+    let path = temp_db("trusted-time-rollback");
+    let original = intent("req-time-original");
+    let receipt = {
+        let authority = Authority::open(&path, config()).unwrap();
+        let outcome = authority
+            .evaluate_and_issue_at("agent.requester", &original, NOW)
+            .unwrap();
+        let exact_replay = authority
+            .evaluate_and_issue_at("agent.requester", &original, NOW - 10_000)
+            .unwrap();
+        assert_eq!(exact_replay.receipt_id, outcome.receipt_id);
+        let rollback = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-time-rollback"), NOW - 1)
+            .unwrap_err();
+        assert_eq!(rollback.code(), "TRUSTED_TIME_INVALID");
+        assert_eq!(authority.evaluation_event_count().unwrap(), 1);
+        outcome.receipt_id
+    };
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        let rollback = authority
+            .evaluate_and_issue_at(
+                "agent.requester",
+                &intent("req-time-restart-rollback"),
+                NOW - 1,
+            )
+            .unwrap_err();
+        assert_eq!(rollback.code(), "TRUSTED_TIME_INVALID");
+        let later = authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-time-forward"), NOW + 1)
+            .unwrap();
+        assert_eq!(later.sequence, 2);
+        assert_ne!(later.receipt_id, receipt);
+        assert_eq!(authority.evaluation_event_count().unwrap(), 2);
+        authority.reconcile_evidence().unwrap();
+    }
+    clean_db(&path);
+
+    let empty = Authority::in_memory(config()).unwrap();
+    let negative = empty
+        .evaluate_and_issue_at("agent.requester", &intent("req-negative-time"), -1)
+        .unwrap_err();
+    assert_eq!(negative.code(), "TRUSTED_TIME_INVALID");
+    assert_eq!(empty.evaluation_event_count().unwrap(), 0);
+}
+
+#[test]
+fn exact_claim_and_approval_deadline_edges_fail_closed() {
+    let before = Authority::in_memory(config()).unwrap();
+    let before_issued = before
+        .evaluate_and_issue_at("agent.requester", &intent("req-claim-before-edge"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    before
+        .claim_at(
+            &before_issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            before_issued.claim_expires_at_ms - 1,
+        )
+        .unwrap();
+
+    let exact = Authority::in_memory(config()).unwrap();
+    let exact_issued = exact
+        .evaluate_and_issue_at("agent.requester", &intent("req-claim-exact-edge"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let expired = exact
+        .claim_at(
+            &exact_issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            exact_issued.claim_expires_at_ms,
+        )
+        .unwrap_err();
+    assert_eq!(expired.code(), "AUTHORIZATION_EXPIRED");
+
+    for (label, offset, expected) in [
+        ("before", -1_i64, None),
+        ("exact", 0_i64, Some("APPROVAL_EXPIRED")),
+    ] {
+        let authority = Authority::in_memory(config()).unwrap();
+        let mut request = intent(&format!("req-approval-edge-{label}"));
+        request.action = "deploy".into();
+        let pending = authority
+            .evaluate_and_issue_at("agent.requester", &request, NOW)
+            .unwrap();
+        let operator = authenticated_identity(
+            "human.ops",
+            PartyType::Human,
+            vec![LocalRole::Operator],
+            vec!["ops.deploy"],
+        );
+        let view = authority
+            .pending_approval_authenticated_at(&pending.receipt_id, &operator, NOW)
+            .unwrap();
+        let result = authority.resolve_pending_authenticated_at(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash,
+                renderer_id: "renderer.test".into(),
+                renderer_version: "1.0.0".into(),
+            },
+            view.approval_expires_at_ms + offset,
+        );
+        match expected {
+            None => assert!(result.unwrap().authorization.is_some()),
+            Some(code) => assert_eq!(result.unwrap_err().code(), code),
+        }
+    }
+}
+
+#[test]
+fn repeated_claim_revocation_and_approval_cancellation_races_have_one_winner() {
+    for iteration in 0..12_i64 {
+        let path = temp_db(&format!("assurance-claim-revoke-{iteration}"));
+        let issued = Authority::open(&path, config())
+            .unwrap()
+            .evaluate_and_issue_at(
+                "agent.requester",
+                &intent(&format!("req-assurance-claim-{iteration}")),
+                NOW + iteration * 10,
+            )
+            .unwrap()
+            .authorization
+            .unwrap();
+        let barrier = Arc::new(Barrier::new(3));
+        let claim_authority = Authority::open(&path, config()).unwrap();
+        let revoke_authority = Authority::open(&path, config()).unwrap();
+        let claim_barrier = Arc::clone(&barrier);
+        let authorization_id = issued.authorization_id.clone();
+        let claim = thread::spawn(move || {
+            claim_barrier.wait();
+            claim_authority
+                .claim_at(
+                    &authorization_id,
+                    "runtime.mailer",
+                    &executed(),
+                    NOW + iteration * 10 + 1,
+                )
+                .is_ok()
+        });
+        let revoke_barrier = Arc::clone(&barrier);
+        let authorization_id = issued.authorization_id.clone();
+        let revoke = thread::spawn(move || {
+            revoke_barrier.wait();
+            revoke_authority
+                .revoke_at(&authorization_id, NOW + iteration * 10 + 1)
+                .is_ok()
+        });
+        barrier.wait();
+        assert_ne!(claim.join().unwrap(), revoke.join().unwrap());
+        let authority = Authority::open(&path, config()).unwrap();
+        assert!(matches!(
+            authority.state(&issued.authorization_id).unwrap(),
+            Some(AuthzState::Claimed | AuthzState::Revoked)
+        ));
+        authority.reconcile_evidence().unwrap();
+        drop(authority);
+        clean_db(&path);
+    }
+
+    for iteration in 0..12_i64 {
+        let path = temp_db(&format!("assurance-approve-cancel-{iteration}"));
+        let base = NOW + iteration * 10;
+        let mut request = intent(&format!("req-assurance-approval-{iteration}"));
+        request.action = "deploy".into();
+        let authority = Authority::open(&path, config()).unwrap();
+        let pending = authority
+            .evaluate_and_issue_at("agent.requester", &request, base)
+            .unwrap();
+        let operator = authenticated_identity(
+            "human.ops",
+            PartyType::Human,
+            vec![LocalRole::Operator],
+            vec!["ops.deploy"],
+        );
+        let view = authority
+            .pending_approval_authenticated_at(&pending.receipt_id, &operator, base)
+            .unwrap();
+        drop(authority);
+        let barrier = Arc::new(Barrier::new(3));
+        let approve_authority = Authority::open(&path, config()).unwrap();
+        let cancel_authority = Authority::open(&path, config()).unwrap();
+        let approve_barrier = Arc::clone(&barrier);
+        let receipt_id = pending.receipt_id.clone();
+        let approve = thread::spawn(move || {
+            approve_barrier.wait();
+            approve_authority
+                .resolve_pending_authenticated_at(
+                    &receipt_id,
+                    &operator,
+                    ApprovalOutcome::Approve,
+                    ApprovalPresentation {
+                        authorized_action_hash: view.authorized_action_hash,
+                        renderer_id: "renderer.test".into(),
+                        renderer_version: "1.0.0".into(),
+                    },
+                    base + 1,
+                )
+                .is_ok()
+        });
+        let cancel_barrier = Arc::clone(&barrier);
+        let receipt_id = pending.receipt_id.clone();
+        let cancel = thread::spawn(move || {
+            cancel_barrier.wait();
+            cancel_authority
+                .cancel_pending_authenticated_at(
+                    &receipt_id,
+                    &authenticated_identity(
+                        "agent.requester",
+                        PartyType::Machine,
+                        vec![LocalRole::Requester],
+                        vec![],
+                    ),
+                    CancellationReason::RequesterWithdrawn,
+                    base + 1,
+                )
+                .is_ok()
+        });
+        barrier.wait();
+        assert_ne!(approve.join().unwrap(), cancel.join().unwrap());
+        let authority = Authority::open(&path, config()).unwrap();
+        assert!(matches!(
+            authority.approval_state(&pending.receipt_id).unwrap(),
+            Some(ApprovalState::Approved | ApprovalState::Cancelled)
+        ));
+        authority.reconcile_evidence().unwrap();
+        drop(authority);
+        clean_db(&path);
+    }
+}
+
+#[test]
+fn restart_after_every_execution_boundary_never_reopens_permission() {
+    let path = temp_db("assurance-restart-boundaries");
+    let issued = {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-restart-boundaries"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap()
+    };
+    let claim = {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap()
+    };
+    let lease = {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .begin_execution_authenticated_at(
+                &claim.claim_id,
+                &issued.idempotency_key,
+                &executed(),
+                &executor_identity(),
+                &adapter_identity(),
+                &hash('8'),
+                NOW + 2,
+            )
+            .unwrap()
+            .into_started()
+            .unwrap()
+    };
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        assert_eq!(
+            authority
+                .recover_expired_claim_at(&claim.claim_id, claim.lease_expires_at_ms)
+                .unwrap(),
+            ExecutionState::ExecutionOutcomeUnknown
+        );
+    }
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .require_reconciliation_authenticated_at(
+                &lease.execution_id,
+                &reconciler_identity(),
+                claim.lease_expires_at_ms + 1,
+            )
+            .unwrap();
+    }
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .reconcile_execution_authenticated_at(
+                &lease.execution_id,
+                &reconciler_identity(),
+                ExecutionState::OutcomeUnknownFinal,
+                execution_result("restart-boundary outcome remains unknown"),
+                claim.lease_expires_at_ms + 2,
+            )
+            .unwrap();
+    }
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        let replay = authority
+            .begin_execution_authenticated_at(
+                &claim.claim_id,
+                &issued.idempotency_key,
+                &executed(),
+                &executor_identity(),
+                &adapter_identity(),
+                &hash('8'),
+                claim.lease_expires_at_ms + 3,
+            )
+            .unwrap();
+        assert!(matches!(replay, tlpx::ExecutionStart::NotStarted(_)));
+        assert_eq!(
+            authority.execution_state(&lease.execution_id).unwrap(),
+            Some(ExecutionState::OutcomeUnknownFinal)
+        );
+        let reconciliation = authority.reconcile_evidence().unwrap();
+        assert_eq!(reconciliation.total, 4);
+        assert_eq!(reconciliation.pending, 4);
+    }
     clean_db(&path);
 }
