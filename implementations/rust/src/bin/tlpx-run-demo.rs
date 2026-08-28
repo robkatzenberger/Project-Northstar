@@ -11,10 +11,10 @@ use tlpx::{
     AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
     AuthorizationTemplate, AuthorizedAction, CapabilityRegistry, ConfiguredPolicyBundle,
     CooperativeShellConfig, CooperativeShellRequest, CooperativeShellRunner, Decision,
-    EvidenceConfig, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
-    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
-    Principal, Risk, ShellExecutable, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
-    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    EvidenceConfig, KeyRing, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType,
+    PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, Principal, Risk, ShellExecutable, SubmittedIntent, Switchboard,
+    Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 fn main() -> tlpx::Result<()> {
@@ -273,9 +273,14 @@ fn prototype_authority_config(
             evaluator_id: "prototype.authority".into(),
             router_id: "prototype.switchboard".into(),
             requester_type: PartyType::Machine,
-            // Prototype only: production must inject a separated secret.
-            seal_key_id: "insecure-prototype-only".into(),
-            seal_key: vec![0x73; 32],
+            // Prototype only: fixed role-separated bytes are public and insecure.
+            keys: KeyRing::active_profile([
+                ("insecure-demo-audit-v1".into(), vec![0x73; 32]),
+                ("insecure-demo-authorization-v1".into(), vec![0x74; 32]),
+                ("insecure-demo-service-v1".into(), vec![0x75; 32]),
+                ("insecure-demo-operator-v1".into(), vec![0x76; 32]),
+                ("insecure-demo-tenant-v1".into(), vec![0x77; 32]),
+            ])?,
         },
         approval_window_ms: 60_000,
         claim_window_ms: 5_000,

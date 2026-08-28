@@ -10,6 +10,7 @@ use crate::authority::{Authority, AuthorityConfig, IssuedAuthorization};
 use crate::error::{Error, Result};
 use crate::evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};
 use crate::jcs::Value;
+use crate::keys::KeyRing;
 use crate::local_auth::{LocalAuthenticator, LocalPrincipalMapping, LocalRole};
 use crate::policy::{
     AuthorizationTemplate, CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, PolicyRule,
@@ -51,7 +52,7 @@ const MAX_PROTOCOL_BYTES: usize = 512;
 pub struct RestrictedPepConfig {
     pub database: PathBuf,
     pub socket: PathBuf,
-    pub seal_key: PathBuf,
+    pub role_keys: PathBuf,
     pub protected_marker: PathBuf,
     pub agent_uid: u32,
     pub agent_gid: u32,
@@ -91,7 +92,7 @@ impl RestrictedPepConfig {
             "database",
             "max_connections",
             "protected_marker",
-            "seal_key",
+            "role_keys",
             "socket",
         ]);
         if values.keys().copied().collect::<BTreeSet<_>>() != expected {
@@ -102,7 +103,7 @@ impl RestrictedPepConfig {
         let config = Self {
             database: absolute_path(value(&values, "database")?, "database")?,
             socket: absolute_path(value(&values, "socket")?, "socket")?,
-            seal_key: absolute_path(value(&values, "seal_key")?, "seal_key")?,
+            role_keys: absolute_path(value(&values, "role_keys")?, "role_keys")?,
             protected_marker: absolute_path(
                 value(&values, "protected_marker")?,
                 "protected_marker",
@@ -133,7 +134,7 @@ impl RestrictedPepConfig {
             parent(&self.protected_marker, "protected marker")?,
             "protected marker parent",
         )?;
-        validate_owned_file(&self.seal_key, "PEP seal key", true)?;
+        validate_owned_file(&self.role_keys, "PEP role-key bundle", true)?;
         if self.socket.exists() {
             return Err(pep_config(
                 "PEP socket path already exists; refusing to replace an endpoint",
@@ -158,13 +159,13 @@ pub fn serve_restricted_pep(config_path: impl AsRef<Path>) -> Result<()> {
     let config = RestrictedPepConfig::load(config_path)?;
     let executable = touch_executable()?;
     let adapter_binary_hash = current_binary_hash()?;
-    let seal_key = read_seal_key(&config.seal_key)?;
+    let role_keys = read_role_keys(&config.role_keys)?;
     let authority = Authority::open(
         &config.database,
         authority_config(
             &executable,
             &adapter_binary_hash,
-            seal_key,
+            role_keys,
             config.claim_window_ms,
         )?,
     )?;
@@ -338,7 +339,7 @@ pub fn verify_restricted_pep_evidence(
         authority_config(
             &executable,
             &adapter_binary_hash,
-            read_seal_key(&config.seal_key)?,
+            read_role_keys(&config.role_keys)?,
             config.claim_window_ms,
         )?,
     )?;
@@ -500,7 +501,7 @@ fn authorized_action(intent: &SubmittedIntent, issued: &IssuedAuthorization) -> 
 fn authority_config(
     executable: &Path,
     adapter_binary_hash: &str,
-    seal_key: Vec<u8>,
+    role_keys: KeyRing,
     claim_window_ms: i64,
 ) -> Result<AuthorityConfig> {
     let target = executable.to_string_lossy().into_owned();
@@ -570,8 +571,7 @@ fn authority_config(
             evaluator_id: AUTHORITY_PRINCIPAL.into(),
             router_id: "restricted.pep.switchboard".into(),
             requester_type: PartyType::Machine,
-            seal_key_id: "restricted-pep-local-v1".into(),
-            seal_key,
+            keys: role_keys,
         },
         approval_window_ms: 60_000,
         claim_window_ms,
@@ -634,12 +634,23 @@ fn validate_current_executable() -> Result<()> {
     Ok(())
 }
 
-fn read_seal_key(path: &Path) -> Result<Vec<u8>> {
-    let key = fs::read(path).map_err(|_| pep_config("PEP seal key could not be read"))?;
-    if key.len() != 32 {
-        return Err(pep_config("PEP seal key must contain exactly 32 raw bytes"));
+fn read_role_keys(path: &Path) -> Result<KeyRing> {
+    let bytes = fs::read(path).map_err(|_| pep_config("PEP role-key bundle could not be read"))?;
+    if bytes.len() != 160 {
+        return Err(pep_config(
+            "PEP role-key bundle must contain exactly five independent 32-byte keys",
+        ));
     }
-    Ok(key)
+    KeyRing::active_profile([
+        ("restricted-pep-audit-v1".into(), bytes[0..32].to_vec()),
+        (
+            "restricted-pep-authorization-v1".into(),
+            bytes[32..64].to_vec(),
+        ),
+        ("restricted-pep-service-v1".into(), bytes[64..96].to_vec()),
+        ("restricted-pep-operator-v1".into(), bytes[96..128].to_vec()),
+        ("restricted-pep-tenant-v1".into(), bytes[128..160].to_vec()),
+    ])
 }
 
 fn validate_owned_file(path: &Path, name: &str, private: bool) -> Result<()> {

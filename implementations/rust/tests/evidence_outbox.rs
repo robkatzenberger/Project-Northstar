@@ -7,11 +7,11 @@ use tlpx::{
     exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry,
     AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
     AuthorizationTemplate, AuthzState, CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig,
-    ExecutedAction, ExecutionResultEvidence, ExecutionState, LocalAuthenticator,
-    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent,
-    Switchboard, Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE,
-    POLICY_PRECEDENCE,
+    ExecutedAction, ExecutionResultEvidence, ExecutionState, KeyPurpose, KeyRing,
+    LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, RevocationReason, RevocationScope, Risk, RoleKey, SubmittedIntent, Switchboard,
+    Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -197,8 +197,14 @@ fn config() -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            seal_key_id: "audit-test-v1".into(),
-            seal_key: vec![0x5a; 32],
+            keys: KeyRing::active_profile([
+                ("audit-test-v1".into(), vec![0x5a; 32]),
+                ("authorization-test-v1".into(), vec![0x5b; 32]),
+                ("service-test-v1".into(), vec![0x5c; 32]),
+                ("operator-test-v1".into(), vec![0x5d; 32]),
+                ("tenant-test-v1".into(), vec![0x5e; 32]),
+            ])
+            .unwrap(),
         },
         approval_window_ms: 600_000,
         claim_window_ms: 5_000,
@@ -707,11 +713,204 @@ fn idempotent_replay_does_not_duplicate_evidence() {
 
 #[test]
 fn weak_or_missing_sealing_configuration_fails_closed() {
-    let mut weak = config();
-    weak.evidence.seal_key.clear();
-    let error = Authority::in_memory(weak).err().unwrap();
-    assert_eq!(error.code(), "AUTHORITY_INTERNAL_ERROR");
+    let error = KeyRing::active_profile([
+        ("audit-test-v1".into(), vec![]),
+        ("authorization-test-v1".into(), vec![0x5b; 32]),
+        ("service-test-v1".into(), vec![0x5c; 32]),
+        ("operator-test-v1".into(), vec![0x5d; 32]),
+        ("tenant-test-v1".into(), vec![0x5e; 32]),
+    ])
+    .err()
+    .unwrap();
+    assert_eq!(error.code(), "KEY_CONFIGURATION_INVALID");
     assert!(error.message().contains("at least 32 bytes"));
+}
+
+fn rotated_keys() -> KeyRing {
+    KeyRing::new(vec![
+        RoleKey::verify_only("audit-test-v1", KeyPurpose::AuditSealing, vec![0x5a; 32]),
+        RoleKey::active("audit-test-v2", KeyPurpose::AuditSealing, vec![0x61; 32]),
+        RoleKey::verify_only(
+            "authorization-test-v1",
+            KeyPurpose::AuthorizationSigning,
+            vec![0x5b; 32],
+        ),
+        RoleKey::active(
+            "authorization-test-v2",
+            KeyPurpose::AuthorizationSigning,
+            vec![0x62; 32],
+        ),
+        RoleKey::active(
+            "service-test-v1",
+            KeyPurpose::ServiceIdentity,
+            vec![0x5c; 32],
+        ),
+        RoleKey::active(
+            "operator-test-v1",
+            KeyPurpose::OperatorAuthentication,
+            vec![0x5d; 32],
+        ),
+        RoleKey::active("tenant-test-v1", KeyPurpose::TenantTrust, vec![0x5e; 32]),
+    ])
+    .unwrap()
+}
+
+#[test]
+fn role_key_rotation_preserves_history_and_uses_new_keys_for_new_proofs() {
+    let path = temp_db("key-rotation");
+    let issued = {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-before-rotation"), NOW)
+            .unwrap()
+            .authorization
+            .unwrap()
+    };
+    assert_eq!(issued.authorization_signing_key_id, "authorization-test-v1");
+
+    let mut after_rotation = config();
+    after_rotation.evidence.keys = rotated_keys();
+    let authority = Authority::open(&path, after_rotation).unwrap();
+    assert_eq!(authority.reconcile_evidence().unwrap().total, 2);
+    authority
+        .claim_authenticated_at(
+            &issued.authorization_id,
+            &role_identity("runtime.mailer", LocalRole::Executor),
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let later = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-after-rotation"), NOW + 2)
+        .unwrap()
+        .authorization
+        .unwrap();
+    assert_eq!(later.authorization_signing_key_id, "authorization-test-v2");
+    let rows = authority.pending_evidence(20).unwrap();
+    assert!(rows.iter().any(|row| row.seal_key_id == "audit-test-v1"));
+    assert!(rows.iter().any(|row| row.seal_key_id == "audit-test-v2"));
+    authority.reconcile_evidence().unwrap();
+    drop(authority);
+    clean_db(&path);
+}
+
+#[test]
+fn signing_key_revocation_blocks_every_later_unclaimed_use() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-key-revoked"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    authority
+        .revoke_authenticated_at(
+            &role_identity("authority.emergency", LocalRole::EmergencyCanceller),
+            RevocationScope::SigningKey,
+            &issued.authorization_signing_key_id,
+            RevocationReason::SigningKeyCompromised,
+            NOW + 1,
+        )
+        .unwrap();
+    let error = authority
+        .claim_authenticated_at(
+            &issued.authorization_id,
+            &role_identity("runtime.mailer", LocalRole::Executor),
+            &executed(),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+}
+
+#[test]
+fn revoked_active_keys_block_new_proofs_and_unknown_key_revocation_is_rejected() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let revoker = role_identity("authority.emergency", LocalRole::EmergencyCanceller);
+    let invalid = authority
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::SigningKey,
+            "attacker-invented-key",
+            RevocationReason::SigningKeyCompromised,
+            NOW,
+        )
+        .unwrap_err();
+    assert_eq!(invalid.code(), "REVOCATION_INVALID");
+
+    authority
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::SigningKey,
+            "authorization-test-v1",
+            RevocationReason::SigningKeyCompromised,
+            NOW + 1,
+        )
+        .unwrap();
+    let issuance = authority
+        .evaluate_and_issue_at(
+            "agent.requester",
+            &intent("req-after-signing-key-revocation"),
+            NOW + 2,
+        )
+        .unwrap_err();
+    assert_eq!(issuance.code(), "AUTHORITY_INTERNAL_ERROR");
+    assert!(issuance.message().contains("durably revoked"));
+
+    let second = Authority::in_memory(config()).unwrap();
+    second
+        .evaluate_and_issue_at("agent.requester", &intent("req-audit-key"), NOW)
+        .unwrap();
+    second
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::SigningKey,
+            "audit-test-v1",
+            RevocationReason::SigningKeyCompromised,
+            NOW + 1,
+        )
+        .unwrap();
+    let reconciliation = second.reconcile_evidence().unwrap_err();
+    assert_eq!(reconciliation.code(), "KEY_REVOKED");
+}
+
+#[test]
+fn stored_authorization_proof_tampering_and_role_substitution_fail_closed() {
+    for (label, mutation) in [
+        (
+            "signature",
+            "UPDATE tlpx_authorizations SET authorization_signature = 'hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000'",
+        ),
+        (
+            "role",
+            "UPDATE tlpx_authorizations SET authorization_signing_key_id = 'audit-test-v1'",
+        ),
+    ] {
+        let path = temp_db(&format!("authorization-proof-{label}"));
+        let issued = {
+            let authority = Authority::open(&path, config()).unwrap();
+            authority
+                .evaluate_and_issue_at("agent.requester", &intent(&format!("req-{label}")), NOW)
+                .unwrap()
+                .authorization
+                .unwrap()
+        };
+        Connection::open(&path)
+            .unwrap()
+            .execute(mutation, [])
+            .unwrap();
+        let authority = Authority::open(&path, config()).unwrap();
+        let error = authority
+            .claim_authenticated_at(
+                &issued.authorization_id,
+                &role_identity("runtime.mailer", LocalRole::Executor),
+                &executed(),
+                NOW + 1,
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), "AUTHORIZATION_PROOF_INVALID");
+        drop(authority);
+        clean_db(&path);
+    }
 }
 
 #[test]

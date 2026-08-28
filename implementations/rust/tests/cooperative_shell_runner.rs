@@ -9,11 +9,11 @@ use tlpx::{
     AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
     AuthorizationTemplate, AuthorizedAction, AuthzState, CapabilityRegistry,
     ConfiguredPolicyBundle, CooperativeShellConfig, CooperativeShellOutcome,
-    CooperativeShellRequest, CooperativeShellRunner, Decision, EvidenceConfig, LocalAuthenticator,
-    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, Risk, ShellExecutable,
-    SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE,
-    POLICY_PRECEDENCE,
+    CooperativeShellRequest, CooperativeShellRunner, Decision, EvidenceConfig, KeyRing,
+    LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, Risk, ShellExecutable, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
+    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const ADAPTER_HASH: &str =
@@ -141,8 +141,14 @@ fn authority_config(targets: &[String]) -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            seal_key_id: "cooperative-shell-runner-test".into(),
-            seal_key: vec![0x71; 32],
+            keys: KeyRing::active_profile([
+                ("runner-audit-v1".into(), vec![0x71; 32]),
+                ("runner-authorization-v1".into(), vec![0x72; 32]),
+                ("runner-service-v1".into(), vec![0x73; 32]),
+                ("runner-operator-v1".into(), vec![0x74; 32]),
+                ("runner-tenant-v1".into(), vec![0x75; 32]),
+            ])
+            .unwrap(),
         },
         approval_window_ms: 60_000,
         claim_window_ms: 60_000,

@@ -14,6 +14,7 @@ use crate::evidence::{
 };
 use crate::hash::assert_hash_string;
 use crate::jcs::canonicalize;
+use crate::keys::KeyPurpose;
 use crate::local_auth::{AuthenticatedIdentity, LocalRole};
 use crate::policy::{CapabilityRegistry, Decision, PolicyEffect, Switchboard};
 use crate::policy_manifest::{ConfiguredPolicyBundle, PolicyCatalog};
@@ -176,6 +177,10 @@ pub struct IssuedAuthorization {
     pub environment: String,
     pub tenant: String,
     pub authorization_nonce: String,
+    /// Authority-local proof metadata. These fields are not private additions
+    /// to the portable `tlpx.authorization` JSON record.
+    pub authorization_signing_key_id: String,
+    pub authorization_signature: String,
     pub idempotency_key: String,
     pub issued_at_ms: i64,
     pub claim_expires_at_ms: i64,
@@ -794,6 +799,8 @@ impl Authority {
                    environment TEXT NOT NULL,
                    tenant TEXT NOT NULL,
                    authorization_nonce TEXT NOT NULL UNIQUE,
+                   authorization_signing_key_id TEXT NOT NULL,
+                   authorization_signature TEXT NOT NULL,
                    issued_at_ms INTEGER NOT NULL,
                    claim_expires_at_ms INTEGER NOT NULL,
                    execution_lease_ms INTEGER NOT NULL,
@@ -1252,6 +1259,7 @@ impl Authority {
         if authorization_has_active_revocation(&transaction, authorization_id, &stored)? {
             return Err(Error::claim("AUTHORIZATION_REVOKED"));
         }
+        verify_stored_authorization_proof(&self.config, authorization_id, &stored)?;
         if claimed_at_ms >= stored.claim_expires_at_ms {
             transaction
                 .execute(
@@ -1963,6 +1971,23 @@ impl Authority {
                 "revocation actor, scope id, and timestamp must be valid",
             ));
         }
+        if scope == RevocationScope::SigningKey {
+            if self.config.evidence.keys.purpose_for(scope_id).is_none() {
+                return Err(Error::coded(
+                    "REVOCATION_INVALID",
+                    "signing-key revocation must name a configured role key",
+                ));
+            }
+            if !matches!(
+                reason,
+                RevocationReason::SigningKeyCompromised | RevocationReason::EmergencyDeny
+            ) {
+                return Err(Error::coded(
+                    "REVOCATION_INVALID",
+                    "signing-key revocation requires a key-compromise or emergency reason",
+                ));
+            }
+        }
         let mut connection = self
             .db
             .lock()
@@ -2272,11 +2297,15 @@ impl Authority {
                 &pending.authorization.executing_principal,
                 &pending.authorization.action,
             )?;
-            Some(issue_pending_authorization(
-                &self.config,
-                &pending.authorization,
-                acted_at_ms,
-            )?)
+            let issued =
+                issue_pending_authorization(&self.config, &pending.authorization, acted_at_ms)?;
+            if signing_key_is_durably_revoked(&transaction, &self.config)? {
+                return Err(Error::coded(
+                    "KEY_REVOKED",
+                    "active authorization signing key is durably revoked",
+                ));
+            }
+            Some(issued)
         } else {
             None
         };
@@ -2867,6 +2896,29 @@ fn commit_decision(
                 );
             }
         };
+        if signing_key_is_durably_revoked(&transaction, config)? {
+            return commit_preallocated_error(
+                transaction,
+                &receipt_id,
+                sequence,
+                ErrorInput {
+                    authenticated_principal: Some(input.authenticated_requester),
+                    request_id: Some(&input.intent.request_id),
+                    intent_hash: Some(input.intent_hash),
+                    retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
+                    stage: "authorization_issuance",
+                    code: "AUTHORITY_INTERNAL_ERROR",
+                    message: "active authorization signing key is durably revoked",
+                    retryability: Retryability::AfterCondition,
+                    required_condition: Some("a non-revoked authorization signing key is active"),
+                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_hash: Some(input.policy_bundle_hash),
+                    evaluated_at_ms: input.evaluated_at_ms,
+                    occupies_slot: true,
+                },
+                config,
+            );
+        }
         let id = issued.authorization_id.clone();
         authorization = Some(issued);
         Some(id)
@@ -3253,7 +3305,7 @@ fn issue_authorization(
         &action.executing_principal,
         &authorized_action_hash,
     )?;
-    Ok(IssuedAuthorization {
+    let mut issued = IssuedAuthorization {
         authorization_id,
         receipt_id: receipt_id.to_string(),
         requesting_principal: action.requesting_principal.clone(),
@@ -3272,12 +3324,16 @@ fn issue_authorization(
         environment: action.environment.clone(),
         tenant: action.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
+        authorization_signing_key_id: String::new(),
+        authorization_signature: String::new(),
         idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
         execution_lease_ms: config.execution_lease_ms,
         state: AuthzState::AuthorizedUnclaimed,
-    })
+    };
+    sign_issued_authorization(config, &mut issued)?;
+    Ok(issued)
 }
 
 fn issue_pending_authorization(
@@ -3294,7 +3350,7 @@ fn issue_pending_authorization(
         &pending.executing_principal,
         &pending.authorized_action_hash,
     )?;
-    Ok(IssuedAuthorization {
+    let mut issued = IssuedAuthorization {
         authorization_id,
         receipt_id: pending.receipt_id.clone(),
         requesting_principal: pending.requesting_principal.clone(),
@@ -3313,12 +3369,143 @@ fn issue_pending_authorization(
         environment: pending.environment.clone(),
         tenant: pending.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
+        authorization_signing_key_id: String::new(),
+        authorization_signature: String::new(),
         idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
         execution_lease_ms: pending.execution_lease_ms,
         state: AuthzState::AuthorizedUnclaimed,
-    })
+    };
+    sign_issued_authorization(config, &mut issued)?;
+    Ok(issued)
+}
+
+struct AuthorizationProofView<'a> {
+    authorization_id: &'a str,
+    authorization_nonce: &'a str,
+    requesting_principal: &'a str,
+    executing_principal: &'a str,
+    authorized_action_hash: &'a str,
+    action_binding_hash: &'a str,
+    capability: &'a str,
+    policy_bundle_hash: &'a str,
+    adapter_id: &'a str,
+    adapter_version: &'a str,
+    environment: &'a str,
+    tenant: &'a str,
+    issued_at_ms: i64,
+    claim_expires_at_ms: i64,
+    execution_lease_ms: i64,
+}
+
+impl<'a> AuthorizationProofView<'a> {
+    fn issued(value: &'a IssuedAuthorization) -> Self {
+        Self {
+            authorization_id: &value.authorization_id,
+            authorization_nonce: &value.authorization_nonce,
+            requesting_principal: &value.requesting_principal,
+            executing_principal: &value.executing_principal,
+            authorized_action_hash: &value.authorized_action_hash,
+            action_binding_hash: &value.action_binding_hash,
+            capability: &value.capability,
+            policy_bundle_hash: &value.policy_bundle_hash,
+            adapter_id: &value.adapter_id,
+            adapter_version: &value.adapter_version,
+            environment: &value.environment,
+            tenant: &value.tenant,
+            issued_at_ms: value.issued_at_ms,
+            claim_expires_at_ms: value.claim_expires_at_ms,
+            execution_lease_ms: value.execution_lease_ms,
+        }
+    }
+
+    fn stored(authorization_id: &'a str, value: &'a StoredAuthorization) -> Self {
+        Self {
+            authorization_id,
+            authorization_nonce: &value.authorization_nonce,
+            requesting_principal: &value.requesting_principal,
+            executing_principal: &value.executing_principal,
+            authorized_action_hash: &value.authorized_action_hash,
+            action_binding_hash: &value.action_binding_hash,
+            capability: &value.capability,
+            policy_bundle_hash: &value.policy_bundle_hash,
+            adapter_id: &value.adapter_id,
+            adapter_version: &value.adapter_version,
+            environment: &value.environment,
+            tenant: &value.tenant,
+            issued_at_ms: value.issued_at_ms,
+            claim_expires_at_ms: value.claim_expires_at_ms,
+            execution_lease_ms: value.execution_lease_ms,
+        }
+    }
+}
+
+fn sign_issued_authorization(
+    config: &AuthorityConfig,
+    issued: &mut IssuedAuthorization,
+) -> Result<()> {
+    let payload = authorization_proof_payload(&AuthorizationProofView::issued(issued));
+    let proof = config
+        .evidence
+        .keys
+        .sign(KeyPurpose::AuthorizationSigning, &payload)?;
+    if proof.algorithm != "HMAC-SHA256" {
+        return Err(Error::authority(
+            "authorization proof algorithm is unsupported",
+        ));
+    }
+    issued.authorization_signing_key_id = proof.key_id;
+    issued.authorization_signature = proof.proof;
+    Ok(())
+}
+
+fn verify_stored_authorization_proof(
+    config: &AuthorityConfig,
+    authorization_id: &str,
+    stored: &StoredAuthorization,
+) -> Result<()> {
+    let payload =
+        authorization_proof_payload(&AuthorizationProofView::stored(authorization_id, stored));
+    config
+        .evidence
+        .keys
+        .verify(
+            &stored.authorization_signing_key_id,
+            KeyPurpose::AuthorizationSigning,
+            &payload,
+            &stored.authorization_signature,
+        )
+        .map_err(|error| match error.code() {
+            "KEY_REVOKED" => Error::claim("AUTHORIZATION_REVOKED"),
+            _ => Error::claim("AUTHORIZATION_PROOF_INVALID"),
+        })
+}
+
+fn authorization_proof_payload(value: &AuthorizationProofView<'_>) -> Vec<u8> {
+    let mut payload = b"northstar:authorization-proof:v1\0".to_vec();
+    for field in [
+        value.authorization_id,
+        value.authorization_nonce,
+        value.requesting_principal,
+        value.executing_principal,
+        value.authorized_action_hash,
+        value.action_binding_hash,
+        value.capability,
+        value.policy_bundle_hash,
+        value.adapter_id,
+        value.adapter_version,
+        value.environment,
+        value.tenant,
+    ] {
+        let length = u64::try_from(field.len()).expect("string length fits u64");
+        payload.extend_from_slice(&length.to_be_bytes());
+        payload.extend_from_slice(field.as_bytes());
+    }
+    payload.extend_from_slice(&value.issued_at_ms.to_be_bytes());
+    payload.extend_from_slice(&value.claim_expires_at_ms.to_be_bytes());
+    payload.extend_from_slice(&value.execution_lease_ms.to_be_bytes());
+    payload
 }
 
 struct ErrorInput<'a> {
@@ -3471,10 +3658,10 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
                authorization_id, receipt_id, requesting_principal, executing_principal,
                request_id, action, target, intent_hash, authorized_action_hash, action_binding_hash,
                capability, policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
-               authorization_nonce, issued_at_ms, claim_expires_at_ms,
-               execution_lease_ms, state
+               authorization_nonce, authorization_signing_key_id, authorization_signature,
+               issued_at_ms, claim_expires_at_ms, execution_lease_ms, state
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 issued.authorization_id,
                 issued.receipt_id,
@@ -3493,6 +3680,8 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
                 issued.environment,
                 issued.tenant,
                 issued.authorization_nonce,
+                issued.authorization_signing_key_id,
+                issued.authorization_signature,
                 issued.issued_at_ms,
                 issued.claim_expires_at_ms,
                 issued.execution_lease_ms,
@@ -3633,6 +3822,8 @@ fn load_issued(
             environment: stored.environment,
             tenant: stored.tenant,
             authorization_nonce: stored.authorization_nonce,
+            authorization_signing_key_id: stored.authorization_signing_key_id,
+            authorization_signature: stored.authorization_signature,
             idempotency_key,
             issued_at_ms: stored.issued_at_ms,
             claim_expires_at_ms: stored.claim_expires_at_ms,
@@ -3661,6 +3852,8 @@ struct StoredAuthorization {
     environment: String,
     tenant: String,
     authorization_nonce: String,
+    authorization_signing_key_id: String,
+    authorization_signature: String,
     issued_at_ms: i64,
     claim_expires_at_ms: i64,
     execution_lease_ms: i64,
@@ -3677,8 +3870,8 @@ fn load_authorization_row(
             "SELECT receipt_id, requesting_principal, executing_principal, request_id, action,
                     target, intent_hash, authorized_action_hash, action_binding_hash, capability,
                     policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
-                    authorization_nonce, issued_at_ms, claim_expires_at_ms,
-                    execution_lease_ms, state, revoked_at_ms
+                    authorization_nonce, authorization_signing_key_id, authorization_signature,
+                    issued_at_ms, claim_expires_at_ms, execution_lease_ms, state, revoked_at_ms
              FROM tlpx_authorizations WHERE authorization_id = ?1",
             [authorization_id],
             |row| {
@@ -3699,11 +3892,13 @@ fn load_authorization_row(
                     row.get::<_, String>(13)?,
                     row.get::<_, String>(14)?,
                     row.get::<_, String>(15)?,
-                    row.get::<_, i64>(16)?,
-                    row.get::<_, i64>(17)?,
+                    row.get::<_, String>(16)?,
+                    row.get::<_, String>(17)?,
                     row.get::<_, i64>(18)?,
-                    row.get::<_, String>(19)?,
-                    row.get::<_, Option<i64>>(20)?,
+                    row.get::<_, i64>(19)?,
+                    row.get::<_, i64>(20)?,
+                    row.get::<_, String>(21)?,
+                    row.get::<_, Option<i64>>(22)?,
                 ))
             },
         )
@@ -3741,11 +3936,13 @@ fn load_authorization_row(
         environment: base.13,
         tenant: base.14,
         authorization_nonce: base.15,
-        issued_at_ms: base.16,
-        claim_expires_at_ms: base.17,
-        execution_lease_ms: base.18,
-        state: AuthzState::parse(&base.19)?,
-        revoked_at_ms: base.20,
+        authorization_signing_key_id: base.16,
+        authorization_signature: base.17,
+        issued_at_ms: base.18,
+        claim_expires_at_ms: base.19,
+        execution_lease_ms: base.20,
+        state: AuthzState::parse(&base.21)?,
+        revoked_at_ms: base.22,
     }))
 }
 
@@ -3764,6 +3961,7 @@ fn authorization_has_active_revocation(
                   OR (scope_type = 'TENANT' AND scope_id = ?5)
                   OR (scope_type = 'ENVIRONMENT' AND scope_id = ?6)
                   OR (scope_type = 'CAPABILITY' AND scope_id = ?7)
+                  OR (scope_type = 'SIGNING_KEY' AND scope_id = ?8)
              )",
             params![
                 authorization_id,
@@ -3773,7 +3971,29 @@ fn authorization_has_active_revocation(
                 stored.tenant,
                 stored.environment,
                 stored.capability,
+                stored.authorization_signing_key_id,
             ],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(db_error)
+}
+
+fn signing_key_is_durably_revoked(
+    transaction: &Transaction<'_>,
+    config: &AuthorityConfig,
+) -> Result<bool> {
+    let key_id = config
+        .evidence
+        .keys
+        .active_key_id(KeyPurpose::AuthorizationSigning)
+        .ok_or_else(|| Error::authority("active authorization signing key is unavailable"))?;
+    transaction
+        .query_row(
+            "SELECT EXISTS(
+               SELECT 1 FROM tlpx_revocations
+               WHERE scope_type = 'SIGNING_KEY' AND scope_id = ?1
+             )",
+            [key_id],
             |row| row.get::<_, bool>(0),
         )
         .map_err(db_error)
@@ -4199,7 +4419,14 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             "tlpx_operator_actions",
             &["authorized_action_hash", "renderer_id", "renderer_version"] as &[&str],
         ),
-        ("tlpx_authorizations", &["target"] as &[&str]),
+        (
+            "tlpx_authorizations",
+            &[
+                "target",
+                "authorization_signing_key_id",
+                "authorization_signature",
+            ] as &[&str],
+        ),
         ("tlpx_claims", &["adapter_id", "adapter_version"] as &[&str]),
         (
             "tlpx_revocations",

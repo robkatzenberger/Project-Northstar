@@ -9,11 +9,11 @@ use tlpx::{
     ApprovalPresentation, ApprovalState, AuthenticatedAdapterSession, AuthenticatedIdentity,
     Authority, AuthorityConfig, AuthorizationTemplate, AuthzState, CancellationOutcome,
     CancellationReason, CancellationRole, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
-    EvidenceConfig, ExecutedAction, ExecutionResultEvidence, ExecutionState, LocalAuthenticator,
-    LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog,
-    PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule, Principal, RevocationReason,
-    RevocationScope, Risk, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
-    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    EvidenceConfig, ExecutedAction, ExecutionResultEvidence, ExecutionState, KeyRing,
+    LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
+    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
+    Principal, RevocationReason, RevocationScope, Risk, SubmittedIntent, Switchboard, Value,
+    ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 const NOW: i64 = 1_800_000_000_000;
@@ -228,8 +228,14 @@ fn config() -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            seal_key_id: "audit-test-v1".into(),
-            seal_key: vec![0x5a; 32],
+            keys: KeyRing::active_profile([
+                ("audit-test-v1".into(), vec![0x5a; 32]),
+                ("authorization-test-v1".into(), vec![0x5b; 32]),
+                ("service-test-v1".into(), vec![0x5c; 32]),
+                ("operator-test-v1".into(), vec![0x5d; 32]),
+                ("tenant-test-v1".into(), vec![0x5e; 32]),
+            ])
+            .unwrap(),
         },
         approval_window_ms: 600_000,
         claim_window_ms: 5_000,

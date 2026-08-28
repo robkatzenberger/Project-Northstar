@@ -9,6 +9,7 @@ pub mod error;
 pub mod evidence;
 pub mod hash;
 pub mod jcs;
+pub mod keys;
 pub mod local_auth;
 pub mod policy;
 pub mod policy_manifest;
@@ -34,6 +35,7 @@ pub use hash::{
     policy_bundle_hash,
 };
 pub use jcs::{canonicalize, canonicalize_json_text, parse, utf8_hex, Canonical, Value};
+pub use keys::{KeyProof, KeyPurpose, KeyRing, KeyState, RoleKey};
 pub use local_auth::{AuthenticatedIdentity, LocalAuthenticator, LocalPrincipalMapping, LocalRole};
 pub use policy::{
     AuthorizationTemplate, CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, PolicyRule,

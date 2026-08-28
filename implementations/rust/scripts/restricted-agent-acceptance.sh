@@ -101,7 +101,7 @@ chmod 0700 "$AGENT_DIR"
 cp "$SOURCE_BIN" "$STAGED_BIN"
 chown "$PEP_OWNER:$PEP_GROUP" "$STAGED_BIN"
 chmod 0555 "$STAGED_BIN"
-dd if=/dev/urandom of="$KEY" bs=32 count=1 2>/dev/null
+dd if=/dev/urandom of="$KEY" bs=160 count=1 2>/dev/null
 chown "$PEP_OWNER:$PEP_GROUP" "$KEY"
 chmod 0400 "$KEY"
 
@@ -116,7 +116,7 @@ write_config() {
   printf '%s\n' \
     "database=$database" \
     "socket=$socket" \
-    "seal_key=$KEY" \
+    "role_keys=$KEY" \
     "protected_marker=$marker" \
     "agent_uid=$AGENT_UID" \
     "agent_gid=$AGENT_GID" \
@@ -208,7 +208,7 @@ fi
 pass "restricted agent cannot modify PEP code"
 
 write_config "$CONFIG" "$DATABASE" "$SOCKET" "$MARKER" 7 5000 0
-[ "$(file_uid "$KEY")" -eq "$PEP_UID" ] || fail "PEP seal key is not service-owned"
+[ "$(file_uid "$KEY")" -eq "$PEP_UID" ] || fail "PEP role-key bundle is not service-owned"
 [ "$(file_uid "$PROTECTED_DIR")" -eq "$PEP_UID" ] || fail "protected capability is not service-owned"
 as_pep "$STAGED_BIN" serve "$CONFIG" >"$STATE_DIR/pep.stdout" 2>"$STATE_DIR/pep.stderr" &
 PEP_PID=$!
@@ -218,7 +218,7 @@ if as_agent /bin/cat "$CONFIG" >/dev/null 2>&1; then
   fail "restricted agent read PEP configuration"
 fi
 if as_agent /bin/cat "$KEY" >/dev/null 2>&1; then
-  fail "restricted agent read PEP seal key"
+  fail "restricted agent read PEP role-key bundle"
 fi
 if as_agent /bin/sh -c "printf x > '$SERVICE_DIR/replacement'" 2>/dev/null; then
   fail "restricted agent modified PEP service directory"

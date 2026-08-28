@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tlpx::{
     exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry, Authority,
     AuthorityConfig, AuthorizationTemplate, CapabilityRegistry, ConfiguredPolicyBundle, Decision,
-    EvidenceConfig, ExecutedAction, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
+    EvidenceConfig, ExecutedAction, KeyRing, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
     PartyType, PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
     PolicyIssuerType, PolicyRule, PolicySupersedes, Principal, Risk, SubmittedIntent, Switchboard,
     Value, ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
@@ -163,8 +163,14 @@ fn config(bundles: Vec<ConfiguredPolicyBundle>) -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            seal_key_id: "audit-test-v1".into(),
-            seal_key: vec![0x41; 32],
+            keys: KeyRing::active_profile([
+                ("audit-test-v1".into(), vec![0x41; 32]),
+                ("authorization-test-v1".into(), vec![0x42; 32]),
+                ("service-test-v1".into(), vec![0x43; 32]),
+                ("operator-test-v1".into(), vec![0x44; 32]),
+                ("tenant-test-v1".into(), vec![0x45; 32]),
+            ])
+            .unwrap(),
         },
         approval_window_ms: 600_000,
         claim_window_ms: 5_000,

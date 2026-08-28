@@ -37,7 +37,11 @@ fn fixture(max_connections: usize, claim_window_ms: i64, claim_delay_ms: u64) ->
         fs::set_permissions(directory, fs::Permissions::from_mode(0o700)).unwrap();
     }
     let key = state.join("seal.key");
-    fs::write(&key, [0x39; 32]).unwrap();
+    let mut role_keys = Vec::with_capacity(160);
+    for byte in [0x39, 0x3a, 0x3b, 0x3c, 0x3d] {
+        role_keys.extend_from_slice(&[byte; 32]);
+    }
+    fs::write(&key, role_keys).unwrap();
     fs::set_permissions(&key, fs::Permissions::from_mode(0o600)).unwrap();
     let config = state.join("pep.conf");
     let socket = endpoint.join("pep.sock");
@@ -46,7 +50,7 @@ fn fixture(max_connections: usize, claim_window_ms: i64, claim_delay_ms: u64) ->
     fs::write(
         &config,
         format!(
-            "database={}\nsocket={}\nseal_key={}\nprotected_marker={}\nagent_uid={}\nagent_gid={}\nmax_connections={}\nclaim_window_ms={}\nclaim_delay_ms={}\n",
+            "database={}\nsocket={}\nrole_keys={}\nprotected_marker={}\nagent_uid={}\nagent_gid={}\nmax_connections={}\nclaim_window_ms={}\nclaim_delay_ms={}\n",
             database.display(),
             socket.display(),
             key.display(),

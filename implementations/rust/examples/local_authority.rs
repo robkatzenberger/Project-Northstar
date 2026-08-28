@@ -6,10 +6,10 @@ use tlpx::{
     ApprovalPresentation, AuthenticatedAdapterSession, AuthenticatedIdentity, Authority,
     AuthorityConfig, AuthorizationTemplate, CancellationOutcome, CancellationReason,
     CapabilityRegistry, ConfiguredPolicyBundle, EvidenceConfig, ExecutionResultEvidence,
-    ExecutionState, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
-    PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
-    Principal, Risk, SubmittedIntent, Switchboard, Value, ADAPTER_MATERIAL_FIELDS,
-    EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+    ExecutionState, KeyRing, LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType,
+    PolicyBundle, PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer,
+    PolicyIssuerType, PolicyRule, Principal, Risk, SubmittedIntent, Switchboard, Value,
+    ADAPTER_MATERIAL_FIELDS, EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
 };
 
 fn main() -> tlpx::Result<()> {
@@ -232,8 +232,13 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
             // Deliberately public and insecure: local demonstration/schema checks only.
-            seal_key_id: "insecure-example-only".into(),
-            seal_key: vec![0x42; 32],
+            keys: KeyRing::active_profile([
+                ("insecure-example-audit-v1".into(), vec![0x42; 32]),
+                ("insecure-example-authorization-v1".into(), vec![0x43; 32]),
+                ("insecure-example-service-v1".into(), vec![0x44; 32]),
+                ("insecure-example-operator-v1".into(), vec![0x45; 32]),
+                ("insecure-example-tenant-v1".into(), vec![0x46; 32]),
+            ])?,
         },
         approval_window_ms: 600_000,
         claim_window_ms: 5_000,

@@ -9,13 +9,11 @@ use crate::authority::{
 };
 use crate::error::{Error, Result};
 use crate::jcs::{canonicalize, parse, Canonical, Value};
+use crate::keys::{KeyProof, KeyPurpose, KeyRing};
 use crate::policy::Decision;
-use hmac::{Hmac, Mac};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use sha2::{Digest, Sha256};
 use std::fmt;
-
-type HmacSha256 = Hmac<Sha256>;
 
 const RECORD_HASH_PREFIX: &[u8] = b"northstar:evidence-record:v1\0";
 const CHAIN_HASH_PREFIX: &[u8] = b"northstar:evidence-chain:v1\0";
@@ -45,8 +43,7 @@ pub struct EvidenceConfig {
     /// Party type asserted by this trusted embedding for its requesters.
     /// Use separate authority instances when requester populations differ.
     pub requester_type: PartyType,
-    pub seal_key_id: String,
-    pub seal_key: Vec<u8>,
+    pub keys: KeyRing,
 }
 
 impl fmt::Debug for EvidenceConfig {
@@ -55,8 +52,7 @@ impl fmt::Debug for EvidenceConfig {
             .field("evaluator_id", &self.evaluator_id)
             .field("router_id", &self.router_id)
             .field("requester_type", &self.requester_type)
-            .field("seal_key_id", &self.seal_key_id)
-            .field("seal_key", &"[REDACTED]")
+            .field("keys", &self.keys)
             .finish()
     }
 }
@@ -66,16 +62,10 @@ impl EvidenceConfig {
         for (name, value) in [
             ("evaluator_id", self.evaluator_id.as_str()),
             ("router_id", self.router_id.as_str()),
-            ("seal_key_id", self.seal_key_id.as_str()),
         ] {
             if value.is_empty() {
                 return Err(Error::authority(format!("{name} must be non-empty")));
             }
-        }
-        if self.seal_key.len() < 32 {
-            return Err(Error::authority(
-                "audit sealing key must contain at least 32 bytes",
-            ));
         }
         Ok(())
     }
@@ -452,6 +442,12 @@ pub(crate) fn enqueue(
         &record_hash,
     );
     let seal = compute_seal(config, &chain_hash)?;
+    if key_is_durably_revoked(transaction, &seal.key_id)? {
+        return Err(Error::coded(
+            "KEY_REVOKED",
+            "revoked audit sealing key cannot create new evidence",
+        ));
+    }
     transaction
         .execute(
             "INSERT INTO tlpx_evidence_outbox (
@@ -468,8 +464,8 @@ pub(crate) fn enqueue(
                 record_hash,
                 previous_chain_hash,
                 chain_hash,
-                config.seal_key_id,
-                seal,
+                seal.key_id,
+                seal.proof,
             ],
         )
         .map_err(db_error)?;
@@ -569,11 +565,17 @@ pub(crate) fn reconcile(
     let mut pending_count = 0_i64;
     let mut exported_count = 0_i64;
     for row in &rows {
+        if key_is_durably_revoked(connection, &row.seal_key_id)? {
+            return Err(Error::coded(
+                "KEY_REVOKED",
+                "evidence was sealed by a durably revoked key",
+            ));
+        }
         if row.previous_chain_hash != expected_previous {
             return Err(Error::authority("evidence chain predecessor mismatch"));
         }
-        if row.seal_algorithm != "HMAC-SHA256" || row.seal_key_id != config.seal_key_id {
-            return Err(Error::authority("evidence seal metadata mismatch"));
+        if row.seal_algorithm != "HMAC-SHA256" {
+            return Err(Error::authority("evidence seal algorithm mismatch"));
         }
         let parsed = parse(&row.record_json)?;
         let canonical = canonicalize(&parsed)?;
@@ -593,7 +595,7 @@ pub(crate) fn reconcile(
         if chain_hash != row.chain_hash {
             return Err(Error::authority("evidence chain hash mismatch"));
         }
-        verify_seal(config, &row.chain_hash, &row.seal)?;
+        verify_seal(config, &row.seal_key_id, &row.chain_hash, &row.seal)?;
         verify_envelope_binding(&parsed, row)?;
         verify_source(connection, row)?;
         expected_previous = Some(row.chain_hash.clone());
@@ -610,6 +612,19 @@ pub(crate) fn reconcile(
         exported: exported_count,
         last_chain_hash: expected_previous,
     })
+}
+
+fn key_is_durably_revoked(connection: &Connection, key_id: &str) -> Result<bool> {
+    connection
+        .query_row(
+            "SELECT EXISTS(
+               SELECT 1 FROM tlpx_revocations
+               WHERE scope_type = 'SIGNING_KEY' AND scope_id = ?1
+             )",
+            [key_id],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(db_error)
 }
 
 fn verify_envelope_binding(record: &Value, row: &SealedEvidence) -> Result<()> {
@@ -783,25 +798,26 @@ fn compute_chain_hash(
     format!("sha256:{:x}", hasher.finalize())
 }
 
-fn compute_seal(config: &EvidenceConfig, chain_hash: &str) -> Result<String> {
-    let mut mac = HmacSha256::new_from_slice(&config.seal_key)
-        .map_err(|_| Error::authority("invalid audit sealing key"))?;
-    mac.update(SEAL_PREFIX);
-    mac.update(chain_hash.as_bytes());
-    Ok(format!("hmac-sha256:{}", hex(&mac.finalize().into_bytes())))
+fn compute_seal(config: &EvidenceConfig, chain_hash: &str) -> Result<KeyProof> {
+    config
+        .keys
+        .sign(KeyPurpose::AuditSealing, &seal_payload(chain_hash))
 }
 
-fn verify_seal(config: &EvidenceConfig, chain_hash: &str, seal: &str) -> Result<()> {
-    let encoded = seal
-        .strip_prefix("hmac-sha256:")
-        .ok_or_else(|| Error::authority("unsupported evidence seal format"))?;
-    let bytes = decode_hex_32(encoded)?;
-    let mut mac = HmacSha256::new_from_slice(&config.seal_key)
-        .map_err(|_| Error::authority("invalid audit sealing key"))?;
-    mac.update(SEAL_PREFIX);
-    mac.update(chain_hash.as_bytes());
-    mac.verify_slice(&bytes)
-        .map_err(|_| Error::authority("evidence HMAC verification failed"))
+fn verify_seal(config: &EvidenceConfig, key_id: &str, chain_hash: &str, seal: &str) -> Result<()> {
+    config.keys.verify(
+        key_id,
+        KeyPurpose::AuditSealing,
+        &seal_payload(chain_hash),
+        seal,
+    )
+}
+
+fn seal_payload(chain_hash: &str) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(SEAL_PREFIX.len() + chain_hash.len());
+    payload.extend_from_slice(SEAL_PREFIX);
+    payload.extend_from_slice(chain_hash.as_bytes());
+    payload
 }
 
 fn prefixed_sha256(prefix: &[u8], payload: &[u8]) -> String {
@@ -809,30 +825,6 @@ fn prefixed_sha256(prefix: &[u8], payload: &[u8]) -> String {
     hasher.update(prefix);
     hasher.update(payload);
     format!("sha256:{:x}", hasher.finalize())
-}
-
-fn decode_hex_32(value: &str) -> Result<[u8; 32]> {
-    if value.len() != 64 {
-        return Err(Error::authority(
-            "evidence seal must contain 64 hex characters",
-        ));
-    }
-    let mut bytes = [0_u8; 32];
-    for (index, byte) in bytes.iter_mut().enumerate() {
-        let start = index * 2;
-        *byte = u8::from_str_radix(&value[start..start + 2], 16)
-            .map_err(|_| Error::authority("evidence seal contains invalid hex"))?;
-    }
-    Ok(bytes)
-}
-
-fn hex(bytes: &[u8]) -> String {
-    let mut output = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        use std::fmt::Write;
-        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
-    }
-    output
 }
 
 fn string(name: &str, value: &str) -> (String, Value) {
