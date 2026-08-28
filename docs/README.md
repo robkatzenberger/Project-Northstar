@@ -90,6 +90,8 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [integration.md](./integration.md) | Wiring real runtimes (air-gapped first; optional harness adapters) |
 | [http-api.md](./http-api.md) | Go `tlpxd` localhost control plane |
 | [testing.md](./testing.md) | Unit, conformance, red-team, technical test #1 |
+| [operations/README.md](./operations/README.md) | Bounded local readiness, health, backup/restore, capacity, and change profile |
+| [operations/INCIDENT-RESPONSE.md](./operations/INCIDENT-RESPONSE.md) | Fail-closed incident classification, playbooks, and recovery gate |
 | [MVP.md](./MVP.md) | Historical MVP handoff brief |
 | [changelog.md](./changelog.md) | Project changelog |
 | [**roadmap/**](./roadmap/README.md) | **Ideas & next phases (H-M/M-M, PEP, tokens, handoff)** |

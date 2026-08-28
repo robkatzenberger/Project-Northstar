@@ -21,13 +21,14 @@ pub mod types;
 pub use adapter::{
     AdapterContract, AdapterRegistry, AuthenticatedAdapterSession, ADAPTER_MATERIAL_FIELDS,
 };
-pub use audit_export::{AuditExportSummary, FileAuditExporter};
+pub use audit_export::{AuditExportSummary, FileAuditExporter, MAX_AUDIT_SINK_BYTES};
 pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
     Authority, AuthorityConfig, AuthzState, CancellationOutcome, CancellationReason,
     CancellationRecord, CancellationRole, ClaimRecord, EvaluationOutcome, ExecutionLease,
     ExecutionReceipt, ExecutionResultEvidence, ExecutionStart, ExecutionState, IssuedAuthorization,
-    PendingApprovalView, Retryability, RevocationReason, RevocationRecord, RevocationScope,
+    OperationalSnapshot, PendingApprovalView, Retryability, RevocationReason, RevocationRecord,
+    RevocationScope,
 };
 pub use error::{Error, Result};
 pub use evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};

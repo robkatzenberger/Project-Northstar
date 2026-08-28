@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 const EXPORT_FORMAT: &str = "tlpx.local-audit-export";
 const EXPORT_FORMAT_VERSION: &str = "1";
-const MAX_SINK_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_AUDIT_SINK_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_LINE_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +105,10 @@ impl FileAuditExporter {
 
         sink.seek(SeekFrom::End(0))
             .map_err(|error| export_io("seek audit sink", error))?;
+        let mut sink_bytes = sink
+            .metadata()
+            .map_err(|error| export_io("inspect audit sink capacity", error))?
+            .len();
         let mut appended = 0_usize;
         for row in rows.iter().skip(lines.len()).take(limit) {
             let envelope = export_envelope(row)?;
@@ -113,10 +117,14 @@ impl FileAuditExporter {
                     "audit export row exceeds the bounded line size",
                 ));
             }
+            let row_bytes = u64::try_from(envelope.as_str().len() + 1)
+                .map_err(|_| export_error("audit export row length overflow"))?;
+            let projected = projected_sink_bytes(sink_bytes, row_bytes)?;
             sink.write_all(envelope.as_str().as_bytes())
                 .and_then(|()| sink.write_all(b"\n"))
                 .and_then(|()| sink.sync_all())
                 .map_err(|error| export_io("append and sync audit evidence", error))?;
+            sink_bytes = projected;
             authority.mark_evidence_exported_at(row.outbox_id, &row.chain_hash, exported_at_ms)?;
             appended += 1;
         }
@@ -230,7 +238,7 @@ fn read_lines(file: &mut File) -> Result<Vec<String>> {
         .metadata()
         .map_err(|error| export_io("inspect audit sink length", error))?
         .len();
-    if length > MAX_SINK_BYTES {
+    if length > MAX_AUDIT_SINK_BYTES {
         return Err(export_error("audit sink exceeds the bounded local size"));
     }
     file.seek(SeekFrom::Start(0))
@@ -304,4 +312,31 @@ fn export_error(message: impl Into<String>) -> Error {
 
 fn export_io(action: &str, error: std::io::Error) -> Error {
     export_error(format!("{action}: {error}"))
+}
+
+fn projected_sink_bytes(current: u64, row_bytes: u64) -> Result<u64> {
+    let projected = current
+        .checked_add(row_bytes)
+        .ok_or_else(|| export_error("audit sink length overflow"))?;
+    if projected > MAX_AUDIT_SINK_BYTES {
+        return Err(export_error(
+            "audit sink capacity would be exceeded; export must stop before append",
+        ));
+    }
+    Ok(projected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{projected_sink_bytes, MAX_AUDIT_SINK_BYTES};
+
+    #[test]
+    fn capacity_is_checked_before_append() {
+        assert_eq!(
+            projected_sink_bytes(MAX_AUDIT_SINK_BYTES - 1, 1).unwrap(),
+            MAX_AUDIT_SINK_BYTES
+        );
+        assert!(projected_sink_bytes(MAX_AUDIT_SINK_BYTES, 1).is_err());
+        assert!(projected_sink_bytes(u64::MAX, 1).is_err());
+    }
 }

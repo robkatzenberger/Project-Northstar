@@ -26,6 +26,7 @@
 ```text
 northstar/
   docs/                      Language-agnostic documentation
+  docs/operations/           Bounded local readiness and incident-response profile
   docs/roadmap/              Product ideas & phased plan (H-M/M-M, PEP, tokens)
   schemas/tlpx-0.1/          Frozen TL-PX 0.1 JSON schemas
   schemas/tlpx-0.2/          TL-PX 0.2 draft schemas and reason codes

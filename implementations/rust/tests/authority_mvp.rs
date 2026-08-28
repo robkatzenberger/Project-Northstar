@@ -3088,3 +3088,117 @@ fn restart_after_every_execution_boundary_never_reopens_permission() {
     }
     clean_db(&path);
 }
+
+#[test]
+fn operational_snapshot_is_integrity_gated_and_tracks_unresolved_work() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let empty = authority.operational_snapshot().unwrap();
+    assert_eq!(empty.trusted_time_last_ms, None);
+    assert_eq!(empty.evidence.total, 0);
+    assert_eq!(empty.pending_approvals, 0);
+    assert_eq!(empty.unclaimed_authorizations, 0);
+    assert_eq!(empty.started_executions, 0);
+    assert_eq!(empty.outcome_unknown_executions, 0);
+    assert_eq!(empty.reconciliation_required_executions, 0);
+    assert_eq!(empty.active_revocations, 0);
+
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-operations"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    let issued_snapshot = authority.operational_snapshot().unwrap();
+    assert_eq!(issued_snapshot.trusted_time_last_ms, Some(NOW));
+    assert_eq!(issued_snapshot.evidence.pending, 2);
+    assert_eq!(issued_snapshot.unclaimed_authorizations, 1);
+
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let lease = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 2,
+        )
+        .unwrap()
+        .into_started()
+        .unwrap();
+    let started = authority.operational_snapshot().unwrap();
+    assert_eq!(started.unclaimed_authorizations, 0);
+    assert_eq!(started.started_executions, 1);
+    assert_eq!(started.evidence.pending, 3);
+
+    authority
+        .mark_execution_outcome_unknown_authenticated_at(
+            &lease.execution_id,
+            &executor_identity(),
+            NOW + 3,
+        )
+        .unwrap();
+    let unknown = authority.operational_snapshot().unwrap();
+    assert_eq!(unknown.started_executions, 0);
+    assert_eq!(unknown.outcome_unknown_executions, 1);
+
+    authority
+        .require_reconciliation_authenticated_at(
+            &lease.execution_id,
+            &reconciler_identity(),
+            NOW + 4,
+        )
+        .unwrap();
+    let required = authority.operational_snapshot().unwrap();
+    assert_eq!(required.outcome_unknown_executions, 0);
+    assert_eq!(required.reconciliation_required_executions, 1);
+
+    authority
+        .reconcile_execution_authenticated_at(
+            &lease.execution_id,
+            &reconciler_identity(),
+            ExecutionState::OutcomeUnknownFinal,
+            execution_result("operations snapshot final"),
+            NOW + 5,
+        )
+        .unwrap();
+    let terminal = authority.operational_snapshot().unwrap();
+    assert_eq!(terminal.reconciliation_required_executions, 0);
+    assert_eq!(terminal.evidence.pending, 4);
+}
+
+#[test]
+fn operational_snapshot_rejects_foreign_key_corruption() {
+    let path = temp_db("operational-foreign-key");
+    {
+        let authority = Authority::open(&path, config()).unwrap();
+        authority
+            .evaluate_and_issue_at("agent.requester", &intent("req-operations-fk"), NOW)
+            .unwrap();
+    }
+    let corrupting_connection = Connection::open(&path).unwrap();
+    corrupting_connection
+        .execute_batch("PRAGMA foreign_keys = OFF;")
+        .unwrap();
+    corrupting_connection
+        .execute(
+            "INSERT INTO tlpx_authorization_scopes
+             (authorization_id, resource, position)
+             VALUES ('missing-authorization', 'customer:attacker', 0)",
+            [],
+        )
+        .unwrap();
+    drop(corrupting_connection);
+    let authority = Authority::open(&path, config()).unwrap();
+    let error = authority.operational_snapshot().unwrap_err();
+    assert_eq!(error.code(), "OPERATIONAL_INTEGRITY_FAILED");
+    drop(authority);
+    clean_db(&path);
+}

@@ -110,6 +110,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - Exact error retries return the stored error; changed intent under the same id blocks with `IDEMPOTENCY_CONFLICT`; an eligible successor uses a new id and may link only to a retryable receipt owned by the same authenticated principal.
 - One authority-wide transactional sequence orders decisions, evaluation errors, and successful claims.
 - Normal process time advances from a monotonic anchor. A transactional SQLite watermark rejects negative or backward time on new time-bearing authority transitions across connections and restarts.
+- `operational_snapshot()` returns integrity-gated aggregate backlog and unresolved-lifecycle counts without exposing principals, action content, or key bytes.
 - Decision, evaluation-error, authorization, and claim JSON is canonical JCS and matches the accepted 0.2 schemas under the JS oracle.
 - Decision requester party type is explicit trusted-embedding configuration; use separate authority instances when requester populations have different party types.
 - Record JSON and the local storage envelope remain distinct. Record/chain hashes, HMAC seals, key ids, and export state are outbox columns, not private protocol fields.

@@ -625,6 +625,18 @@ pub struct Authority {
     config: AuthorityConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationalSnapshot {
+    pub trusted_time_last_ms: Option<i64>,
+    pub evidence: EvidenceReconciliation,
+    pub pending_approvals: i64,
+    pub unclaimed_authorizations: i64,
+    pub started_executions: i64,
+    pub outcome_unknown_executions: i64,
+    pub reconciliation_required_executions: i64,
+    pub active_revocations: i64,
+}
+
 impl Authority {
     pub fn open(path: impl AsRef<Path>, config: AuthorityConfig) -> Result<Self> {
         config.validate()?;
@@ -2559,6 +2571,87 @@ impl Authority {
             .lock()
             .map_err(|_| Error::authority("database lock poisoned"))?;
         evidence::reconcile(&connection, &self.config.evidence)
+    }
+
+    /// Returns bounded aggregate health signals after SQLite and evidence
+    /// integrity checks. It exposes no principals, action data, or key bytes.
+    pub fn operational_snapshot(&self) -> Result<OperationalSnapshot> {
+        let mut connection = self
+            .db
+            .lock()
+            .map_err(|_| Error::authority("database lock poisoned"))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Deferred)
+            .map_err(db_error)?;
+        let quick_check = transaction
+            .query_row("PRAGMA quick_check", [], |row| row.get::<_, String>(0))
+            .map_err(db_error)?;
+        if quick_check != "ok" {
+            return Err(Error::coded(
+                "OPERATIONAL_INTEGRITY_FAILED",
+                "SQLite quick_check did not return ok",
+            ));
+        }
+        let foreign_key_violation = transaction
+            .prepare("PRAGMA foreign_key_check")
+            .map_err(db_error)?
+            .query([])
+            .map_err(db_error)?
+            .next()
+            .map_err(db_error)?
+            .is_some();
+        if foreign_key_violation {
+            return Err(Error::coded(
+                "OPERATIONAL_INTEGRITY_FAILED",
+                "SQLite foreign-key integrity check failed",
+            ));
+        }
+        let evidence = evidence::reconcile(&transaction, &self.config.evidence)?;
+        let trusted_time_last_ms = transaction
+            .query_row(
+                "SELECT last_observed_ms FROM tlpx_trusted_time WHERE singleton = 1",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(db_error)?;
+        let counts = transaction
+            .query_row(
+                "SELECT
+                   (SELECT COUNT(*) FROM tlpx_pending_approvals
+                    WHERE state = 'PENDING_APPROVAL'),
+                   (SELECT COUNT(*) FROM tlpx_authorizations
+                    WHERE state = 'AUTHORIZED_UNCLAIMED'),
+                   (SELECT COUNT(*) FROM tlpx_executions WHERE state = 'STARTED'),
+                   (SELECT COUNT(*) FROM tlpx_executions
+                    WHERE state = 'EXECUTION_OUTCOME_UNKNOWN'),
+                   (SELECT COUNT(*) FROM tlpx_executions
+                    WHERE state = 'RECONCILIATION_REQUIRED'),
+                   (SELECT COUNT(*) FROM tlpx_revocations)",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, i64>(5)?,
+                    ))
+                },
+            )
+            .map_err(db_error)?;
+        transaction.commit().map_err(db_error)?;
+        Ok(OperationalSnapshot {
+            trusted_time_last_ms,
+            evidence,
+            pending_approvals: counts.0,
+            unclaimed_authorizations: counts.1,
+            started_executions: counts.2,
+            outcome_unknown_executions: counts.3,
+            reconciliation_required_executions: counts.4,
+            active_revocations: counts.5,
+        })
     }
 }
 
