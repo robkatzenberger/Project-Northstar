@@ -1,9 +1,9 @@
 # Slice 4.6 external security review readiness — builder verification
 
-**Date:** 2026-08-27  
-**Builder:** Codex  
-**Review-package commit:** `d51e46ce4cf87e4ab339fd1d70aac5e078c3e7e0`  
-**Security-code target:** `64d08203c2f30964b176be8872b390ba3c28e5e6`  
+**Date:** 2026-08-27
+**Builder:** Codex
+**Review-package commit:** `d51e46ce4cf87e4ab339fd1d70aac5e078c3e7e0`
+**Security-code target:** `64d08203c2f30964b176be8872b390ba3c28e5e6`
 **Disposition:** Phase 4 is builder-complete and ready for independent review; it is not independently accepted
 
 ## Scope delivered
