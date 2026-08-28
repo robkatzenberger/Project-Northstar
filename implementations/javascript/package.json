@@ -23,6 +23,7 @@
     "conformance": "node scripts/conformance.mjs",
     "conformance:0.2": "node scripts/conformance-v02.mjs",
     "test:rust-evidence": "node scripts/validate-rust-evidence.mjs",
+    "test:pep-evidence": "node scripts/validate-pep-evidence.mjs",
     "demo": "node scripts/demo.mjs",
     "demo:switchboard": "node scripts/demo-switchboard.mjs",
     "tech-test": "node scripts/tech-test.mjs",

@@ -12,6 +12,7 @@ pub mod jcs;
 pub mod local_auth;
 pub mod policy;
 pub mod policy_manifest;
+pub mod restricted_pep;
 pub mod shell_runner;
 pub mod types;
 
@@ -42,6 +43,10 @@ pub use policy_manifest::{
     exact_match_policy_content_hash, ConfiguredPolicyBundle, PolicyBundleManifest, PolicyCatalog,
     PolicyIssuer, PolicyIssuerType, PolicySupersedes, SelectedPolicy,
     EXACT_MATCH_POLICY_CONTENT_TYPE, POLICY_PRECEDENCE,
+};
+pub use restricted_pep::{
+    assert_replacement_bind_denied, raw_restricted_pep_request, request_restricted_pep,
+    serve_restricted_pep, verify_restricted_pep_evidence, RestrictedPepConfig,
 };
 pub use shell_runner::{
     sha256_file, CooperativeShellConfig, CooperativeShellOutcome, CooperativeShellRequest,

@@ -2,8 +2,9 @@
 //!
 //! A single SQLite transaction owns each evaluation outcome. Authenticated
 //! idempotency slots are immutable, and one authority-wide sequence orders
-//! decisions, evaluation errors, and successful claims. The authenticated
-//! principal strings still come from a trusted embedding boundary.
+//! decisions, evaluation errors, and successful claims. Public mutation paths
+//! accept identities produced by an authenticator; construction and protection
+//! of that authenticator remain deployment duties.
 
 use crate::adapter::{AdapterRegistry, AuthenticatedAdapterSession};
 use crate::error::{Error, Result};
