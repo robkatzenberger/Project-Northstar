@@ -16,8 +16,9 @@ use crate::local_auth::AuthenticatedIdentity;
 use crate::types::{AuthorizedAction, ExecutedAction};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -46,11 +47,11 @@ impl ShellExecutable {
                 "protected executable digest must be canonical sha256",
             )
         })?;
-        if sha256_file(&canonical_path)? != binary_hash {
-            return Err(runner_config_error(
-                "protected executable digest does not match the startup file",
-            ));
-        }
+        open_verified_executable(&canonical_path, &binary_hash).map_err(|_| {
+            runner_config_error(
+                "protected executable provenance or digest does not match the startup file",
+            )
+        })?;
         Ok(Self {
             canonical_path,
             binary_hash,
@@ -204,8 +205,17 @@ impl<'a> CooperativeShellRunner<'a> {
             )?
             .into_started()?;
 
+        if plan.executable.verify_current_path().is_err() {
+            return self.finish_without_child(
+                &lease.execution_id,
+                request.executor,
+                started_at_ms,
+                "protected executable changed before spawn",
+            );
+        }
+
         let timer = Instant::now();
-        let mut command = Command::new(&plan.executable);
+        let mut command = Command::new(plan.executable.path());
         command
             .args(&plan.argv)
             .current_dir(&plan.working_directory)
@@ -385,12 +395,7 @@ impl<'a> CooperativeShellRunner<'a> {
         let pinned = self.config.executables.get(&canonical).ok_or_else(|| {
             Error::coded("SHELL_RUNNER_COMMAND_DENIED", "executable is not activated")
         })?;
-        if sha256_file(&canonical)? != pinned.binary_hash {
-            return Err(Error::coded(
-                "SHELL_RUNNER_EXECUTABLE_CHANGED",
-                "protected executable failed the check-before-spawn digest comparison",
-            ));
-        }
+        let executable = open_verified_executable(&canonical, &pinned.binary_hash)?;
         let plan = parse_plan(&request.authorized_action.arguments)?;
         let working_directory = plan.working_directory.canonicalize().map_err(|_| {
             Error::coded(
@@ -424,7 +429,7 @@ impl<'a> CooperativeShellRunner<'a> {
             ));
         }
         Ok(ShellPlan {
-            executable: canonical,
+            executable,
             argv: plan.argv,
             working_directory,
             environment: plan.environment,
@@ -521,7 +526,9 @@ struct ParsedPlan {
 
 #[derive(Debug)]
 struct ShellPlan {
-    executable: PathBuf,
+    // Keeps the verified inode open through spawn and re-checks that the
+    // protected pathname still resolves to it immediately before execution.
+    executable: VerifiedExecutable,
     argv: Vec<String>,
     working_directory: PathBuf,
     environment: BTreeMap<String, String>,
@@ -629,6 +636,113 @@ fn reject_shell_interpreter(path: &Path) -> Result<()> {
 pub fn sha256_file(path: impl AsRef<Path>) -> Result<String> {
     let mut file = File::open(path.as_ref())
         .map_err(|_| Error::coded("SHELL_RUNNER_EXECUTABLE_CHANGED", "file cannot be opened"))?;
+    sha256_reader(&mut file)
+}
+
+#[derive(Debug)]
+struct VerifiedExecutable {
+    path: PathBuf,
+    _file: File,
+    device: u64,
+    inode: u64,
+}
+
+impl VerifiedExecutable {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn verify_current_path(&self) -> Result<()> {
+        verify_executable_provenance(&self.path)?;
+        let metadata = self.path.metadata().map_err(|_| executable_changed())?;
+        if metadata.dev() != self.device || metadata.ino() != self.inode {
+            return Err(executable_changed());
+        }
+        Ok(())
+    }
+}
+
+fn open_verified_executable(path: &Path, expected_hash: &str) -> Result<VerifiedExecutable> {
+    verify_executable_provenance(path)?;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(nix::libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|_| {
+            Error::coded(
+                "SHELL_RUNNER_EXECUTABLE_CHANGED",
+                "protected executable cannot be opened without following a link",
+            )
+        })?;
+    let metadata = file.metadata().map_err(|_| executable_changed())?;
+    if !metadata.is_file() {
+        return Err(Error::coded(
+            "SHELL_RUNNER_EXECUTABLE_CHANGED",
+            "protected executable is not a regular file",
+        ));
+    }
+    if sha256_reader(&mut file)? != expected_hash {
+        return Err(Error::coded(
+            "SHELL_RUNNER_EXECUTABLE_CHANGED",
+            "protected executable descriptor digest does not match the activated digest",
+        ));
+    }
+    let current = path.metadata().map_err(|_| executable_changed())?;
+    if current.dev() != metadata.dev() || current.ino() != metadata.ino() {
+        return Err(executable_changed());
+    }
+    Ok(VerifiedExecutable {
+        path: path.to_path_buf(),
+        _file: file,
+        device: metadata.dev(),
+        inode: metadata.ino(),
+    })
+}
+
+fn verify_executable_provenance(path: &Path) -> Result<()> {
+    let effective_uid = nix::unistd::Uid::effective().as_raw();
+    let executable = path.metadata().map_err(|_| executable_changed())?;
+    if !executable.is_file()
+        || (executable.uid() != 0 && executable.uid() != effective_uid)
+        || executable.mode() & 0o022 != 0
+    {
+        return Err(Error::coded(
+            "SHELL_RUNNER_EXECUTABLE_CHANGED",
+            "protected executable must be root- or PEP-owned and not group/world writable",
+        ));
+    }
+    let mut child_uid = executable.uid();
+    let mut ancestor = path.parent();
+    while let Some(directory) = ancestor {
+        let metadata = directory.metadata().map_err(|_| executable_changed())?;
+        if !metadata.is_dir() {
+            return Err(executable_changed());
+        }
+        if metadata.mode() & 0o022 != 0 {
+            let sticky = metadata.mode() & 0o1000 != 0;
+            let trusted_owner = metadata.uid() == 0 || metadata.uid() == effective_uid;
+            let trusted_child = child_uid == 0 || child_uid == effective_uid;
+            if !sticky || !trusted_owner || !trusted_child {
+                return Err(Error::coded(
+                    "SHELL_RUNNER_EXECUTABLE_CHANGED",
+                    "protected executable has an untrusted writable directory ancestor",
+                ));
+            }
+        }
+        child_uid = metadata.uid();
+        ancestor = directory.parent();
+    }
+    Ok(())
+}
+
+fn executable_changed() -> Error {
+    Error::coded(
+        "SHELL_RUNNER_EXECUTABLE_CHANGED",
+        "protected executable identity or provenance changed",
+    )
+}
+
+fn sha256_reader(file: &mut File) -> Result<String> {
     let mut digest = Sha256::new();
     let mut buffer = [0_u8; 16_384];
     loop {
@@ -724,4 +838,57 @@ fn runner_config_error(message: impl Into<String>) -> Error {
 
 fn pep_request(message: impl Into<String>) -> Error {
     Error::coded("SHELL_RUNNER_REQUEST_INVALID", message)
+}
+
+#[cfg(test)]
+mod executable_provenance_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn private_directory(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("tlpx-{label}-{nonce}"));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        path
+    }
+
+    #[test]
+    fn verified_executable_rejects_path_replacement_before_spawn() {
+        let directory = private_directory("executable-replacement");
+        let executable = directory.join("command");
+        let displaced = directory.join("displaced");
+        std::fs::write(&executable, b"original bytes").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let hash = sha256_file(&executable).unwrap();
+        let verified = open_verified_executable(&executable, &hash).unwrap();
+
+        std::fs::rename(&executable, &displaced).unwrap();
+        std::fs::write(&executable, b"replacement bytes").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
+
+        let error = verified.verify_current_path().unwrap_err();
+        assert_eq!(error.code(), "SHELL_RUNNER_EXECUTABLE_CHANGED");
+        std::fs::remove_file(&executable).unwrap();
+        std::fs::remove_file(&displaced).unwrap();
+        std::fs::remove_dir(&directory).unwrap();
+    }
+
+    #[test]
+    fn activated_executable_rejects_group_writable_provenance() {
+        let directory = private_directory("executable-permissions");
+        let executable = directory.join("command");
+        std::fs::write(&executable, b"bytes").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o520)).unwrap();
+        let hash = sha256_file(&executable).unwrap();
+
+        let error = ShellExecutable::pinned(&executable, hash).unwrap_err();
+        assert_eq!(error.code(), "SHELL_RUNNER_CONFIG_INVALID");
+        std::fs::remove_file(&executable).unwrap();
+        std::fs::remove_dir(&directory).unwrap();
+    }
 }

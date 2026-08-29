@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{symlink, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
@@ -200,12 +200,10 @@ fn config() -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            keys: KeyRing::active_profile([
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
+            keys: KeyRing::active_local_authority_profile([
                 ("audit-test-v1".into(), vec![0x5a; 32]),
                 ("authorization-test-v1".into(), vec![0x5b; 32]),
-                ("service-test-v1".into(), vec![0x5c; 32]),
-                ("operator-test-v1".into(), vec![0x5d; 32]),
-                ("tenant-test-v1".into(), vec![0x5e; 32]),
             ])
             .unwrap(),
         },
@@ -450,6 +448,65 @@ fn durable_file_export_is_ordered_bounded_idempotent_and_restart_safe() {
 }
 
 #[test]
+fn combined_readiness_rejects_database_acknowledgement_without_sink_bytes() {
+    let directory = temp_export_dir("ack-without-sink");
+    let database = directory.join("authority.sqlite");
+    let sink = directory.join("audit.jsonl");
+    let authority = Authority::open(&database, config()).unwrap();
+    authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-ack-without-sink"), NOW)
+        .unwrap();
+    let exporter = FileAuditExporter::new(&sink);
+    exporter.export_pending_at(&authority, 10, NOW + 1).unwrap();
+    fs::remove_file(&sink).unwrap();
+
+    assert!(authority.operational_snapshot().is_ok());
+    let error = exporter.operational_readiness(&authority).unwrap_err();
+    assert_eq!(error.code(), "AUDIT_EXPORT_FAILED");
+    assert!(error.message().contains("missing"));
+    drop(authority);
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn forged_database_export_acknowledgement_fails_hmac_reconciliation() {
+    let path = temp_db("forged-export-ack");
+    let authority = Authority::open(&path, config()).unwrap();
+    authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-forged-ack"), NOW)
+        .unwrap();
+    Connection::open(&path)
+        .unwrap()
+        .execute(
+            "UPDATE tlpx_evidence_outbox
+             SET exported_at_ms = ?1, export_ack_key_id = 'audit-test-v1',
+                 export_ack = 'hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000'",
+            [NOW + 1],
+        )
+        .unwrap();
+
+    assert!(authority.operational_snapshot().is_err());
+    drop(authority);
+    clean_db(&path);
+}
+
+#[test]
+fn authority_denies_transition_before_outbox_capacity_can_be_exceeded() {
+    let mut bounded = config();
+    bounded.evidence.max_export_bytes = 512;
+    let authority = Authority::in_memory(bounded).unwrap();
+
+    let error = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-capacity-denied"), NOW)
+        .unwrap_err();
+
+    assert_eq!(error.code(), "AUDIT_CAPACITY_EXCEEDED");
+    let snapshot = authority.operational_snapshot().unwrap();
+    assert_eq!(snapshot.evidence.total, 0);
+    assert_eq!(snapshot.trusted_time_last_ms, None);
+}
+
+#[test]
 fn complete_append_ahead_of_ack_is_recovered_without_duplication() {
     let directory = temp_export_dir("recover");
     let database = directory.join("authority.sqlite");
@@ -466,7 +523,9 @@ fn complete_append_ahead_of_ack_is_recovered_without_duplication() {
     Connection::open(&database)
         .unwrap()
         .execute(
-            "UPDATE tlpx_evidence_outbox SET exported_at_ms = NULL WHERE outbox_id = 2",
+            "UPDATE tlpx_evidence_outbox
+             SET exported_at_ms = NULL, export_ack_key_id = NULL, export_ack = NULL
+             WHERE outbox_id = 2",
             [],
         )
         .unwrap();
@@ -535,6 +594,7 @@ fn exporter_rejects_symlinks_permissions_and_concurrent_lock_holder() {
         authority
             .evaluate_and_issue_at("agent.requester", &intent(&format!("req-{attack}")), NOW)
             .unwrap();
+        let mut held_lock: Option<nix::fcntl::Flock<File>> = None;
         match attack {
             "symlink" => {
                 let target = directory.join("attacker-file");
@@ -554,12 +614,18 @@ fn exporter_rejects_symlinks_permissions_and_concurrent_lock_holder() {
                 fs::set_permissions(&sink, fs::Permissions::from_mode(0o644)).unwrap();
             }
             "lock" => {
-                OpenOptions::new()
-                    .create_new(true)
+                let lock = OpenOptions::new()
+                    .create(true)
+                    .read(true)
                     .write(true)
+                    .truncate(false)
                     .mode(0o600)
                     .open(directory.join("audit.jsonl.lock"))
                     .unwrap();
+                held_lock = Some(
+                    nix::fcntl::Flock::lock(lock, nix::fcntl::FlockArg::LockExclusiveNonblock)
+                        .unwrap(),
+                );
             }
             "parent" => {
                 fs::set_permissions(&directory, fs::Permissions::from_mode(0o770)).unwrap();
@@ -570,6 +636,7 @@ fn exporter_rejects_symlinks_permissions_and_concurrent_lock_holder() {
             .export_pending_at(&authority, 10, NOW + 2)
             .unwrap_err();
         assert_eq!(error.code(), "AUDIT_EXPORT_FAILED", "attack={attack}");
+        drop(held_lock);
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
         drop(authority);
         fs::remove_dir_all(directory).unwrap();
@@ -600,7 +667,11 @@ fn reconciliation_rejects_export_gaps_and_time_rollback() {
             .export_pending_at(&authority, 3, NOW + 100)
             .unwrap();
         let mutation = match attack {
-            "gap" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = NULL WHERE outbox_id = 2",
+            "gap" => {
+                "UPDATE tlpx_evidence_outbox
+                 SET exported_at_ms = NULL, export_ack_key_id = NULL, export_ack = NULL
+                 WHERE outbox_id = 2"
+            }
             "negative" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = -1 WHERE outbox_id = 1",
             "rollback" => "UPDATE tlpx_evidence_outbox SET exported_at_ms = 1 WHERE outbox_id = 3",
             _ => unreachable!(),
@@ -859,6 +930,29 @@ fn reconciliation_detects_payload_tampering() {
 }
 
 #[test]
+fn reconciliation_detects_operational_source_row_tampering() {
+    let path = temp_db("source-row-tamper");
+    let authority = Authority::open(&path, config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at("agent.requester", &intent("req-source-tamper"), NOW)
+        .unwrap()
+        .authorization
+        .unwrap();
+    Connection::open(&path)
+        .unwrap()
+        .execute(
+            "UPDATE tlpx_authorizations SET target = 'attacker:substitute' WHERE authorization_id = ?1",
+            [&issued.authorization_id],
+        )
+        .unwrap();
+
+    let error = authority.reconcile_evidence().unwrap_err();
+    assert!(error.message().contains("target"));
+    drop(authority);
+    clean_db(&path);
+}
+
+#[test]
 fn reconciliation_detects_envelope_source_swapping() {
     let path = temp_db("source-swap");
     {
@@ -928,12 +1022,9 @@ fn idempotent_replay_does_not_duplicate_evidence() {
 
 #[test]
 fn weak_or_missing_sealing_configuration_fails_closed() {
-    let error = KeyRing::active_profile([
+    let error = KeyRing::active_local_authority_profile([
         ("audit-test-v1".into(), vec![]),
         ("authorization-test-v1".into(), vec![0x5b; 32]),
-        ("service-test-v1".into(), vec![0x5c; 32]),
-        ("operator-test-v1".into(), vec![0x5d; 32]),
-        ("tenant-test-v1".into(), vec![0x5e; 32]),
     ])
     .err()
     .unwrap();
@@ -947,12 +1038,12 @@ fn rotated_keys() -> KeyRing {
         RoleKey::active("audit-test-v2", KeyPurpose::AuditSealing, vec![0x61; 32]),
         RoleKey::verify_only(
             "authorization-test-v1",
-            KeyPurpose::AuthorizationSigning,
+            KeyPurpose::AuthorizationMac,
             vec![0x5b; 32],
         ),
         RoleKey::active(
             "authorization-test-v2",
-            KeyPurpose::AuthorizationSigning,
+            KeyPurpose::AuthorizationMac,
             vec![0x62; 32],
         ),
         RoleKey::active(
@@ -981,7 +1072,7 @@ fn role_key_rotation_preserves_history_and_uses_new_keys_for_new_proofs() {
             .authorization
             .unwrap()
     };
-    assert_eq!(issued.authorization_signing_key_id, "authorization-test-v1");
+    assert_eq!(issued.authorization_mac_key_id, "authorization-test-v1");
 
     let mut after_rotation = config();
     after_rotation.evidence.keys = rotated_keys();
@@ -1000,7 +1091,7 @@ fn role_key_rotation_preserves_history_and_uses_new_keys_for_new_proofs() {
         .unwrap()
         .authorization
         .unwrap();
-    assert_eq!(later.authorization_signing_key_id, "authorization-test-v2");
+    assert_eq!(later.authorization_mac_key_id, "authorization-test-v2");
     let rows = authority.pending_evidence(20).unwrap();
     assert!(rows.iter().any(|row| row.seal_key_id == "audit-test-v1"));
     assert!(rows.iter().any(|row| row.seal_key_id == "audit-test-v2"));
@@ -1010,7 +1101,7 @@ fn role_key_rotation_preserves_history_and_uses_new_keys_for_new_proofs() {
 }
 
 #[test]
-fn signing_key_revocation_blocks_every_later_unclaimed_use() {
+fn authorization_mac_key_revocation_blocks_every_later_unclaimed_use() {
     let authority = Authority::in_memory(config()).unwrap();
     let issued = authority
         .evaluate_and_issue_at("agent.requester", &intent("req-key-revoked"), NOW)
@@ -1020,9 +1111,9 @@ fn signing_key_revocation_blocks_every_later_unclaimed_use() {
     authority
         .revoke_authenticated_at(
             &role_identity("authority.emergency", LocalRole::EmergencyCanceller),
-            RevocationScope::SigningKey,
-            &issued.authorization_signing_key_id,
-            RevocationReason::SigningKeyCompromised,
+            RevocationScope::AuthorizationMacKey,
+            &issued.authorization_mac_key_id,
+            RevocationReason::AuthorizationMacKeyCompromised,
             NOW + 1,
         )
         .unwrap();
@@ -1044,9 +1135,9 @@ fn revoked_active_keys_block_new_proofs_and_unknown_key_revocation_is_rejected()
     let invalid = authority
         .revoke_authenticated_at(
             &revoker,
-            RevocationScope::SigningKey,
+            RevocationScope::AuthorizationMacKey,
             "attacker-invented-key",
-            RevocationReason::SigningKeyCompromised,
+            RevocationReason::AuthorizationMacKeyCompromised,
             NOW,
         )
         .unwrap_err();
@@ -1055,9 +1146,9 @@ fn revoked_active_keys_block_new_proofs_and_unknown_key_revocation_is_rejected()
     authority
         .revoke_authenticated_at(
             &revoker,
-            RevocationScope::SigningKey,
+            RevocationScope::AuthorizationMacKey,
             "authorization-test-v1",
-            RevocationReason::SigningKeyCompromised,
+            RevocationReason::AuthorizationMacKeyCompromised,
             NOW + 1,
         )
         .unwrap();
@@ -1078,9 +1169,9 @@ fn revoked_active_keys_block_new_proofs_and_unknown_key_revocation_is_rejected()
     second
         .revoke_authenticated_at(
             &revoker,
-            RevocationScope::SigningKey,
+            RevocationScope::AuthorizationMacKey,
             "audit-test-v1",
-            RevocationReason::SigningKeyCompromised,
+            RevocationReason::AuthorizationMacKeyCompromised,
             NOW + 1,
         )
         .unwrap();
@@ -1092,12 +1183,12 @@ fn revoked_active_keys_block_new_proofs_and_unknown_key_revocation_is_rejected()
 fn stored_authorization_proof_tampering_and_role_substitution_fail_closed() {
     for (label, mutation) in [
         (
-            "signature",
-            "UPDATE tlpx_authorizations SET authorization_signature = 'hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000'",
+            "mac",
+            "UPDATE tlpx_authorizations SET authorization_mac = 'hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000'",
         ),
         (
             "role",
-            "UPDATE tlpx_authorizations SET authorization_signing_key_id = 'audit-test-v1'",
+            "UPDATE tlpx_authorizations SET authorization_mac_key_id = 'audit-test-v1'",
         ),
     ] {
         let path = temp_db(&format!("authorization-proof-{label}"));
@@ -1157,6 +1248,39 @@ fn incompatible_pre_release_database_is_rejected_before_schema_changes() {
         )
         .unwrap();
     assert!(!created_sequence_table);
+    clean_db(&path);
+}
+
+#[test]
+fn reopening_rejects_a_dropped_authority_unique_index() {
+    let path = temp_db("dropped-unique-index");
+    drop(Authority::open(&path, config()).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute("DROP INDEX tlpx_evaluation_idempotency", [])
+        .unwrap();
+
+    let error = Authority::open(&path, config()).err().unwrap();
+    assert!(error.message().contains("required unique index"));
+    clean_db(&path);
+}
+
+#[test]
+fn reopening_rejects_a_weakened_idempotency_index_predicate() {
+    let path = temp_db("weakened-idempotency-index");
+    drop(Authority::open(&path, config()).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "DROP INDEX tlpx_evaluation_idempotency;
+             CREATE UNIQUE INDEX tlpx_evaluation_idempotency
+               ON tlpx_evaluations(authenticated_principal, request_id)
+               WHERE occupies_slot = 0;",
+        )
+        .unwrap();
+
+    let error = Authority::open(&path, config()).err().unwrap();
+    assert!(error.message().contains("required unique index"));
     clean_db(&path);
 }
 

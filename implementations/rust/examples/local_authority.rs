@@ -231,13 +231,11 @@ fn pilot_config() -> tlpx::Result<AuthorityConfig> {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
             // Deliberately public and insecure: local demonstration/schema checks only.
-            keys: KeyRing::active_profile([
+            keys: KeyRing::active_local_authority_profile([
                 ("insecure-example-audit-v1".into(), vec![0x42; 32]),
                 ("insecure-example-authorization-v1".into(), vec![0x43; 32]),
-                ("insecure-example-service-v1".into(), vec![0x44; 32]),
-                ("insecure-example-operator-v1".into(), vec![0x45; 32]),
-                ("insecure-example-tenant-v1".into(), vec![0x46; 32]),
             ])?,
         },
         approval_window_ms: 600_000,

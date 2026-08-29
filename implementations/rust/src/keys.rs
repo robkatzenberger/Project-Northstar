@@ -17,7 +17,7 @@ const PROOF_PREFIX: &[u8] = b"northstar:role-key-proof:v1\0";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum KeyPurpose {
     AuditSealing,
-    AuthorizationSigning,
+    AuthorizationMac,
     ServiceIdentity,
     OperatorAuthentication,
     TenantTrust,
@@ -26,16 +26,18 @@ pub enum KeyPurpose {
 impl KeyPurpose {
     pub const ALL: [Self; 5] = [
         Self::AuditSealing,
-        Self::AuthorizationSigning,
+        Self::AuthorizationMac,
         Self::ServiceIdentity,
         Self::OperatorAuthentication,
         Self::TenantTrust,
     ];
 
+    pub const REQUIRED_LOCAL_AUTHORITY: [Self; 2] = [Self::AuditSealing, Self::AuthorizationMac];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::AuditSealing => "AUDIT_SEALING",
-            Self::AuthorizationSigning => "AUTHORIZATION_SIGNING",
+            Self::AuthorizationMac => "AUTHORIZATION_MAC",
             Self::ServiceIdentity => "SERVICE_IDENTITY",
             Self::OperatorAuthentication => "OPERATOR_AUTHENTICATION",
             Self::TenantTrust => "TENANT_TRUST",
@@ -121,9 +123,9 @@ impl fmt::Debug for KeyRing {
 }
 
 impl KeyRing {
-    pub fn active_profile(entries: [(String, Vec<u8>); 5]) -> Result<Self> {
+    pub fn active_local_authority_profile(entries: [(String, Vec<u8>); 2]) -> Result<Self> {
         Self::new(
-            KeyPurpose::ALL
+            KeyPurpose::REQUIRED_LOCAL_AUTHORITY
                 .into_iter()
                 .zip(entries)
                 .map(|(purpose, (key_id, material))| RoleKey::active(key_id, purpose, material))
@@ -158,7 +160,7 @@ impl KeyRing {
                 return Err(key_config("duplicate role key id"));
             }
         }
-        for purpose in KeyPurpose::ALL {
+        for purpose in KeyPurpose::REQUIRED_LOCAL_AUTHORITY {
             if !active.contains_key(&purpose) {
                 return Err(key_config(format!(
                     "one active {} key is required",
@@ -305,12 +307,9 @@ mod tests {
     use super::*;
 
     fn profile() -> KeyRing {
-        KeyRing::active_profile([
+        KeyRing::active_local_authority_profile([
             ("audit-v1".into(), vec![0x11; 32]),
             ("authorization-v1".into(), vec![0x22; 32]),
-            ("service-v1".into(), vec![0x33; 32]),
-            ("operator-v1".into(), vec![0x44; 32]),
-            ("tenant-v1".into(), vec![0x55; 32]),
         ])
         .unwrap()
     }
@@ -319,11 +318,11 @@ mod tests {
     fn role_proofs_are_purpose_bound_and_tamper_evident() {
         let keys = profile();
         let proof = keys
-            .sign(KeyPurpose::AuthorizationSigning, b"authorized")
+            .sign(KeyPurpose::AuthorizationMac, b"authorized")
             .unwrap();
         keys.verify(
             &proof.key_id,
-            KeyPurpose::AuthorizationSigning,
+            KeyPurpose::AuthorizationMac,
             b"authorized",
             &proof.proof,
         )
@@ -342,7 +341,7 @@ mod tests {
         assert_eq!(
             keys.verify(
                 &proof.key_id,
-                KeyPurpose::AuthorizationSigning,
+                KeyPurpose::AuthorizationMac,
                 b"mutated",
                 &proof.proof,
             )
@@ -354,12 +353,9 @@ mod tests {
 
     #[test]
     fn configuration_rejects_reuse_missing_roles_and_multiple_active_keys() {
-        let reused = KeyRing::active_profile([
+        let reused = KeyRing::active_local_authority_profile([
             ("audit-v1".into(), vec![0x11; 32]),
             ("authorization-v1".into(), vec![0x11; 32]),
-            ("service-v1".into(), vec![0x33; 32]),
-            ("operator-v1".into(), vec![0x44; 32]),
-            ("tenant-v1".into(), vec![0x55; 32]),
         ])
         .unwrap_err();
         assert_eq!(reused.code(), "KEY_CONFIGURATION_INVALID");
@@ -389,16 +385,9 @@ mod tests {
             RoleKey::active("audit-v2", KeyPurpose::AuditSealing, vec![0x12; 32]),
             RoleKey::active(
                 "authorization-v1",
-                KeyPurpose::AuthorizationSigning,
+                KeyPurpose::AuthorizationMac,
                 vec![0x22; 32],
             ),
-            RoleKey::active("service-v1", KeyPurpose::ServiceIdentity, vec![0x33; 32]),
-            RoleKey::active(
-                "operator-v1",
-                KeyPurpose::OperatorAuthentication,
-                vec![0x44; 32],
-            ),
-            RoleKey::active("tenant-v1", KeyPurpose::TenantTrust, vec![0x55; 32]),
         ])
         .unwrap();
         assert_eq!(
@@ -414,16 +403,9 @@ mod tests {
             RoleKey::active("audit-v2", KeyPurpose::AuditSealing, vec![0x12; 32]),
             RoleKey::active(
                 "authorization-v1",
-                KeyPurpose::AuthorizationSigning,
+                KeyPurpose::AuthorizationMac,
                 vec![0x22; 32],
             ),
-            RoleKey::active("service-v1", KeyPurpose::ServiceIdentity, vec![0x33; 32]),
-            RoleKey::active(
-                "operator-v1",
-                KeyPurpose::OperatorAuthentication,
-                vec![0x44; 32],
-            ),
-            RoleKey::active("tenant-v1", KeyPurpose::TenantTrust, vec![0x55; 32]),
         ])
         .unwrap();
         assert_eq!(

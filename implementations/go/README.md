@@ -1,9 +1,11 @@
 # Go implementation
 
-**Status:** Policy + Switchboard + **sealed audit** + operator/execute + **HTTP control plane**  
+**Status:** Historical/cooperative 0.1-era secondary reference; not a TL-PX 0.2 authority, adapter endpoint, or PEP
 **Module:** `github.com/Trust-Layer-AI/Project-Northstar/implementations/go`
 
 ## Features
+
+The CLI and localhost HTTP service trust caller-supplied operator/executor identifiers and do not provide the Rust authority's authenticated identity, one-time atomic claim, execution-start, or 0.2 evidence semantics. They are retained as historical interoperability evidence. Do not route 0.2 permission traffic to `tlpxd` and do not treat its execute endpoint as forced mediation.
 
 | Feature | Status |
 | --- | --- |

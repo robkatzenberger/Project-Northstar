@@ -1,7 +1,9 @@
 /**
- * Air-gapped fail-closed executor.
+ * Cooperative TL-PX 0.1 reference executor.
  *
  * Side effects run ONLY when the audit chain says AUTHORIZED for the receipt.
+ * This is not the TL-PX 0.2 authority/claim path and does not mediate callers
+ * that retain direct access to the supplied side effect.
  */
 
 import { resolveAuthorizationFromAudit } from "./chain.mjs";

@@ -41,8 +41,8 @@ fn fixture(max_connections: usize, claim_window_ms: i64, claim_delay_ms: u64) ->
         fs::set_permissions(directory, fs::Permissions::from_mode(0o700)).unwrap();
     }
     let key = state.join("seal.key");
-    let mut role_keys = Vec::with_capacity(160);
-    for byte in [0x39, 0x3a, 0x3b, 0x3c, 0x3d] {
+    let mut role_keys = Vec::with_capacity(64);
+    for byte in [0x39, 0x3a] {
         role_keys.extend_from_slice(&[byte; 32]);
     }
     fs::write(&key, role_keys).unwrap();

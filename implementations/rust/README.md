@@ -10,14 +10,10 @@
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
 **Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
-**Slice 4.1 local candidate:** separated role keys, verify-only rotation, authorization proofs, and durable key-revocation enforcement at `980327d`, exact-verified through `efa7f0f` — not independently accepted
-**Slice 4.2 local candidate:** bounded append-and-sync-before-ack audit export and exact prefix recovery at `833d8d4` — full exact-commit builder/red-team matrix passed, not independently accepted
-**Slice 4.3 local candidate:** persistent trusted-time rollback guard plus bounded race/deadline/restart assurance at `eb0e624` — full exact-commit builder/red-team matrix passed, not independently accepted
-**Slice 4.4 local candidate:** integrity-gated aggregate health, audit hard-stop enforcement, and bounded operations/incident profile at `bdd8a00` — full exact-commit builder/red-team matrix passed, not independently accepted
-**Slice 4.5 local candidate:** authenticated distinct A-to-B fresh-evaluation handoff profile at `536111a` — full exact-commit builder/red-team matrix passed, no bearer handoff credential, not independently accepted
-**Slice 4.6 local candidate:** external security review package at `d51e46c` for security-code target `64d0820` — full exact-commit Phase 4 builder matrix and package red team passed, independent review pending
+**Phase 4 review disposition:** **CHANGES REQUESTED** for security-code target `64d0820`; the remediation working tree is not accepted until committed, fully rerun, and independently re-reviewed
+**Remediation scope:** authorization MAC/audit-seal live roles; Switchboard-before-policy; post-claim revocation at execution start; exact transaction-time audit capacity; streamed source-content reconciliation; authenticated export acknowledgements plus combined database/sink readiness; schema index/constraint checks; cooperative exporter lock; protected executable provenance; honest legacy/handoff/3.9 boundaries
 **Crate:** `tlpx` 0.2.0  
-**Not yet:** verified separate-identity enforcement, full Section 3 verification, active post-claim cancellation, portable revocation/expiry evidence, a general hardened service, or acceptance
+**Not yet:** verified separate-identity enforcement, hostile same-UID isolation, full Section 3 verification, active cancellation of already-started effects, portable revocation/expiry evidence, a general hardened service, Phase 4 re-review, or acceptance
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
@@ -88,8 +84,12 @@ npm run test:rust-evidence
 cargo run --bin tlpx-run-demo -- /tmp/northstar-runner.sqlite /tmp/northstar-marker request-1
 
 # REQUIRED before claiming slice 3.9: real PEP/agent OS-identity separation.
-# On macOS this asks for the administrator password; it uses and cleans a random /tmp tree.
-sudo ./scripts/restricted-agent-acceptance.sh
+# On macOS, first create three dedicated inactive test accounts; shared system
+# accounts (_www/nobody/daemon) are refused. Then supply their names explicitly.
+sudo TLPX_PEP_USER=tlpx_pep_test \
+  TLPX_AGENT_USER=tlpx_agent_test \
+  TLPX_OTHER_USER=tlpx_other_test \
+  ./scripts/restricted-agent-acceptance.sh
 ```
 
 Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
@@ -113,12 +113,12 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - Exact error retries return the stored error; changed intent under the same id blocks with `IDEMPOTENCY_CONFLICT`; an eligible successor uses a new id and may link only to a retryable receipt owned by the same authenticated principal.
 - One authority-wide transactional sequence orders decisions, evaluation errors, and successful claims.
 - Normal process time advances from a monotonic anchor. A transactional SQLite watermark rejects negative or backward time on new time-bearing authority transitions across connections and restarts.
-- `operational_snapshot()` returns integrity-gated aggregate backlog and unresolved-lifecycle counts without exposing principals, action content, or key bytes.
+- `operational_snapshot()` returns a database-only integrity-gated aggregate view. Deploy/restore readiness uses `FileAuditExporter::operational_readiness()` so database acknowledgements are checked against actual sink bytes.
 - Decision, evaluation-error, authorization, and claim JSON is canonical JCS and matches the accepted 0.2 schemas under the JS oracle.
 - Decision requester party type is explicit trusted-embedding configuration; use separate authority instances when requester populations have different party types.
 - Record JSON and the local storage envelope remain distinct. Record/chain hashes, HMAC seals, key ids, and export state are outbox columns, not private protocol fields.
-- State and evidence commit atomically. The bounded local file exporter validates an exact sealed prefix, appends and syncs before internal acknowledgement, recovers complete append-before-ack crashes without duplication, and rejects acknowledgement gaps or time rollback.
-- Reconciliation verifies canonical payloads, the record/hash/HMAC chain, envelope-to-record type/source binding, source references, and coverage for the four supported record types.
+- State and evidence commit atomically. Exact canonical export size is admission-gated inside the same transaction; exhausted capacity denies the transition before state commits. The bounded local file exporter validates an exact sealed prefix, appends and syncs before internal acknowledgement, recovers complete append-before-ack crashes without duplication, and rejects acknowledgement gaps or time rollback.
+- Reconciliation streams the bounded outbox and verifies canonical payloads, the record/hash/HMAC chain, envelope bindings, security-relevant operational source-row content, required source coverage, and the exact export-size bound.
 - Evaluation, claim, pending export reads, and export acknowledgements reconcile existing evidence first and fail closed on corruption.
 - Claim checks executor, current Switchboard action scope, the currently active manifest hash, capability, resource scope, exact Action Binding, expiry, and revocation.
 - `BEGIN IMMEDIATE` plus a compare-and-set update permits at most one successful claim, including across two database connections.
@@ -129,21 +129,21 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - Adapter sessions authenticate the configured local peer mappings in both directions and verify the activated adapter/version/digest/capability/action/material-field contract before execution start. Same-UID socket-pair tests cover mapping and contract logic, not distinct-peer separation.
 - Public authority mutation paths require `AuthenticatedIdentity`; raw principal-string evaluation and claim functions are private internals. Approval expiry and claim recovery likewise require authenticated authority/reconciler roles.
 - Only a newly created `ExecutionStart::Started` grants spawn permission. An exact retry or an already-closed attempt returns `NotStarted`, so an `Ok(ExecutionLease)` retry cannot be mistaken for permission.
-- The cooperative runner requires a complete issuance-matching Authorized Action, exact direct-argv plan, configured executable plus check-before-spawn digest comparison, activated cwd/environment, bounded output/duration, claim, and fresh durable start before spawn. It clears inherited environment, kills the spawned process group on timeout, and does not write output content into audit evidence.
+- The cooperative runner requires a complete issuance-matching Authorized Action, exact direct-argv plan, a root/PEP-owned non-group/world-writable executable and protected directory lineage, an `O_NOFOLLOW` descriptor digest, pathname-to-inode recheck immediately before spawn, activated cwd/environment, bounded output/duration, claim, and fresh durable start before spawn. It keeps the verified inode open, clears inherited environment, kills the spawned process group on timeout, and does not write output content into audit evidence. These provenance checks protect the distinct-identity profile; they are not hostile same-UID isolation.
 
 ## Deliberate boundary
 
 The public authority path derives identity from authenticated context; its local profile resolves connected Unix peer UID/GID through a process-owned map. Same-UID unit fixtures intentionally use separate maps to exercise role and contract lookup and do not prove OS identity separation. The UID/GID map, socket ownership/mode, and configuration remain process-owned deployment inputs. Manifest issuer identity is still a trusted configuration assertion, and principal, policy, and capability activation are not shared transactional database state, so authenticated publication and multi-process configuration freshness are not proven. Exact-commit/full Section 3 verification remains deferred.
 
-The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect independent role keys. Slice 4.1 supports purpose binding, verify-only rotation, and durable revocation enforcement. Slice 4.2 adds a protected bounded local file sink, not remote transport, replication, retention automation, monitoring, or same-user tamper resistance. Hardware-backed storage and custody automation remain open; SQLite and the protected local filesystem remain trusted. The fixed role-key bundle in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
+The evidence envelope is local implementation behavior, not an accepted portable envelope contract. The embedding must supply and protect two independent active HMAC keys used by this profile: audit sealing and authorization MAC. Service identity, operator authentication, and tenant trust remain reserved future purposes and are not represented as implemented key usage. Verify-only rotation and durable revocation enforcement cover the two exercised purposes. The protected bounded local file sink is not remote transport, replication, retention automation, monitoring, or hostile same-UID tamper resistance. Its persistent advisory lock coordinates cooperating exporters; it is not an isolation boundary against a process with the same filesystem authority. Hardware-backed storage and custody automation remain open; SQLite and the protected local filesystem remain trusted. The fixed key bundle in `local_authority.rs` is intentionally insecure and exists only for the local example and schema test.
 
 `tlpx.decision`, `tlpx.evaluation_error`, `tlpx.authorization`, `tlpx.authorization_claim`, pending-cancellation `tlpx.operator_action`, and terminal `tlpx.execution` records are emitted. Revocation and expiration still change authority state without a claimed portable 0.2 evidence record; active post-claim cancellation and portable reconciliation-process evidence remain deferred. Cancellation reason and role are stored transactionally in SQLite because the accepted portable `CANCEL` schema has no stable fields for them.
 
 The SQLite schema is pre-release and intentionally has no migration-compatibility promise. Previous incompatible databases, including the earlier outbox record-type constraint, are rejected before schema mutation. Use a fresh database after trust-path schema changes until a versioned migration policy is introduced.
 
-The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. Executable digest comparison also has a check-to-exec replacement window. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program.
+The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. The runner's ownership/mode, descriptor-hash, and immediate inode-identity checks exclude replacement by the separately identified untrusted account, but do not contain a hostile process sharing the PEP UID. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program.
 
-The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected marker capability. The service and acceptance harness are committed, and ordinary tests pass, but the defining separate-identity run has not been performed. Same-identity integration tests do not establish OS enforcement. Until `sudo ./scripts/restricted-agent-acceptance.sh` passes, do not claim forced mediation, alternate-route resistance, 3.9 completion, Section 3 completion, or acceptance. The precise evidence and remaining assertions are recorded in [`../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md).
+The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected marker capability. The marker path is present in authorization resource scope as well as the exact operation arguments, and the administrator harness stages service code as PEP-owned/non-writable. Ordinary tests still cannot establish which OS identity created the marker inode. The defining separate-identity run has not been performed. The macOS harness now refuses shared accounts and requires three explicitly named dedicated inactive test identities. Until that run passes, do not claim forced mediation, alternate-route resistance, protected-marker provenance, 3.9 completion, Section 3 completion, or acceptance. The precise evidence and remaining assertions are recorded in [`../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md).
 
 ## Requirements
 
@@ -155,4 +155,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Independently review security-code target `64d0820` using review-package commit `d51e46c` and record a per-slice Phase 4 disposition. The separate-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Finish the local remediation commit, run the complete non-privileged Rust/JavaScript/conformance/red-team matrix, record exact evidence, and obtain independent re-review. The dedicated-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.

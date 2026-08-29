@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later unaccepted candidates include unverified restricted PEP `e6f2bb0` and builder-complete Phase 4 hardening through review-package commit `d51e46c` for security-code target `64d0820`. The 3.9 administrator-backed test and independent Phase 4 review remain outstanding.
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later candidates remain unaccepted. The independent Phase 4 review of target `64d0820` returned **changes requested**; a local remediation increment is being verified. The separate 3.9 administrator-backed dedicated-identity test remains outstanding.
 
 **Who should read what**
 
@@ -33,8 +33,8 @@ northstar/
   tests/fixtures/tlpx-0.2/   0.2 JCS, policy, and typed-action/hash golden fixtures
   LICENSE
   implementations/
-    javascript/              Full Node reference
-    go/                      Switchboard + sealed audit + HTTP control plane
+    javascript/              Frozen cooperative 0.1 reference + 0.2 contract oracle
+    go/                      Historical cooperative 0.1-era secondary reference
     java/                    Policy + Switchboard evaluate
     rust/                    tlpx local authority MVP + unverified restricted-PEP candidate
     python/                  Placeholder
@@ -62,12 +62,12 @@ northstar/
 | [`tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`](tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.7 commit `518899a` |
 | [`tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative 3.8 commit `7c41450` |
 | [`tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; required separate-identity acceptance test not yet run |
-| [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for separated role keys through `efa7f0f`; independent review pending |
-| [`tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded durable local audit export at `833d8d4`; independent review pending |
-| [`tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded time/race/restart assurance at `eb0e624`; independent review pending |
-| [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00`; independent review pending |
-| [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a`; independent review pending |
-| [`tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Exact-commit full Phase 4 builder matrix and external-review package evidence at `d51e46c`; independent review pending |
+| [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original key-role candidate; later review requested changes |
+| [`tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original audit-export candidate; later review requested changes |
+| [`tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original assurance candidate; later review requested changes |
+| [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original operations candidate; later review requested changes |
+| [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the optional handoff wrapper; later review requested changes |
+| [`tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Point-in-time builder evidence for review package `d51e46c`; independent disposition was changes requested |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -121,7 +121,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Technical test #1 PASS (JS)  
 - [x] Multi-language folder layout  
 - [x] JavaScript 0.1 audit hash-chain + HMAC seal (`glass verify`)
-- [x] Go: Switchboard + sealed audit + CLI + HTTP `tlpxd`  
+- [x] Go historical cooperative reference: Switchboard + sealed audit + CLI + HTTP `tlpxd` (not a 0.2 authority/PEP)
 - [x] Java: Switchboard + evaluate  
 - [x] Rust 0.2 types, canonical hashes, local authority MVP, and builder-verified bounded evidence outbox
 - [x] Slice 2.4 policy manifest, precedence, and ordering local commit `a87f822` (full Section 3 verification deferred; not accepted)
@@ -134,13 +134,13 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 3.7 authenticated adapter contract and integrity tests local commit `518899a` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.8 bounded cooperative shell runner local commit `7c41450` (full exact-commit builder matrix passed; not forced mediation or independently accepted)
 - [ ] Slice 3.9 restricted-PEP candidate local commit `e6f2bb0` (ordinary checks passed; required `sudo` separate-identity acceptance test not run)
-- [x] Slice 4.1 separated key roles, rotation, and revocation through local commit `efa7f0f` (exact builder/red-team matrix passed; not independently accepted)
+- [x] Slice 4.1 original key-role candidate through local commit `efa7f0f` (builder verified; independent review requested HMAC naming and live-role scope corrections)
 - [x] Slice 4.2 durable local audit export and reconciliation at `833d8d4` (exact builder/red-team matrix passed; not independently accepted)
 - [x] Slice 4.3 concurrency, trusted-time, cancellation-race, and crash/restart assurance at `eb0e624` (exact builder/red-team matrix passed; not independently accepted)
 - [x] Slice 4.4 operational readiness and incident-response profile at `bdd8a00` (exact builder/red-team matrix passed; not production automation or independently accepted)
 - [x] Slice 4.5 explicit non-transitive multi-agent handoff at `536111a` (exact builder/red-team matrix passed; no portable handoff credential or independent acceptance)
-- [x] Slice 4.6 external security review readiness package at `d51e46c` (exact full matrix and package red team passed; independent review pending)
-- [ ] Independent Phase 4 review of security-code target `64d0820` using package commit `d51e46c`
+- [x] Slice 4.6 external security review package at `d51e46c` (package enabled review; it is an index/reproduction aid, not blob-level verification)
+- [ ] Phase 4 remediation after independent disposition **changes requested**; full rerun and independent re-review required
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust active cancellation, portable revocation/expiry evidence, production transport, and protected-execution PEP
 - [ ] Python adapter

@@ -1,10 +1,10 @@
 # JavaScript / Node reference implementation
 
-**Status:** Active  
+**Status:** Historical/cooperative TL-PX 0.1 reference; not a TL-PX 0.2 authority or PEP
 **Runtime:** Node.js 18+ (ES modules, `.mjs`)  
 **Package name:** `tlpx-reference`
 
-This is the current full **TL-PX 0.1** reference for Switchboard + air-gapped executor, plus the **0.2 schema/policy/typed-action/JCS/hash oracle**. Runtime records still use `standard_version: "0.1.0"`.
+This is the frozen **TL-PX 0.1** reference for Switchboard plus a cooperative executor, together with the **0.2 schema/policy/typed-action/JCS/hash oracle**. Runtime records still use `standard_version: "0.1.0"`. `executeAuthorized` only protects calls routed through that function; it has no atomic 0.2 claim and cannot mediate a caller that retains a direct side-effect route. Do not connect 0.2 adapters to it or deploy it as the Rust authority.
 
 ## Layout
 

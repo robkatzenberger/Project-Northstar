@@ -228,12 +228,10 @@ fn config() -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            keys: KeyRing::active_profile([
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
+            keys: KeyRing::active_local_authority_profile([
                 ("audit-test-v1".into(), vec![0x5a; 32]),
                 ("authorization-test-v1".into(), vec![0x5b; 32]),
-                ("service-test-v1".into(), vec![0x5c; 32]),
-                ("operator-test-v1".into(), vec![0x5d; 32]),
-                ("tenant-test-v1".into(), vec![0x5e; 32]),
             ])
             .unwrap(),
         },
@@ -1151,6 +1149,28 @@ fn switchboard_refusals_are_durable_denies() {
 }
 
 #[test]
+fn switchboard_refusal_precedes_tenant_policy_activation() {
+    let mut wrong_scope = config();
+    wrong_scope.policy.bundles[0].manifest.environment = "staging".into();
+    let authority = Authority::in_memory(wrong_scope).unwrap();
+    let mut request = intent("req-switchboard-before-policy");
+    request.requesting_principal = "agent.unknown".into();
+
+    let denied = authority
+        .evaluate_and_issue_at("agent.unknown", &request, NOW)
+        .unwrap();
+
+    assert_eq!(denied.decision, Decision::Deny);
+    assert_eq!(denied.reason_code, "SWITCHBOARD_UNKNOWN_PRINCIPAL");
+    assert!(denied.authorization.is_none());
+    let evidence = authority.pending_evidence(10).unwrap();
+    let record: serde_json::Value = serde_json::from_str(&evidence[0].record_json).unwrap();
+    assert_eq!(record["policy_bundle_id"], "tlpx.switchboard");
+    assert_eq!(record["policy_bundle_version"], "0.2.0");
+    assert_eq!(record["policy_id"], serde_json::Value::Null);
+}
+
+#[test]
 fn stored_switchboard_deny_cannot_drift_to_allow_after_reconfiguration() {
     let path = temp_db("switchboard-deny-restart");
     let mut request = intent("req-switchboard-stable");
@@ -1661,7 +1681,7 @@ fn authenticated_scoped_revocations_block_every_later_unclaimed_use() {
             RevocationScope::Tenant => issued.tenant.clone(),
             RevocationScope::Environment => issued.environment.clone(),
             RevocationScope::Capability => issued.capability.clone(),
-            RevocationScope::SigningKey => unreachable!(),
+            RevocationScope::AuthorizationMacKey => unreachable!(),
         };
         let record = authority
             .revoke_authenticated_at(
@@ -1835,6 +1855,151 @@ fn authorization_revocation_and_claim_have_one_transactional_winner() {
         (Ok(_), Err(error)) => assert_eq!(error.code(), "AUTHORIZATION_TERMINAL"),
         (Err(error), Ok(_)) => assert_eq!(error.code(), "AUTHORIZATION_REVOKED"),
         _ => unreachable!(),
+    }
+    clean_db(&path);
+}
+
+#[test]
+fn authorization_mac_key_revocation_after_claim_blocks_execution_start() {
+    let authority = Authority::in_memory(config()).unwrap();
+    let issued = authority
+        .evaluate_and_issue_at(
+            "agent.requester",
+            &intent("req-key-revoke-after-claim"),
+            NOW,
+        )
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = authority
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    let revoker = authenticated_identity(
+        "authority.emergency",
+        PartyType::Machine,
+        vec![LocalRole::EmergencyCanceller],
+        vec![],
+    );
+    authority
+        .revoke_authenticated_at(
+            &revoker,
+            RevocationScope::AuthorizationMacKey,
+            &issued.authorization_mac_key_id,
+            RevocationReason::AuthorizationMacKeyCompromised,
+            NOW + 2,
+        )
+        .unwrap();
+
+    let error = authority
+        .begin_execution_authenticated_at(
+            &claim.claim_id,
+            &issued.idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 3,
+        )
+        .unwrap_err();
+
+    assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+    assert_eq!(
+        authority.operational_snapshot().unwrap().started_executions,
+        0
+    );
+}
+
+#[test]
+fn authorization_mac_key_revocation_and_execution_start_have_a_serial_order() {
+    let path = temp_db("mac-revoke-execution-race");
+    let issuer = Authority::open(&path, config()).unwrap();
+    let issued = issuer
+        .evaluate_and_issue_at(
+            "agent.requester",
+            &intent("req-mac-revoke-execution-race"),
+            NOW,
+        )
+        .unwrap()
+        .authorization
+        .unwrap();
+    let claim = issuer
+        .claim_at(
+            &issued.authorization_id,
+            "runtime.mailer",
+            &executed(),
+            NOW + 1,
+        )
+        .unwrap();
+    drop(issuer);
+
+    let execution_authority = Authority::open(&path, config()).unwrap();
+    let revocation_authority = Authority::open(&path, config()).unwrap();
+    let barrier = Arc::new(Barrier::new(3));
+    let execution_barrier = Arc::clone(&barrier);
+    let execution_claim_id = claim.claim_id.clone();
+    let execution_idempotency_key = issued.idempotency_key.clone();
+    let execution_handle = thread::spawn(move || {
+        execution_barrier.wait();
+        execution_authority.begin_execution_authenticated_at(
+            &execution_claim_id,
+            &execution_idempotency_key,
+            &executed(),
+            &executor_identity(),
+            &adapter_identity(),
+            &hash('8'),
+            NOW + 2,
+        )
+    });
+    let revocation_barrier = Arc::clone(&barrier);
+    let authorization_mac_key_id = issued.authorization_mac_key_id.clone();
+    let revocation_handle = thread::spawn(move || {
+        revocation_barrier.wait();
+        revocation_authority.revoke_authenticated_at(
+            &authenticated_identity(
+                "authority.emergency",
+                PartyType::Machine,
+                vec![LocalRole::EmergencyCanceller],
+                vec![],
+            ),
+            RevocationScope::AuthorizationMacKey,
+            &authorization_mac_key_id,
+            RevocationReason::AuthorizationMacKeyCompromised,
+            NOW + 2,
+        )
+    });
+    barrier.wait();
+
+    let execution = execution_handle.join().unwrap();
+    let revocation = revocation_handle.join().unwrap();
+    assert!(revocation.is_ok());
+    match execution {
+        Ok(start) => {
+            assert!(start.into_started().is_ok());
+            assert_eq!(
+                Authority::open(&path, config())
+                    .unwrap()
+                    .operational_snapshot()
+                    .unwrap()
+                    .started_executions,
+                1
+            );
+        }
+        Err(error) => {
+            assert_eq!(error.code(), "AUTHORIZATION_REVOKED");
+            assert_eq!(
+                Authority::open(&path, config())
+                    .unwrap()
+                    .operational_snapshot()
+                    .unwrap()
+                    .started_executions,
+                0
+            );
+        }
     }
     clean_db(&path);
 }

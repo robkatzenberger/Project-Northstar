@@ -163,12 +163,10 @@ fn config(bundles: Vec<ConfiguredPolicyBundle>) -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            keys: KeyRing::active_profile([
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
+            keys: KeyRing::active_local_authority_profile([
                 ("audit-test-v1".into(), vec![0x41; 32]),
                 ("authorization-test-v1".into(), vec![0x42; 32]),
-                ("service-test-v1".into(), vec![0x43; 32]),
-                ("operator-test-v1".into(), vec![0x44; 32]),
-                ("tenant-test-v1".into(), vec![0x45; 32]),
             ])
             .unwrap(),
         },

@@ -1,8 +1,8 @@
 # Bounded multi-agent handoff profile
 
-**Status:** slice 4.5 local candidate at `536111a`; full exact-commit builder/red-team matrix passed; independent review is deferred
+**Status:** slice 4.5 local preflight candidate at `536111a`; independent Phase 4 review returned changes requested
 
-This profile defines a handoff as a fresh TL-PX evaluation for one exact action. It does not transfer an existing authorization and it does not create a bearer handoff token.
+This optional profile defines a co-present handoff preflight as a fresh TL-PX evaluation for one exact action. It does not transfer an existing authorization and it does not create a bearer handoff token. It is not universal multi-agent mediation: the ordinary authority evaluation API can still name a different executor without proving that executor is present at evaluation time. Deployments must not infer B's participation merely because an authorization names B; B is authenticated later at claim.
 
 ## Required flow
 
@@ -27,7 +27,8 @@ The ordinary decision, authorization, claim, and execution evidence identifies t
 
 ## Bounded local-profile limits
 
+- The `evaluate_handoff_authenticated*` wrapper proves both local identity objects were presented to that call only. Code with direct access to the ordinary `Authority` API can bypass this optional preflight, so it is an API profile, not a security boundary.
 - Test identities use the existing authenticated local identity abstraction. Same-UID fixtures do not prove separate operating-system identity or forced mediation.
 - This profile does not provide agent discovery, cross-authority federation, network transport, confidentiality, public-key proof of possession, portable claim tickets, or hierarchical authorization.
 - It does not complete the separate slice 3.9 administrator-backed acceptance gate.
-- Builder testing is not independent review or acceptance.
+- Builder testing is not independent review or acceptance; the independent Phase 4 reviewer rejected the stronger handoff-security claim.

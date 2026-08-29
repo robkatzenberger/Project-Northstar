@@ -105,12 +105,10 @@ fn config() -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            keys: KeyRing::active_profile([
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
+            keys: KeyRing::active_local_authority_profile([
                 ("audit-handoff-v1".into(), vec![0x51; 32]),
                 ("authorization-handoff-v1".into(), vec![0x52; 32]),
-                ("service-handoff-v1".into(), vec![0x53; 32]),
-                ("operator-handoff-v1".into(), vec![0x54; 32]),
-                ("tenant-handoff-v1".into(), vec![0x55; 32]),
             ])
             .unwrap(),
         },

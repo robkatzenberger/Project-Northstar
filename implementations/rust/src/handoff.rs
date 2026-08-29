@@ -1,9 +1,12 @@
-//! Explicit, non-transitive multi-agent handoff for the bounded local profile.
+//! Optional, non-transitive multi-agent handoff preflight for the bounded local profile.
 //!
 //! A handoff is a fresh authority evaluation whose submitted intent names the
 //! authenticated initiating agent as requester and the authenticated receiving
 //! agent as executor. It is not an authorization transfer and creates no bearer
 //! handoff credential.
+//! This wrapper proves co-presentation only for calls routed through it. The
+//! ordinary authority evaluation API remains available and authenticates the
+//! named executor later at claim, so this module is not universal mediation.
 
 use crate::authority::{Authority, EvaluationOutcome};
 use crate::error::{Error, Result};

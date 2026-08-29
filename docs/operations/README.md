@@ -13,9 +13,9 @@ A deployment is ready for bounded testing only when every item below is true:
 - The exact build commit, configuration digest, policy manifest digest, adapter digest, and five role-key ids are recorded outside the authority database. Key bytes are never placed in the record.
 - The authority database, Unix socket/configuration, audit directory, audit sink, and lock are owned by the intended service identity with the documented restrictive modes.
 - The requester cannot write authority configuration, policy, adapter binaries, the database, audit files, or the protected capability through an alternate path.
-- Authority startup validation succeeds, and `operational_snapshot()` returns successfully before requests are admitted.
+- Authority startup validation succeeds, and `FileAuditExporter::operational_readiness()` returns successfully before requests are admitted. `Authority::operational_snapshot()` covers SQLite only and is not the deploy/restore readiness boundary.
 - SQLite `quick_check`, foreign-key checking, sealed evidence reconciliation, and authority-to-evidence coverage all pass through that snapshot.
-- The audit exporter performs an idempotent no-op or a successful bounded export. No stale lock, torn row, history mismatch, or acknowledgement gap exists.
+- The audit exporter performs an idempotent no-op or a successful bounded export. The persistent lock file remains present, but its nonblocking advisory lock is acquirable; no live competing exporter, torn row, history mismatch, acknowledgement-MAC failure, or sink gap exists.
 - A verified offline backup/restore rehearsal has completed on a disposable copy. Live SQLite files were not copied while writes were active.
 - Alert ownership, incident commander, security escalation, key custodian, reconciler, and protected-system owner are named.
 - The 64 MiB local sink hard stop is acceptable for the test window. There is no safe rotation implementation in this profile.
@@ -25,7 +25,7 @@ If any item is false or unknown, keep protected capability access disabled.
 
 ## Aggregate health surface
 
-`Authority::operational_snapshot()` returns only aggregate counts and the sealed evidence reconciliation result. It first runs SQLite quick and foreign-key integrity checks plus complete evidence reconciliation. A failed call is a failed health check; callers must not turn an error into an empty or healthy snapshot.
+`Authority::operational_snapshot()` returns only aggregate counts and the sealed evidence reconciliation result. It runs SQLite quick and foreign-key integrity checks plus complete source-bound evidence reconciliation, but it deliberately does not open the audit file. Deployment and restore checks must call `FileAuditExporter::operational_readiness()`, which combines that database snapshot with exact at-rest sink-prefix reconciliation and detects database acknowledgements whose bytes are absent from the sink. A failed call is a failed health check; callers must not turn an error into an empty or healthy snapshot.
 
 | Signal | Normal bounded-test state | Action |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ This profile has no online backup implementation. Use a planned, quiesced proced
 4. Record cryptographic digests, byte sizes, ownership/modes, key ids, policy/configuration digests, exact commit, and backup time in a separately protected manifest.
 5. Sync the backup media and retain it under the applicable security/retention policy.
 6. Restore only into an isolated directory with the original role-key history available for verification.
-7. Open the restored authority without capability traffic, run `operational_snapshot()`, validate the entire audit sink as the exact sealed prefix, and compare the backup manifest.
+7. Open the restored authority without capability traffic, run `FileAuditExporter::operational_readiness()`, and compare the backup manifest. Do not substitute the database-only `operational_snapshot()` call.
 8. Re-enable traffic only after two-person review records the result.
 
 Never “repair” a backup by removing an inconvenient evidence row, acknowledgement, revocation, unknown outcome, or trusted-time watermark.

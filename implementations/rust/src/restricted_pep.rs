@@ -164,6 +164,7 @@ pub fn serve_restricted_pep(config_path: impl AsRef<Path>) -> Result<()> {
         &config.database,
         authority_config(
             &executable,
+            &config.protected_marker,
             &adapter_binary_hash,
             role_keys,
             config.claim_window_ms,
@@ -338,6 +339,7 @@ pub fn verify_restricted_pep_evidence(
         &config.database,
         authority_config(
             &executable,
+            &config.protected_marker,
             &adapter_binary_hash,
             read_role_keys(&config.role_keys)?,
             config.claim_window_ms,
@@ -500,15 +502,17 @@ fn authorized_action(intent: &SubmittedIntent, issued: &IssuedAuthorization) -> 
 
 fn authority_config(
     executable: &Path,
+    protected_marker: &Path,
     adapter_binary_hash: &str,
     role_keys: KeyRing,
     claim_window_ms: i64,
 ) -> Result<AuthorityConfig> {
     let target = executable.to_string_lossy().into_owned();
+    let protected_marker = protected_marker.to_string_lossy().into_owned();
     let template = AuthorizationTemplate {
         derived_risk: Risk::High,
         capability: "shell.command".into(),
-        resource_scope: vec![target],
+        resource_scope: vec![target, protected_marker],
         risk_reasons: vec!["restricted_protected_marker".into()],
         risk_source: "policy:restricted-marker-pep@1.0.0".into(),
     };
@@ -571,6 +575,7 @@ fn authority_config(
             evaluator_id: AUTHORITY_PRINCIPAL.into(),
             router_id: "restricted.pep.switchboard".into(),
             requester_type: PartyType::Machine,
+            max_export_bytes: crate::evidence::MAX_AUDIT_SINK_BYTES,
             keys: role_keys,
         },
         approval_window_ms: 60_000,
@@ -636,20 +641,17 @@ fn validate_current_executable() -> Result<()> {
 
 fn read_role_keys(path: &Path) -> Result<KeyRing> {
     let bytes = fs::read(path).map_err(|_| pep_config("PEP role-key bundle could not be read"))?;
-    if bytes.len() != 160 {
+    if bytes.len() != 64 {
         return Err(pep_config(
-            "PEP role-key bundle must contain exactly five independent 32-byte keys",
+            "PEP role-key bundle must contain exactly two independent 32-byte HMAC keys",
         ));
     }
-    KeyRing::active_profile([
+    KeyRing::active_local_authority_profile([
         ("restricted-pep-audit-v1".into(), bytes[0..32].to_vec()),
         (
             "restricted-pep-authorization-v1".into(),
             bytes[32..64].to_vec(),
         ),
-        ("restricted-pep-service-v1".into(), bytes[64..96].to_vec()),
-        ("restricted-pep-operator-v1".into(), bytes[96..128].to_vec()),
-        ("restricted-pep-tenant-v1".into(), bytes[128..160].to_vec()),
     ])
 }
 

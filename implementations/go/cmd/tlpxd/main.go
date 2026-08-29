@@ -1,4 +1,7 @@
-// tlpxd — local HTTP control plane for TL-PX (air-gapped friendly).
+// tlpxd — historical cooperative 0.1-era HTTP reference.
+//
+// This service trusts caller-supplied actor identifiers. It is not the TL-PX
+// 0.2 Rust authority, an authenticated adapter endpoint, or a PEP.
 //
 // Endpoints:
 //   POST /v1/evaluate          { intent, policy_path?, switchboard_path? }

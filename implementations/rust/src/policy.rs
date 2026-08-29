@@ -2,6 +2,8 @@
 //! This is intentionally exact-match only; ambiguity fails bundle validation.
 
 use crate::error::{Error, Result};
+use crate::hash::policy_bundle_hash;
+use crate::jcs::Value;
 use crate::types::{AuthorizedAction, Risk, SubmittedIntent};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -306,6 +308,44 @@ impl Switchboard {
     pub fn refusal_for_intent(&self, intent: &SubmittedIntent) -> Option<&'static str> {
         self.action_refusal(&intent.requesting_principal, &intent.action)
             .or_else(|| self.action_refusal(&intent.executing_principal, &intent.action))
+    }
+
+    /// Stable provenance for a Switchboard-first decision. Switchboard DENY is
+    /// intentionally independent of tenant policy selection, but the 0.2
+    /// decision contract still requires a bounded configuration hash.
+    pub fn provenance_hash(&self) -> Result<String> {
+        let principals = self
+            .principals
+            .values()
+            .map(|principal| {
+                Value::Object(vec![
+                    ("id".into(), Value::String(principal.id.clone())),
+                    ("active".into(), Value::Bool(principal.active)),
+                    (
+                        "allowed_actions".into(),
+                        Value::Array(
+                            principal
+                                .allowed_actions
+                                .iter()
+                                .cloned()
+                                .map(Value::String)
+                                .collect(),
+                        ),
+                    ),
+                ])
+            })
+            .collect();
+        policy_bundle_hash(&Value::Object(vec![
+            (
+                "policy_bundle_id".into(),
+                Value::String("tlpx.switchboard".into()),
+            ),
+            (
+                "policy_bundle_version".into(),
+                Value::String("0.2.0".into()),
+            ),
+            ("principals".into(), Value::Array(principals)),
+        ]))
     }
 
     pub fn authenticate_requester(

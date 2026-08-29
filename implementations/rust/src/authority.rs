@@ -24,6 +24,9 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+const SWITCHBOARD_POLICY_BUNDLE_ID: &str = "tlpx.switchboard";
+const SWITCHBOARD_POLICY_BUNDLE_VERSION: &str = "0.2.0";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthzState {
     AuthorizedUnclaimed,
@@ -179,8 +182,8 @@ pub struct IssuedAuthorization {
     pub authorization_nonce: String,
     /// Authority-local proof metadata. These fields are not private additions
     /// to the portable `tlpx.authorization` JSON record.
-    pub authorization_signing_key_id: String,
-    pub authorization_signature: String,
+    pub authorization_mac_key_id: String,
+    pub authorization_mac: String,
     pub idempotency_key: String,
     pub issued_at_ms: i64,
     pub claim_expires_at_ms: i64,
@@ -226,7 +229,7 @@ pub enum RevocationScope {
     Authorization,
     Principal,
     PolicyBundle,
-    SigningKey,
+    AuthorizationMacKey,
     Tenant,
     Environment,
     Capability,
@@ -238,7 +241,7 @@ impl RevocationScope {
             Self::Authorization => "AUTHORIZATION",
             Self::Principal => "PRINCIPAL",
             Self::PolicyBundle => "POLICY_BUNDLE",
-            Self::SigningKey => "SIGNING_KEY",
+            Self::AuthorizationMacKey => "AUTHORIZATION_MAC_KEY",
             Self::Tenant => "TENANT",
             Self::Environment => "ENVIRONMENT",
             Self::Capability => "CAPABILITY",
@@ -251,7 +254,7 @@ pub enum RevocationReason {
     AuthorizationWithdrawn,
     PrincipalDisabled,
     PolicyRetired,
-    SigningKeyCompromised,
+    AuthorizationMacKeyCompromised,
     TenantDisabled,
     EnvironmentDisabled,
     CapabilityDisabled,
@@ -264,7 +267,7 @@ impl RevocationReason {
             Self::AuthorizationWithdrawn => "AUTHORIZATION_WITHDRAWN",
             Self::PrincipalDisabled => "PRINCIPAL_DISABLED",
             Self::PolicyRetired => "POLICY_RETIRED",
-            Self::SigningKeyCompromised => "SIGNING_KEY_COMPROMISED",
+            Self::AuthorizationMacKeyCompromised => "AUTHORIZATION_MAC_KEY_COMPROMISED",
             Self::TenantDisabled => "TENANT_DISABLED",
             Self::EnvironmentDisabled => "ENVIRONMENT_DISABLED",
             Self::CapabilityDisabled => "CAPABILITY_DISABLED",
@@ -815,8 +818,8 @@ impl Authority {
                    environment TEXT NOT NULL,
                    tenant TEXT NOT NULL,
                    authorization_nonce TEXT NOT NULL UNIQUE,
-                   authorization_signing_key_id TEXT NOT NULL,
-                   authorization_signature TEXT NOT NULL,
+                   authorization_mac_key_id TEXT NOT NULL,
+                   authorization_mac TEXT NOT NULL,
                    issued_at_ms INTEGER NOT NULL,
                    claim_expires_at_ms INTEGER NOT NULL,
                    execution_lease_ms INTEGER NOT NULL,
@@ -852,14 +855,14 @@ impl Authority {
                    revocation_id TEXT PRIMARY KEY,
                    sequence INTEGER NOT NULL UNIQUE,
                    scope_type TEXT NOT NULL CHECK(scope_type IN (
-                     'AUTHORIZATION','PRINCIPAL','POLICY_BUNDLE','SIGNING_KEY',
+                     'AUTHORIZATION','PRINCIPAL','POLICY_BUNDLE','AUTHORIZATION_MAC_KEY',
                      'TENANT','ENVIRONMENT','CAPABILITY'
                    )),
                    scope_id TEXT NOT NULL CHECK(length(scope_id) > 0),
                    revoking_principal TEXT NOT NULL CHECK(length(revoking_principal) > 0),
                    reason TEXT NOT NULL CHECK(reason IN (
                      'AUTHORIZATION_WITHDRAWN','PRINCIPAL_DISABLED','POLICY_RETIRED',
-                     'SIGNING_KEY_COMPROMISED','TENANT_DISABLED','ENVIRONMENT_DISABLED',
+                     'AUTHORIZATION_MAC_KEY_COMPROMISED','TENANT_DISABLED','ENVIRONMENT_DISABLED',
                      'CAPABILITY_DISABLED','EMERGENCY_DENY'
                    )),
                    revoked_at_ms INTEGER NOT NULL CHECK(revoked_at_ms >= 0),
@@ -935,6 +938,13 @@ impl Authority {
                    seal_key_id TEXT NOT NULL,
                    seal TEXT NOT NULL,
                    exported_at_ms INTEGER,
+                   export_ack_key_id TEXT,
+                   export_ack TEXT,
+                   CHECK(
+                     (exported_at_ms IS NULL AND export_ack_key_id IS NULL AND export_ack IS NULL)
+                     OR
+                     (exported_at_ms IS NOT NULL AND export_ack_key_id IS NOT NULL AND export_ack IS NOT NULL)
+                   ),
                    UNIQUE(authority_sequence, ordinal),
                    UNIQUE(record_type, source_id)
                  );",
@@ -1126,6 +1136,25 @@ impl Authority {
             }
         }
 
+        if let Some(reason_code) = self.config.switchboard.refusal_for_intent(intent) {
+            let switchboard_hash = self.config.switchboard.provenance_hash()?;
+            return commit_decision(
+                transaction,
+                DecisionInput {
+                    authenticated_requester,
+                    intent,
+                    intent_hash,
+                    policy: None,
+                    policy_bundle_id: SWITCHBOARD_POLICY_BUNDLE_ID,
+                    policy_bundle_version: SWITCHBOARD_POLICY_BUNDLE_VERSION,
+                    policy_bundle_hash: &switchboard_hash,
+                    effect: PolicyEffect::deny(reason_code),
+                    evaluated_at_ms,
+                },
+                &self.config,
+            );
+        }
+
         let selected =
             match self
                 .config
@@ -1158,22 +1187,6 @@ impl Authority {
                 }
             };
 
-        if let Some(reason_code) = self.config.switchboard.refusal_for_intent(intent) {
-            return commit_decision(
-                transaction,
-                DecisionInput {
-                    authenticated_requester,
-                    intent,
-                    intent_hash,
-                    policy: selected.bundle,
-                    policy_bundle_hash: &selected.policy_bundle_hash,
-                    effect: PolicyEffect::deny(reason_code),
-                    evaluated_at_ms,
-                },
-                &self.config,
-            );
-        }
-
         let mut effect = selected.bundle.policy.evaluate(intent);
         if let Some(template) = effect.authorization.as_ref() {
             if !self
@@ -1192,7 +1205,9 @@ impl Authority {
                 authenticated_requester,
                 intent,
                 intent_hash,
-                policy: selected.bundle,
+                policy: Some(selected.bundle),
+                policy_bundle_id: &selected.bundle.manifest.policy_bundle_id,
+                policy_bundle_version: &selected.bundle.manifest.policy_bundle_version,
                 policy_bundle_hash: &selected.policy_bundle_hash,
                 effect,
                 evaluated_at_ms,
@@ -1448,6 +1463,9 @@ impl Authority {
         }
         let context = load_claim_execution_context(&transaction, claim_id)?
             .ok_or_else(|| Error::coded("EXECUTION_CLAIM_INVALID", "claim does not exist"))?;
+        if claim_execution_has_active_revocation(&transaction, &context)? {
+            return Err(Error::claim("AUTHORIZATION_REVOKED"));
+        }
         if context.executing_principal != executor.principal_id() {
             return Err(Error::claim("EXECUTOR_MISMATCH"));
         }
@@ -1996,7 +2014,7 @@ impl Authority {
                 "revocation actor, scope id, and timestamp must be valid",
             ));
         }
-        if scope == RevocationScope::SigningKey {
+        if scope == RevocationScope::AuthorizationMacKey {
             if self.config.evidence.keys.purpose_for(scope_id).is_none() {
                 return Err(Error::coded(
                     "REVOCATION_INVALID",
@@ -2005,7 +2023,7 @@ impl Authority {
             }
             if !matches!(
                 reason,
-                RevocationReason::SigningKeyCompromised | RevocationReason::EmergencyDeny
+                RevocationReason::AuthorizationMacKeyCompromised | RevocationReason::EmergencyDeny
             ) {
                 return Err(Error::coded(
                     "REVOCATION_INVALID",
@@ -2328,10 +2346,10 @@ impl Authority {
             )?;
             let issued =
                 issue_pending_authorization(&self.config, &pending.authorization, acted_at_ms)?;
-            if signing_key_is_durably_revoked(&transaction, &self.config)? {
+            if authorization_mac_key_is_durably_revoked(&transaction, &self.config)? {
                 return Err(Error::coded(
                     "KEY_REVOKED",
-                    "active authorization signing key is durably revoked",
+                    "active authorization MAC key is durably revoked",
                 ));
             }
             Some(issued)
@@ -2899,7 +2917,9 @@ struct DecisionInput<'a> {
     authenticated_requester: &'a str,
     intent: &'a SubmittedIntent,
     intent_hash: &'a str,
-    policy: &'a ConfiguredPolicyBundle,
+    policy: Option<&'a ConfiguredPolicyBundle>,
+    policy_bundle_id: &'a str,
+    policy_bundle_version: &'a str,
     policy_bundle_hash: &'a str,
     effect: PolicyEffect,
     evaluated_at_ms: i64,
@@ -2929,7 +2949,7 @@ fn commit_decision(
                     message: error.message(),
                     retryability: Retryability::AfterCondition,
                     required_condition: Some("operating-system randomness is available"),
-                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_id: Some(input.policy_bundle_id),
                     policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
@@ -2942,12 +2962,14 @@ fn commit_decision(
         input.effect.decision,
         Decision::Allow | Decision::RequireApproval
     ) {
+        let policy = input.policy.ok_or_else(|| {
+            Error::authority("authorization decision is missing an activated policy")
+        })?;
         Some(
-            match input.policy.policy.authorize(
-                input.intent,
-                &input.effect,
-                input.policy_bundle_hash,
-            ) {
+            match policy
+                .policy
+                .authorize(input.intent, &input.effect, input.policy_bundle_hash)
+            {
                 Ok(action) => action,
                 Err(error) => {
                     return commit_preallocated_error(
@@ -2964,7 +2986,7 @@ fn commit_decision(
                             message: error.message(),
                             retryability: Retryability::Never,
                             required_condition: None,
-                            policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                            policy_bundle_id: Some(input.policy_bundle_id),
                             policy_bundle_hash: Some(input.policy_bundle_hash),
                             evaluated_at_ms: input.evaluated_at_ms,
                             occupies_slot: true,
@@ -3007,7 +3029,7 @@ fn commit_decision(
                         message: error.message(),
                         retryability: Retryability::Never,
                         required_condition: None,
-                        policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                        policy_bundle_id: Some(input.policy_bundle_id),
                         policy_bundle_hash: Some(input.policy_bundle_hash),
                         evaluated_at_ms: input.evaluated_at_ms,
                         occupies_slot: true,
@@ -3016,7 +3038,7 @@ fn commit_decision(
                 );
             }
         };
-        if signing_key_is_durably_revoked(&transaction, config)? {
+        if authorization_mac_key_is_durably_revoked(&transaction, config)? {
             return commit_preallocated_error(
                 transaction,
                 &receipt_id,
@@ -3028,10 +3050,10 @@ fn commit_decision(
                     retry_of_receipt_id: input.intent.retry_of_receipt_id.as_deref(),
                     stage: "authorization_issuance",
                     code: "AUTHORITY_INTERNAL_ERROR",
-                    message: "active authorization signing key is durably revoked",
+                    message: "active authorization MAC key is durably revoked",
                     retryability: Retryability::AfterCondition,
-                    required_condition: Some("a non-revoked authorization signing key is active"),
-                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    required_condition: Some("a non-revoked authorization MAC key is active"),
+                    policy_bundle_id: Some(input.policy_bundle_id),
                     policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
@@ -3101,7 +3123,7 @@ fn commit_decision(
                 message: "decision could not be persisted",
                 retryability: Retryability::Never,
                 required_condition: None,
-                policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                policy_bundle_id: Some(input.policy_bundle_id),
                 policy_bundle_hash: Some(input.policy_bundle_hash),
                 evaluated_at_ms: input.evaluated_at_ms,
                 occupies_slot: true,
@@ -3140,7 +3162,7 @@ fn commit_decision(
                     message: "pending approval could not be persisted",
                     retryability: Retryability::Never,
                     required_condition: None,
-                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_id: Some(input.policy_bundle_id),
                     policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
@@ -3166,7 +3188,7 @@ fn commit_decision(
                     message: "authorization could not be persisted",
                     retryability: Retryability::Never,
                     required_condition: None,
-                    policy_bundle_id: Some(&input.policy.manifest.policy_bundle_id),
+                    policy_bundle_id: Some(input.policy_bundle_id),
                     policy_bundle_hash: Some(input.policy_bundle_hash),
                     evaluated_at_ms: input.evaluated_at_ms,
                     occupies_slot: true,
@@ -3183,8 +3205,8 @@ fn commit_decision(
         decision: input.effect.decision,
         reason_code: &input.effect.reason_code,
         policy_id: input.effect.policy_id.as_deref(),
-        policy_bundle_id: &input.policy.manifest.policy_bundle_id,
-        policy_bundle_version: &input.policy.manifest.policy_bundle_version,
+        policy_bundle_id: input.policy_bundle_id,
+        policy_bundle_version: input.policy_bundle_version,
         policy_bundle_hash: input.policy_bundle_hash,
         intent_hash: input.intent_hash,
         authenticated_requester: input.authenticated_requester,
@@ -3444,8 +3466,8 @@ fn issue_authorization(
         environment: action.environment.clone(),
         tenant: action.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
-        authorization_signing_key_id: String::new(),
-        authorization_signature: String::new(),
+        authorization_mac_key_id: String::new(),
+        authorization_mac: String::new(),
         idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
@@ -3489,8 +3511,8 @@ fn issue_pending_authorization(
         environment: pending.environment.clone(),
         tenant: pending.tenant.clone(),
         authorization_nonce: random_id("nonce")?,
-        authorization_signing_key_id: String::new(),
-        authorization_signature: String::new(),
+        authorization_mac_key_id: String::new(),
+        authorization_mac: String::new(),
         idempotency_key,
         issued_at_ms,
         claim_expires_at_ms,
@@ -3569,14 +3591,14 @@ fn sign_issued_authorization(
     let proof = config
         .evidence
         .keys
-        .sign(KeyPurpose::AuthorizationSigning, &payload)?;
+        .sign(KeyPurpose::AuthorizationMac, &payload)?;
     if proof.algorithm != "HMAC-SHA256" {
         return Err(Error::authority(
             "authorization proof algorithm is unsupported",
         ));
     }
-    issued.authorization_signing_key_id = proof.key_id;
-    issued.authorization_signature = proof.proof;
+    issued.authorization_mac_key_id = proof.key_id;
+    issued.authorization_mac = proof.proof;
     Ok(())
 }
 
@@ -3591,10 +3613,10 @@ fn verify_stored_authorization_proof(
         .evidence
         .keys
         .verify(
-            &stored.authorization_signing_key_id,
-            KeyPurpose::AuthorizationSigning,
+            &stored.authorization_mac_key_id,
+            KeyPurpose::AuthorizationMac,
             &payload,
-            &stored.authorization_signature,
+            &stored.authorization_mac,
         )
         .map_err(|error| match error.code() {
             "KEY_REVOKED" => Error::claim("AUTHORIZATION_REVOKED"),
@@ -3778,7 +3800,7 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
                authorization_id, receipt_id, requesting_principal, executing_principal,
                request_id, action, target, intent_hash, authorized_action_hash, action_binding_hash,
                capability, policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
-               authorization_nonce, authorization_signing_key_id, authorization_signature,
+               authorization_nonce, authorization_mac_key_id, authorization_mac,
                issued_at_ms, claim_expires_at_ms, execution_lease_ms, state
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
                        ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
@@ -3800,8 +3822,8 @@ fn insert_authorization(transaction: &Transaction<'_>, issued: &IssuedAuthorizat
                 issued.environment,
                 issued.tenant,
                 issued.authorization_nonce,
-                issued.authorization_signing_key_id,
-                issued.authorization_signature,
+                issued.authorization_mac_key_id,
+                issued.authorization_mac,
                 issued.issued_at_ms,
                 issued.claim_expires_at_ms,
                 issued.execution_lease_ms,
@@ -3942,8 +3964,8 @@ fn load_issued(
             environment: stored.environment,
             tenant: stored.tenant,
             authorization_nonce: stored.authorization_nonce,
-            authorization_signing_key_id: stored.authorization_signing_key_id,
-            authorization_signature: stored.authorization_signature,
+            authorization_mac_key_id: stored.authorization_mac_key_id,
+            authorization_mac: stored.authorization_mac,
             idempotency_key,
             issued_at_ms: stored.issued_at_ms,
             claim_expires_at_ms: stored.claim_expires_at_ms,
@@ -3972,8 +3994,8 @@ struct StoredAuthorization {
     environment: String,
     tenant: String,
     authorization_nonce: String,
-    authorization_signing_key_id: String,
-    authorization_signature: String,
+    authorization_mac_key_id: String,
+    authorization_mac: String,
     issued_at_ms: i64,
     claim_expires_at_ms: i64,
     execution_lease_ms: i64,
@@ -3990,7 +4012,7 @@ fn load_authorization_row(
             "SELECT receipt_id, requesting_principal, executing_principal, request_id, action,
                     target, intent_hash, authorized_action_hash, action_binding_hash, capability,
                     policy_bundle_hash, adapter_id, adapter_version, environment, tenant,
-                    authorization_nonce, authorization_signing_key_id, authorization_signature,
+                    authorization_nonce, authorization_mac_key_id, authorization_mac,
                     issued_at_ms, claim_expires_at_ms, execution_lease_ms, state, revoked_at_ms
              FROM tlpx_authorizations WHERE authorization_id = ?1",
             [authorization_id],
@@ -4056,8 +4078,8 @@ fn load_authorization_row(
         environment: base.13,
         tenant: base.14,
         authorization_nonce: base.15,
-        authorization_signing_key_id: base.16,
-        authorization_signature: base.17,
+        authorization_mac_key_id: base.16,
+        authorization_mac: base.17,
         issued_at_ms: base.18,
         claim_expires_at_ms: base.19,
         execution_lease_ms: base.20,
@@ -4081,7 +4103,7 @@ fn authorization_has_active_revocation(
                   OR (scope_type = 'TENANT' AND scope_id = ?5)
                   OR (scope_type = 'ENVIRONMENT' AND scope_id = ?6)
                   OR (scope_type = 'CAPABILITY' AND scope_id = ?7)
-                  OR (scope_type = 'SIGNING_KEY' AND scope_id = ?8)
+                  OR (scope_type = 'AUTHORIZATION_MAC_KEY' AND scope_id = ?8)
              )",
             params![
                 authorization_id,
@@ -4091,27 +4113,27 @@ fn authorization_has_active_revocation(
                 stored.tenant,
                 stored.environment,
                 stored.capability,
-                stored.authorization_signing_key_id,
+                stored.authorization_mac_key_id,
             ],
             |row| row.get::<_, bool>(0),
         )
         .map_err(db_error)
 }
 
-fn signing_key_is_durably_revoked(
+fn authorization_mac_key_is_durably_revoked(
     transaction: &Transaction<'_>,
     config: &AuthorityConfig,
 ) -> Result<bool> {
     let key_id = config
         .evidence
         .keys
-        .active_key_id(KeyPurpose::AuthorizationSigning)
-        .ok_or_else(|| Error::authority("active authorization signing key is unavailable"))?;
+        .active_key_id(KeyPurpose::AuthorizationMac)
+        .ok_or_else(|| Error::authority("active authorization MAC key is unavailable"))?;
     transaction
         .query_row(
             "SELECT EXISTS(
                SELECT 1 FROM tlpx_revocations
-               WHERE scope_type = 'SIGNING_KEY' AND scope_id = ?1
+               WHERE scope_type = 'AUTHORIZATION_MAC_KEY' AND scope_id = ?1
              )",
             [key_id],
             |row| row.get::<_, bool>(0),
@@ -4132,6 +4154,9 @@ struct ClaimExecutionContext {
     action: String,
     capability: String,
     policy_bundle_hash: String,
+    environment: String,
+    tenant: String,
+    authorization_mac_key_id: String,
     adapter_id: String,
     adapter_version: String,
     claimed_at_ms: i64,
@@ -4147,7 +4172,8 @@ fn load_claim_execution_context(
             "SELECT c.claim_id, c.authorization_id, c.receipt_id,
                     a.requesting_principal, c.executing_principal, a.intent_hash,
                     c.authorized_action_hash, c.executed_action_hash, a.target,
-                    a.action, a.capability, a.policy_bundle_hash, c.adapter_id, c.adapter_version,
+                    a.action, a.capability, a.policy_bundle_hash, a.environment, a.tenant,
+                    a.authorization_mac_key_id, c.adapter_id, c.adapter_version,
                     c.claimed_at_ms, c.lease_expires_at_ms
              FROM tlpx_claims c
              JOIN tlpx_authorizations a ON a.authorization_id = c.authorization_id
@@ -4167,14 +4193,48 @@ fn load_claim_execution_context(
                     action: row.get(9)?,
                     capability: row.get(10)?,
                     policy_bundle_hash: row.get(11)?,
-                    adapter_id: row.get(12)?,
-                    adapter_version: row.get(13)?,
-                    claimed_at_ms: row.get(14)?,
-                    lease_expires_at_ms: row.get(15)?,
+                    environment: row.get(12)?,
+                    tenant: row.get(13)?,
+                    authorization_mac_key_id: row.get(14)?,
+                    adapter_id: row.get(15)?,
+                    adapter_version: row.get(16)?,
+                    claimed_at_ms: row.get(17)?,
+                    lease_expires_at_ms: row.get(18)?,
                 })
             },
         )
         .optional()
+        .map_err(db_error)
+}
+
+fn claim_execution_has_active_revocation(
+    transaction: &Transaction<'_>,
+    context: &ClaimExecutionContext,
+) -> Result<bool> {
+    transaction
+        .query_row(
+            "SELECT EXISTS(
+               SELECT 1 FROM tlpx_revocations
+               WHERE (scope_type = 'AUTHORIZATION' AND scope_id = ?1)
+                  OR (scope_type = 'PRINCIPAL' AND scope_id IN (?2, ?3))
+                  OR (scope_type = 'POLICY_BUNDLE' AND scope_id = ?4)
+                  OR (scope_type = 'TENANT' AND scope_id = ?5)
+                  OR (scope_type = 'ENVIRONMENT' AND scope_id = ?6)
+                  OR (scope_type = 'CAPABILITY' AND scope_id = ?7)
+                  OR (scope_type = 'AUTHORIZATION_MAC_KEY' AND scope_id = ?8)
+             )",
+            params![
+                context.authorization_id,
+                context.requesting_principal,
+                context.executing_principal,
+                context.policy_bundle_hash,
+                context.tenant,
+                context.environment,
+                context.capability,
+                context.authorization_mac_key_id,
+            ],
+            |row| row.get::<_, bool>(0),
+        )
         .map_err(db_error)
 }
 
@@ -4583,11 +4643,7 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
         ),
         (
             "tlpx_authorizations",
-            &[
-                "target",
-                "authorization_signing_key_id",
-                "authorization_signature",
-            ] as &[&str],
+            &["target", "authorization_mac_key_id", "authorization_mac"] as &[&str],
         ),
         ("tlpx_claims", &["adapter_id", "adapter_version"] as &[&str]),
         (
@@ -4629,6 +4685,8 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
                 "seal_key_id",
                 "seal",
                 "exported_at_ms",
+                "export_ack_key_id",
+                "export_ack",
             ] as &[&str],
         ),
     ] {
@@ -4701,5 +4759,168 @@ fn verify_existing_schema_compatibility(connection: &Connection) -> Result<()> {
             }
         }
     }
+    for (table, columns, predicate) in [
+        (
+            "tlpx_evaluations",
+            &["authenticated_principal", "request_id"] as &[&str],
+            Some("WHERE occupies_slot = 1"),
+        ),
+        ("tlpx_authorizations", &["receipt_id"] as &[&str], None),
+        (
+            "tlpx_authorizations",
+            &["authorization_nonce"] as &[&str],
+            None,
+        ),
+        ("tlpx_claims", &["authorization_id"] as &[&str], None),
+        ("tlpx_claims", &["sequence"] as &[&str], None),
+        (
+            "tlpx_revocations",
+            &["scope_type", "scope_id"] as &[&str],
+            None,
+        ),
+        ("tlpx_executions", &["claim_id"] as &[&str], None),
+        ("tlpx_executions", &["idempotency_key"] as &[&str], None),
+        (
+            "tlpx_evidence_outbox",
+            &["authority_sequence", "ordinal"] as &[&str],
+            None,
+        ),
+        (
+            "tlpx_evidence_outbox",
+            &["record_type", "source_id"] as &[&str],
+            None,
+        ),
+        ("tlpx_evidence_outbox", &["chain_hash"] as &[&str], None),
+    ] {
+        if table_exists(connection, table)?
+            && !has_unique_index(connection, table, columns, predicate)?
+        {
+            return Err(Error::authority(format!(
+                "incompatible pre-release authority database: {table} is missing the required unique index on {}; use a fresh database",
+                columns.join(",")
+            )));
+        }
+    }
+    for (table, fragments) in [
+        (
+            "tlpx_evaluations",
+            &["outcome_kind IN ('DECISION','EVALUATION_ERROR')"] as &[&str],
+        ),
+        (
+            "tlpx_authorizations",
+            &[
+                "state TEXT NOT NULL CHECK(state IN",
+                "'AUTHORIZED_UNCLAIMED','CLAIMED','EXPIRED','REVOKED'",
+            ] as &[&str],
+        ),
+        (
+            "tlpx_claims",
+            &["CHECK(action_binding_hash = executed_action_hash)"] as &[&str],
+        ),
+        (
+            "tlpx_executions",
+            &[
+                "CHECK(lease_expires_at_ms > started_at_ms)",
+                "'RECONCILIATION_REQUIRED'",
+            ] as &[&str],
+        ),
+        (
+            "tlpx_evidence_outbox",
+            &[
+                "seal_algorithm TEXT NOT NULL CHECK(seal_algorithm = 'HMAC-SHA256')",
+                "exported_at_ms IS NULL AND export_ack_key_id IS NULL AND export_ack IS NULL",
+                "exported_at_ms IS NOT NULL AND export_ack_key_id IS NOT NULL AND export_ack IS NOT NULL",
+            ] as &[&str],
+        ),
+    ] {
+        if !table_exists(connection, table)? {
+            continue;
+        }
+        let table_sql = connection
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [table],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(db_error)?;
+        if let Some(fragment) = fragments
+            .iter()
+            .find(|fragment| !table_sql.contains(**fragment))
+        {
+            return Err(Error::authority(format!(
+                "incompatible pre-release authority database: {table} is missing required constraint {fragment}; use a fresh database"
+            )));
+        }
+    }
     Ok(())
+}
+
+fn table_exists(connection: &Connection, table: &str) -> Result<bool> {
+    connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+            [table],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(db_error)
+}
+
+fn has_unique_index(
+    connection: &Connection,
+    table: &str,
+    expected_columns: &[&str],
+    expected_predicate: Option<&str>,
+) -> Result<bool> {
+    let mut statement = connection
+        .prepare(&format!("PRAGMA index_list({table})"))
+        .map_err(db_error)?;
+    let indexes = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(1)?,
+                row.get::<_, bool>(2)?,
+                row.get::<_, bool>(4)?,
+            ))
+        })
+        .map_err(db_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db_error)?;
+    for (index_name, unique, partial) in indexes {
+        if !unique || partial != expected_predicate.is_some() {
+            continue;
+        }
+        let mut index_statement = connection
+            .prepare(&format!("PRAGMA index_info({index_name})"))
+            .map_err(db_error)?;
+        let columns = index_statement
+            .query_map([], |row| row.get::<_, String>(2))
+            .map_err(db_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(db_error)?;
+        if !columns
+            .iter()
+            .map(String::as_str)
+            .eq(expected_columns.iter().copied())
+        {
+            continue;
+        }
+        if let Some(predicate) = expected_predicate {
+            let index_sql = connection
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                    [&index_name],
+                    |row| row.get::<_, String>(0),
+                )
+                .map_err(db_error)?;
+            let normalized = index_sql.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !normalized
+                .to_ascii_uppercase()
+                .contains(&predicate.to_ascii_uppercase())
+            {
+                continue;
+            }
+        }
+        return Ok(true);
+    }
+    Ok(false)
 }

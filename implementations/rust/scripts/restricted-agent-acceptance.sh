@@ -56,18 +56,39 @@ case $(uname -s) in
     ;;
   Darwin)
     command -v sudo >/dev/null 2>&1 || fail "macOS acceptance requires sudo"
-    PEP_OWNER=_www
-    PEP_GROUP=_www
-    AGENT_OWNER=nobody
-    AGENT_GROUP=nobody
-    OTHER_OWNER=daemon
-    OTHER_GROUP=daemon
+    [ -n "${TLPX_PEP_USER:-}" ] || fail "set TLPX_PEP_USER to a dedicated inactive macOS test account"
+    [ -n "${TLPX_AGENT_USER:-}" ] || fail "set TLPX_AGENT_USER to a distinct dedicated inactive macOS test account"
+    [ -n "${TLPX_OTHER_USER:-}" ] || fail "set TLPX_OTHER_USER to a third dedicated inactive macOS test account"
+    [ "$TLPX_PEP_USER" != "$TLPX_AGENT_USER" ] || fail "macOS test accounts must be distinct"
+    [ "$TLPX_PEP_USER" != "$TLPX_OTHER_USER" ] || fail "macOS test accounts must be distinct"
+    [ "$TLPX_AGENT_USER" != "$TLPX_OTHER_USER" ] || fail "macOS test accounts must be distinct"
+    for account in "$TLPX_PEP_USER" "$TLPX_AGENT_USER" "$TLPX_OTHER_USER"; do
+      case $account in
+        root|_www|nobody|daemon) fail "refusing shared/system account $account; create dedicated test accounts" ;;
+      esac
+      id "$account" >/dev/null 2>&1 || fail "macOS test account $account does not exist"
+      if [ -n "${SUDO_USER:-}" ] && [ "$account" = "$SUDO_USER" ]; then
+        fail "macOS test accounts must not be the invoking user"
+      fi
+    done
+    PEP_OWNER=$TLPX_PEP_USER
+    PEP_GROUP=$(id -gn "$PEP_OWNER")
+    AGENT_OWNER=$TLPX_AGENT_USER
+    AGENT_GROUP=$(id -gn "$AGENT_OWNER")
+    OTHER_OWNER=$TLPX_OTHER_USER
+    OTHER_GROUP=$(id -gn "$OTHER_OWNER")
     PEP_UID=$(id -u "$PEP_OWNER")
     PEP_GID=$(id -g "$PEP_OWNER")
     AGENT_UID=$(id -u "$AGENT_OWNER")
     AGENT_GID=$(id -g "$AGENT_OWNER")
     OTHER_UID=$(id -u "$OTHER_OWNER")
     OTHER_GID=$(id -g "$OTHER_OWNER")
+    for uid in "$PEP_UID" "$AGENT_UID" "$OTHER_UID"; do
+      [ "$uid" -ne 0 ] || fail "macOS test accounts must not be root"
+      if ps -eo uid= | awk -v wanted="$uid" '$1 == wanted { found=1 } END { exit !found }'; then
+        fail "dedicated macOS test UID $uid is already active"
+      fi
+    done
     ;;
   *) fail "slice 3.9 acceptance supports Linux and macOS" ;;
 esac
@@ -101,7 +122,7 @@ chmod 0700 "$AGENT_DIR"
 cp "$SOURCE_BIN" "$STAGED_BIN"
 chown "$PEP_OWNER:$PEP_GROUP" "$STAGED_BIN"
 chmod 0555 "$STAGED_BIN"
-dd if=/dev/urandom of="$KEY" bs=160 count=1 2>/dev/null
+dd if=/dev/urandom of="$KEY" bs=64 count=1 2>/dev/null
 chown "$PEP_OWNER:$PEP_GROUP" "$KEY"
 chmod 0400 "$KEY"
 

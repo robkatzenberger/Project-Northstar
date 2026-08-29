@@ -33,7 +33,7 @@ for topic in \
   "### Stale exporter lock" \
   "### Torn or incomplete sink row" \
   "### Audit backlog or 64 MiB hard stop" \
-  "### Authorization-signing or audit-sealing key compromise" \
+  "### Authorization-MAC or audit-sealing key compromise" \
   "### Trusted-time rollback or uncertainty" \
   "### Outcome unknown or reconciliation required" \
   "### Identity, configuration, adapter, or alternate-path bypass" \
@@ -44,7 +44,7 @@ done
 
 require_text "$PROFILE" "production HA"
 require_text "$PROFILE" "no safe rotation implementation"
-require_text "$INCIDENT" "Never automate age-based lock deletion."
+require_text "$INCIDENT" "Never delete the persistent lock file to bypass a held advisory lock"
 require_text "$INCIDENT" "disable automatic retry"
 require_text "$INCIDENT" "does not convert builder verification into independent acceptance"
 

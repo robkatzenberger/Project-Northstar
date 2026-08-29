@@ -22,7 +22,10 @@ pub mod types;
 pub use adapter::{
     AdapterContract, AdapterRegistry, AuthenticatedAdapterSession, ADAPTER_MATERIAL_FIELDS,
 };
-pub use audit_export::{AuditExportSummary, FileAuditExporter, MAX_AUDIT_SINK_BYTES};
+pub use audit_export::{
+    AuditExportSummary, AuditSinkReconciliation, FileAuditExporter, OperationalReadinessSnapshot,
+    MAX_AUDIT_SINK_BYTES,
+};
 pub use authority::{
     enforce_constraints, ApprovalOutcome, ApprovalPresentation, ApprovalResolution, ApprovalState,
     Authority, AuthorityConfig, AuthzState, CancellationOutcome, CancellationReason,

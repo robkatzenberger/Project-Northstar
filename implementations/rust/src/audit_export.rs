@@ -6,18 +6,16 @@
 //! appended a second time.
 
 use crate::authority::Authority;
+use crate::authority::OperationalSnapshot;
 use crate::error::{Error, Result};
-use crate::evidence::SealedEvidence;
-use crate::jcs::{canonicalize, parse, Canonical, Value};
+pub use crate::evidence::MAX_AUDIT_SINK_BYTES;
+use crate::evidence::{export_envelope, MAX_AUDIT_LINE_BYTES};
+use crate::jcs::{canonicalize, parse};
+use nix::fcntl::{Flock, FlockArg};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
-
-const EXPORT_FORMAT: &str = "tlpx.local-audit-export";
-const EXPORT_FORMAT_VERSION: &str = "1";
-pub const MAX_AUDIT_SINK_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_LINE_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditExportSummary {
@@ -25,6 +23,21 @@ pub struct AuditExportSummary {
     pub appended: usize,
     pub total_in_sink: usize,
     pub last_chain_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditSinkReconciliation {
+    pub rows_in_sink: usize,
+    pub acknowledged_rows: usize,
+    pub pending_rows: usize,
+    pub recovery_rows: usize,
+    pub last_chain_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationalReadinessSnapshot {
+    pub authority: OperationalSnapshot,
+    pub audit_sink: AuditSinkReconciliation,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +52,68 @@ impl FileAuditExporter {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Verifies the on-disk sink against the complete sealed outbox without
+    /// appending or acknowledging rows. Database-only health checks are not a
+    /// substitute for this at-rest reconciliation.
+    pub fn verify_at_rest(&self, authority: &Authority) -> Result<AuditSinkReconciliation> {
+        let rows = authority.evidence_snapshot()?;
+        let acknowledged_rows = rows
+            .iter()
+            .take_while(|row| row.exported_at_ms.is_some())
+            .count();
+        if !self.path.exists() {
+            if acknowledged_rows != 0 {
+                return Err(export_error(
+                    "authority acknowledges evidence missing from the audit sink",
+                ));
+            }
+            return Ok(AuditSinkReconciliation {
+                rows_in_sink: 0,
+                acknowledged_rows: 0,
+                pending_rows: rows.len(),
+                recovery_rows: 0,
+                last_chain_hash: None,
+            });
+        }
+
+        let _parent = protected_parent(&self.path)?;
+        let _lock = ExportLock::acquire(&self.path)?;
+        let mut sink = secure_existing_sink(&self.path)?;
+        let lines = read_lines(&mut sink)?;
+        verify_sink_prefix(&rows, &lines)?;
+        if acknowledged_rows > lines.len() {
+            return Err(export_error(
+                "authority acknowledges evidence missing from the audit sink",
+            ));
+        }
+        let recovery_rows = lines.len().saturating_sub(acknowledged_rows);
+        Ok(AuditSinkReconciliation {
+            rows_in_sink: lines.len(),
+            acknowledged_rows,
+            pending_rows: rows.len().saturating_sub(acknowledged_rows),
+            recovery_rows,
+            last_chain_hash: lines
+                .len()
+                .checked_sub(1)
+                .and_then(|index| rows.get(index))
+                .map(|row| row.chain_hash.clone()),
+        })
+    }
+
+    /// Combined readiness view. This is the deploy/restore health boundary;
+    /// `Authority::operational_snapshot` intentionally covers SQLite only.
+    pub fn operational_readiness(
+        &self,
+        authority: &Authority,
+    ) -> Result<OperationalReadinessSnapshot> {
+        let authority_snapshot = authority.operational_snapshot()?;
+        let audit_sink = self.verify_at_rest(authority)?;
+        Ok(OperationalReadinessSnapshot {
+            authority: authority_snapshot,
+            audit_sink,
+        })
     }
 
     /// Exports at most `limit` new rows after first recovering any complete,
@@ -68,21 +143,11 @@ impl FileAuditExporter {
         }
 
         let lines = read_lines(&mut sink)?;
-        if lines.len() > rows.len() {
-            return Err(export_error(
-                "audit sink contains rows not present in the authority outbox",
-            ));
-        }
+        verify_sink_prefix(&rows, &lines)?;
 
         let mut recovered = 0_usize;
-        for (index, line) in lines.iter().enumerate() {
+        for (index, _) in lines.iter().enumerate() {
             let row = &rows[index];
-            let expected = export_envelope(row)?;
-            if line != expected.as_str() {
-                return Err(export_error(
-                    "audit sink is not an exact ordered prefix of the sealed outbox",
-                ));
-            }
             if row.exported_at_ms.is_none() {
                 authority.mark_evidence_exported_at(
                     row.outbox_id,
@@ -112,7 +177,7 @@ impl FileAuditExporter {
         let mut appended = 0_usize;
         for row in rows.iter().skip(lines.len()).take(limit) {
             let envelope = export_envelope(row)?;
-            if envelope.as_str().len() > MAX_LINE_BYTES {
+            if envelope.as_str().len() > MAX_AUDIT_LINE_BYTES {
                 return Err(export_error(
                     "audit export row exceeds the bounded line size",
                 ));
@@ -144,7 +209,7 @@ impl FileAuditExporter {
 }
 
 struct ExportLock {
-    path: PathBuf,
+    _file: Flock<File>,
 }
 
 impl ExportLock {
@@ -156,22 +221,29 @@ impl ExportLock {
         lock_name.push(".lock");
         let path = sink_path.with_file_name(lock_name);
         let file = OpenOptions::new()
+            .read(true)
             .write(true)
-            .create_new(true)
+            .create(true)
             .mode(0o600)
             .custom_flags(nix::libc::O_NOFOLLOW)
             .open(&path)
-            .map_err(|error| export_io("acquire exclusive audit export lock", error))?;
+            .map_err(|error| export_io("open audit export lock", error))?;
         validate_file(&file, "audit export lock")?;
         file.sync_all()
             .map_err(|error| export_io("sync audit export lock", error))?;
-        Ok(Self { path })
-    }
-}
-
-impl Drop for ExportLock {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
+        let file = Flock::lock(file, FlockArg::LockExclusiveNonblock)
+            .map_err(|(_, error)| export_error(format!("acquire audit export lock: {error}")))?;
+        let descriptor = file
+            .metadata()
+            .map_err(|error| export_io("inspect held audit export lock", error))?;
+        let named = fs::symlink_metadata(&path)
+            .map_err(|error| export_io("inspect named audit export lock", error))?;
+        if descriptor.dev() != named.dev() || descriptor.ino() != named.ino() {
+            return Err(export_error(
+                "audit export lock path changed while the lock was acquired",
+            ));
+        }
+        Ok(Self { _file: file })
     }
 }
 
@@ -211,6 +283,33 @@ fn secure_sink(path: &Path) -> Result<File> {
         .map_err(|error| export_io("open audit sink", error))?;
     validate_file(&file, "audit sink")?;
     Ok(file)
+}
+
+fn secure_existing_sink(path: &Path) -> Result<File> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(nix::libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|error| export_io("open existing audit sink", error))?;
+    validate_file(&file, "audit sink")?;
+    Ok(file)
+}
+
+fn verify_sink_prefix(rows: &[crate::evidence::SealedEvidence], lines: &[String]) -> Result<()> {
+    if lines.len() > rows.len() {
+        return Err(export_error(
+            "audit sink contains rows not present in the authority outbox",
+        ));
+    }
+    for (index, line) in lines.iter().enumerate() {
+        let expected = export_envelope(&rows[index])?;
+        if line != expected.as_str() {
+            return Err(export_error(
+                "audit sink is not an exact ordered prefix of the sealed outbox",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_file(file: &File, label: &str) -> Result<()> {
@@ -258,7 +357,7 @@ fn read_lines(file: &mut File) -> Result<Vec<String>> {
             if line.is_empty() {
                 return Err(export_error("audit sink contains an empty row"));
             }
-            if line.len() > MAX_LINE_BYTES {
+            if line.len() > MAX_AUDIT_LINE_BYTES {
                 return Err(export_error("audit sink row exceeds the bounded line size"));
             }
             let parsed = parse(line)
@@ -272,38 +371,6 @@ fn read_lines(file: &mut File) -> Result<Vec<String>> {
             Ok(line.to_owned())
         })
         .collect()
-}
-
-fn export_envelope(row: &SealedEvidence) -> Result<Canonical> {
-    let record = parse(&row.record_json)?;
-    canonicalize(&Value::Object(vec![
-        string("format", EXPORT_FORMAT),
-        string("format_version", EXPORT_FORMAT_VERSION),
-        ("outbox_id".into(), Value::Int(row.outbox_id)),
-        (
-            "authority_sequence".into(),
-            Value::Int(row.authority_sequence),
-        ),
-        ("ordinal".into(), Value::Int(row.ordinal)),
-        string("record_type", &row.record_type),
-        string("source_id", &row.source_id),
-        ("record".into(), record),
-        string("record_hash", &row.record_hash),
-        (
-            "previous_chain_hash".into(),
-            row.previous_chain_hash
-                .as_ref()
-                .map_or(Value::Null, |value| Value::String(value.clone())),
-        ),
-        string("chain_hash", &row.chain_hash),
-        string("seal_algorithm", &row.seal_algorithm),
-        string("seal_key_id", &row.seal_key_id),
-        string("seal", &row.seal),
-    ]))
-}
-
-fn string(name: &str, value: &str) -> (String, Value) {
-    (name.into(), Value::String(value.into()))
 }
 
 fn export_error(message: impl Into<String>) -> Error {

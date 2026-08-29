@@ -141,12 +141,10 @@ fn authority_config(targets: &[String]) -> AuthorityConfig {
             evaluator_id: "authority.local".into(),
             router_id: "switchboard.local".into(),
             requester_type: PartyType::Machine,
-            keys: KeyRing::active_profile([
+            max_export_bytes: tlpx::MAX_AUDIT_SINK_BYTES,
+            keys: KeyRing::active_local_authority_profile([
                 ("runner-audit-v1".into(), vec![0x71; 32]),
                 ("runner-authorization-v1".into(), vec![0x72; 32]),
-                ("runner-service-v1".into(), vec![0x73; 32]),
-                ("runner-operator-v1".into(), vec![0x74; 32]),
-                ("runner-tenant-v1".into(), vec![0x75; 32]),
             ])
             .unwrap(),
         },

@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later local candidates through exact-commit builder-verified 3.8 `7c41450` add policy activation, identity-scoped lifecycle and evidence, adapter checks, and one bounded same-UID cooperative command demo. Those later increments are not independently accepted. No implementation is yet an unavoidable protected-execution boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. An independent Phase 4 review returned **changes requested**, and remediation is being verified locally. The separate restricted-service test using dedicated OS identities has not run. No implementation is yet an unavoidable protected-execution boundary.
 
 ---
 
@@ -107,7 +107,7 @@ flowchart TB
 | **Executor** | The last lock | In the target PEP, will **not** run the real action unless the gate (and audit) say authorized. |
 | **Audit log** | The black box recorder | Append-only history: who declared, who decided, who approved, what ran. |
 
-Today, the JavaScript executor is cooperative: it blocks mediated calls, but a process retaining direct access can bypass it. The Rust candidate adds durable one-time claim state, a sealed evidence outbox, and in slice 3.8 one bounded direct-argv marker demo. That demo runs under the caller's identity and can also be bypassed. Forced mediation remains a later PEP/deployment property.
+Today, the JavaScript executor is a historical cooperative 0.1 reference: it blocks mediated calls, but a process retaining direct access can bypass it. The Go HTTP implementation is also historical/cooperative and trusts caller-supplied actor names; neither is a 0.2 authority. The Rust candidate adds durable one-time claim state, a sealed evidence outbox, and one bounded direct-argv marker demo. That demo runs under the caller's identity and can also be bypassed. A restricted-service candidate exists, but its defining dedicated-identity test remains unrun. Forced mediation is not established.
 
 ### How they fit together
 

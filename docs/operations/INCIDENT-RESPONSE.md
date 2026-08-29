@@ -17,7 +17,7 @@
 | Severity | Examples | Required response |
 | --- | --- | --- |
 | Critical | evidence mismatch, SQLite integrity failure, key compromise, identity bypass, second side effect, forced-mediation claim disproven | Stop admission immediately; security lead and system owner; preserve and investigate |
-| High | outcome unknown/reconciliation required, trusted-time rollback, audit hard-stop, repeated exporter failure, stale lock with unclear owner | Stop affected capability; reconcile or recover before resuming |
+| High | outcome unknown/reconciliation required, trusted-time rollback, audit hard-stop, repeated exporter failure, advisory lock held by an unclear live owner | Stop affected capability; reconcile or recover before resuming |
 | Medium | approval backlog, expected revocation activation, capacity warning, failed readiness rehearsal | Bound/monitor; correct before the next test window |
 | Low | documentation drift or non-security observability defect | Track with owner and deadline; do not misstate evidence |
 
@@ -37,7 +37,7 @@
 - Stop capability admission and verify every exporter process is stopped using the service manager and process identity records.
 - Preserve the lock, sink, database, and logs. This slice does not encode a trustworthy PID/lease in the lock.
 - Only after confirming no writer exists may an authorized operator quarantine the lock out of the active directory. Re-run exact-prefix validation before export resumes.
-- Never automate age-based lock deletion.
+- Never delete the persistent lock file to bypass a held advisory lock; identify and stop the cooperating exporter that owns the lock.
 
 ### Torn or incomplete sink row
 
@@ -51,7 +51,7 @@
 - Drain only through the verified exporter. Do not mark rows exported manually.
 - The local profile cannot safely rotate to an empty file because acknowledged history must remain an exact prefix. Resume only after capacity is restored through a reviewed new export design or a verified restoration preserving the full prefix.
 
-### Authorization-signing or audit-sealing key compromise
+### Authorization-MAC or audit-sealing key compromise
 
 - Disable new admission, isolate the affected service identity, preserve key ids and evidence, and involve the key custodian/security lead.
 - Rotate to independently generated role-specific material. Retain uncompromised historical verification keys.
@@ -85,7 +85,7 @@ Do not restore protected-capability admission until:
 - the incident cause and affected time/state range are bounded;
 - original evidence is preserved;
 - replacement configuration, keys, binaries, identity maps, and paths are independently reviewed;
-- `operational_snapshot()` and complete audit-prefix validation pass on the recovery state;
+- `FileAuditExporter::operational_readiness()` passes on the recovery state (the database-only `operational_snapshot()` is insufficient);
 - unresolved external outcomes are explicitly reconciled or remain safely quarantined;
 - the relevant exact-commit tests and a focused regression pass;
 - the incident commander and a second reviewer sign the recovery record.
