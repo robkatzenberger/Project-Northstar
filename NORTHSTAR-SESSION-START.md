@@ -6,7 +6,7 @@ Use this file to begin or resume work on Project Northstar in a new model, chat,
 **Private GitHub:** `robkatzenberger/Project-Northstar`  
 **Default branch:** `main`
 
-**Current review disposition (2026-08-28):** independent Phase 4 review returned **CHANGES REQUESTED**. A local remediation increment addresses Switchboard ordering, post-claim revocation, authority admission capacity, streamed source-content and at-rest sink reconciliation, authenticated export acknowledgements, schema fingerprints, HMAC naming/live key roles, executable provenance within the distinct-identity profile, legacy JS/Go labels, handoff non-claims, advisory locking, and the dedicated-account 3.9 harness. It is not accepted until committed, fully rerun, and independently re-reviewed. The administrator-backed 3.9 test remains unrun.
+**Current review disposition (2026-08-28):** independent Phase 4 review returned **CHANGES REQUESTED**. Exact local remediation commit `ee720d44d43904612a148b8f968ea22f59b43f73` addresses Switchboard ordering, post-claim revocation, authority admission capacity, streamed source-content and at-rest sink reconciliation, authenticated export acknowledgements, schema fingerprints, HMAC naming/live key roles, executable provenance within the distinct-identity profile, legacy JS/Go labels, handoff non-claims, advisory locking, and the dedicated-account 3.9 harness. Its full non-privileged exact-commit builder matrix passes; it remains unaccepted pending independent re-review. The administrator-backed 3.9 test remains unrun.
 
 ## 1. How to work with Robert
 
@@ -138,15 +138,17 @@ Do not treat `skills.md` or this file as a parallel specification. Do not expand
 
 **Slice 4.6 local candidate:** package commit `d51e46c` enabled independent review of target `64d0820`; disposition was **CHANGES REQUESTED**. Package checks cover indexing, ancestry, and required prose, not blob-level security verification.
 
+**Phase 4 remediation local candidate:** exact commit `ee720d44d43904612a148b8f968ea22f59b43f73` remediates or accurately re-scopes the review findings. Rust formatting, 125 Rust tests, strict Clippy, the five-round focused red team, twenty-round handoff repeat, JavaScript/conformance/technical/red-team/evidence suites, and operations/package checks pass. Evidence is in `tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`. This is builder evidence only; independent re-review is the next Phase 4 gate.
+
 **Open 0.1 defect:** Switchboard `DENY` still fails the frozen 0.1 decision schema. Fix on the 0.2 line, not by rewriting 0.1.
 
 **Languages:** JavaScript is the frozen cooperative 0.1 reference and 0.2 oracle. Go is a historical cooperative 0.1-era secondary that trusts caller-supplied actor IDs, not a 0.2 authority/adapter target. Rust is the emerging authority. Java/Python/TS become adapters.
 
-**Immediate next gate:** finish and locally commit the Phase 4 remediation, run the full non-privileged matrix plus the executable focused-repeat harness, record exact evidence, then obtain independent re-review. The separate administrator-backed dedicated-identity 3.9 gate remains outstanding. Active cancellation of already-started effects, portable revocation/expiry/handoff-link evidence, hostile same-UID isolation, and production hardening remain open. The cooperative runner now requires root/PEP-owned non-group/world-writable executable provenance, hashes an `O_NOFOLLOW` descriptor, retains it, and rechecks pathname-to-inode identity immediately before spawn; this is a distinct-identity control, not same-UID containment.
+**Immediate next gate:** obtain independent re-review of exact remediation commit `ee720d44d43904612a148b8f968ea22f59b43f73`. The separate administrator-backed dedicated-identity 3.9 gate remains outstanding. Active cancellation of already-started effects, portable revocation/expiry/handoff-link evidence, hostile same-UID isolation, and production hardening remain open. The cooperative runner now requires root/PEP-owned non-group/world-writable executable provenance, hashes an `O_NOFOLLOW` descriptor, retains it, and rechecks pathname-to-inode identity immediately before spawn; this is a distinct-identity control, not same-UID containment.
 
 Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
-Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, the dated slice 2.4–3.8 reports, and the explicitly unverified 3.9 candidate report under `tests/reports/`. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
+Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, the dated slice reports, `tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`, and the explicitly unverified 3.9 candidate report. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
 ## 6. Non-negotiable engineering rules
 

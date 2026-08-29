@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. An independent Phase 4 review returned **changes requested**, and remediation is being verified locally. The separate restricted-service test using dedicated OS identities has not run. No implementation is yet an unavoidable protected-execution boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. An independent Phase 4 review returned **changes requested**; exact local remediation commit `ee720d4` passes builder verification and awaits independent re-review. The separate restricted-service test using dedicated OS identities has not run. No implementation is yet an unavoidable protected-execution boundary.
 
 ---
 

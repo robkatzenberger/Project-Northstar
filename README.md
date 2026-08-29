@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later candidates remain unaccepted. The independent Phase 4 review of target `64d0820` returned **changes requested**; a local remediation increment is being verified. The separate 3.9 administrator-backed dedicated-identity test remains outstanding.
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later candidates remain unaccepted. The independent Phase 4 review of target `64d0820` returned **changes requested**. Exact local remediation commit `ee720d4` passes the full non-privileged builder matrix and awaits independent re-review. The separate 3.9 administrator-backed dedicated-identity test remains outstanding.
 
 **Who should read what**
 
@@ -68,6 +68,7 @@ northstar/
 | [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original operations candidate; later review requested changes |
 | [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the optional handoff wrapper; later review requested changes |
 | [`tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Point-in-time builder evidence for review package `d51e46c`; independent disposition was changes requested |
+| [`tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) | Exact-commit builder verification for remediation `ee720d4`; independent re-review and slice 3.9 remain open |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -140,7 +141,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 4.4 operational readiness and incident-response profile at `bdd8a00` (exact builder/red-team matrix passed; not production automation or independently accepted)
 - [x] Slice 4.5 explicit non-transitive multi-agent handoff at `536111a` (exact builder/red-team matrix passed; no portable handoff credential or independent acceptance)
 - [x] Slice 4.6 external security review package at `d51e46c` (package enabled review; it is an index/reproduction aid, not blob-level verification)
-- [ ] Phase 4 remediation after independent disposition **changes requested**; full rerun and independent re-review required
+- [x] Phase 4 remediation at local commit `ee720d4` after independent disposition **changes requested** (full non-privileged exact-commit builder matrix passed; independent re-review required)
 - [ ] Independent review of `c9bdd0f`, then named/full Section 3 verification and independent review of 2.4/3.x
 - [ ] Rust active cancellation, portable revocation/expiry evidence, production transport, and protected-execution PEP
 - [ ] Python adapter

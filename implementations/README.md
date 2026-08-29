@@ -26,6 +26,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](../tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for bounded local operations/incident readiness at `bdd8a00` |
 | [`../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](../tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Exact-commit builder/red-team evidence for authenticated non-transitive handoff at `536111a` |
 | [`../tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](../tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Point-in-time builder evidence for package `d51e46c`; independent review returned changes requested |
+| [`../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) | Exact-commit builder evidence for remediation `ee720d4`; independent re-review and 3.9 remain open |
 | [`../LICENSE`](../LICENSE) | Apache-2.0 |
 
 **Rule:** current v0.1 implementations follow the frozen [SPEC v0.1](../docs/standard/SPEC-v0.1.md). Hardened breaking changes must target a separate v0.2 spec/schema/conformance line; do not silently backport them into v0.1 or redefine Prism core fields casually.
@@ -39,7 +40,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Historical cooperative secondary** | 0.1-era Switchboard/sealed-audit/HTTP reference; caller-supplied actor IDs; not a 0.2 authority, adapter endpoint, or PEP |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Accepted bounded MVP + unaccepted remediation** | Commit `aed80e2` independently accepted; independent Phase 4 review returned changes requested and local remediation awaits full rerun/re-review. Candidate `e6f2bb0` still needs the dedicated-identity run. Full Section 3, Phase 4 acceptance, and forced mediation remain unverified. |
+| [`rust/`](./rust/) | **Accepted bounded MVP + unaccepted remediation** | Commit `aed80e2` independently accepted; independent Phase 4 review returned changes requested and exact remediation `ee720d4` passes the builder matrix but awaits re-review. Candidate `e6f2bb0` still needs the dedicated-identity run. Full Section 3, Phase 4 acceptance, and forced mediation remain unverified. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

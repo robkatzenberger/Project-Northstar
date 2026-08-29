@@ -68,6 +68,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | [../tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md](../tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Exact-commit full Phase 4 builder matrix and external-review readiness evidence at `d51e46c` |
 | [reviews/phase-4-external-security-review-readiness-2026-08-27.md](./reviews/phase-4-external-security-review-readiness-2026-08-27.md) | Independent-review challenge brief for security-code target `64d0820`; package commit `d51e46c` |
 | [reviews/phase-4-independent-review-disposition-2026-08-28.md](./reviews/phase-4-independent-review-disposition-2026-08-28.md) | Independent **CHANGES REQUESTED** disposition and finding-by-finding remediation map; not acceptance |
+| [../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md](../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) | Exact-commit builder verification for remediation `ee720d4`; independent re-review and slice 3.9 remain open |
 | [../tests/fixtures/tlpx-0.2/jcs/](../tests/fixtures/tlpx-0.2/jcs/) | Slice 2.2 JCS / `sha256:` golden fixtures |
 | [../tests/fixtures/tlpx-0.2/policy/](../tests/fixtures/tlpx-0.2/policy/) | Slice 2.4 candidate policy-manifest/hash fixture |
 | [../tests/fixtures/tlpx-0.2/actions/](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed actions, Action Binding, canonical bytes, and distinct hashes |

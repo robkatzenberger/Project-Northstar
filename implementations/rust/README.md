@@ -10,14 +10,14 @@
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
 **Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
-**Phase 4 review disposition:** **CHANGES REQUESTED** for security-code target `64d0820`; the remediation working tree is not accepted until committed, fully rerun, and independently re-reviewed
+**Phase 4 review disposition:** **CHANGES REQUESTED** for security-code target `64d0820`; exact remediation commit `ee720d4` passes the full non-privileged builder matrix but is not accepted until independently re-reviewed
 **Remediation scope:** authorization MAC/audit-seal live roles; Switchboard-before-policy; post-claim revocation at execution start; exact transaction-time audit capacity; streamed source-content reconciliation; authenticated export acknowledgements plus combined database/sink readiness; schema index/constraint checks; cooperative exporter lock; protected executable provenance; honest legacy/handoff/3.9 boundaries
 **Crate:** `tlpx` 0.2.0  
 **Not yet:** verified separate-identity enforcement, hostile same-UID isolation, full Section 3 verification, active cancellation of already-started effects, portable revocation/expiry evidence, a general hardened service, Phase 4 re-review, or acceptance
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
-Builder verification details and non-claims are recorded in [`../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md). Independent exact-commit acceptance is recorded in [`../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The `c9bdd0f` evidence increment and later slice reports are under [`../../tests/reports/`](../../tests/reports/), including the 3.3 builder matrix in [`../../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md`](../../tests/reports/slice-3.3-local-auth-cancellation-builder-verification-2026-08-18.md).
+Builder verification details and non-claims are recorded in [`../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md). Independent exact-commit acceptance is recorded in [`../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The `c9bdd0f` evidence increment and later slice reports are under [`../../tests/reports/`](../../tests/reports/). Exact Phase 4 remediation evidence is in [`../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md).
 
 The MVP plus the unaccepted 3.1 candidate proves this local authority seam:
 
@@ -155,4 +155,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Finish the local remediation commit, run the complete non-privileged Rust/JavaScript/conformance/red-team matrix, record exact evidence, and obtain independent re-review. The dedicated-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Obtain independent re-review of exact remediation commit `ee720d44d43904612a148b8f968ea22f59b43f73`. The dedicated-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.

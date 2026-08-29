@@ -4,7 +4,7 @@
 **Reviewed security-code target:** `64d08203c2f30964b176be8872b390ba3c28e5e6`
 **Review-package commit:** `d51e46ce4cf87e4ab339fd1d70aac5e078c3e7e0`
 **Independent disposition:** **CHANGES REQUESTED**
-**Remediation status:** builder tests pass on the pre-commit working tree; a named remediation commit and independent re-review are still required
+**Remediation status:** exact local commit `ee720d44d43904612a148b8f968ea22f59b43f73` passes the full non-privileged builder matrix; independent re-review is still required
 
 This records the external review supplied to the project owner. It is a disposition and remediation map, not a replacement for the reviewer's findings and not acceptance. Historical Phase 4 reports remain point-in-time builder evidence for the original commits.
 
@@ -34,7 +34,7 @@ This records the external review supplied to the project owner. It is a disposit
 | L6 — schema startup did not re-fingerprint indexes/checks | **REMEDIATED** | Startup verifies critical unique indexes, the exact idempotency partial-index predicate, and key table constraints including acknowledgement invariants. Dropped and weakened-index tests fail closed. |
 | L7 — adapter tests use one eUID | **NON-CLAIM RESTATED** | These fixtures test mapping and contract behavior, not distinct-peer OS isolation. The separate-identity gate remains 3.9. |
 
-## Builder verification completed before commit
+## Builder verification
 
 - Rust formatting and strict Clippy pass.
 - Rust `cargo test --all-targets --offline` passes 125 tests, including the ordinary restricted-service socket test. The latter required desktop sandbox permission to bind a temporary local socket; it was not the administrator-backed script.
@@ -42,8 +42,10 @@ This records the external review supplied to the project owner. It is a disposit
 - JavaScript combined suite passes 935 checks; 0.1 conformance passes 47/47; technical test passes 29/29; red team reports 16 PASS, 0 FAIL, 4 documented WARN; Rust evidence crosscheck passes 10/10.
 - Operations and historical review-package checks pass.
 
+The same matrix was rerun against exact commit `ee720d44d43904612a148b8f968ea22f59b43f73`; the durable result is [`../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md).
+
 The password/sudo-backed `scripts/restricted-agent-acceptance.sh` was deliberately not run at the product owner's direction. Therefore this document does not close 3.9, Section 3, Phase 4, forced mediation, or independent acceptance.
 
 ## Next gate
 
-Commit this remediation locally, rerun the complete matrix against the exact commit, record the commit and results in a new builder report, then send that named commit for independent re-review. Keep the dedicated-identity 3.9 acceptance run as a separately reported administrator gate.
+Send exact remediation commit `ee720d44d43904612a148b8f968ea22f59b43f73` and its builder report for independent re-review. Keep the dedicated-identity 3.9 acceptance run as a separately reported administrator gate.

@@ -1,7 +1,7 @@
 # Trust Layer Pre-Execution Minimum Standard (TL-PX)
 
 **Version:** 0.2.0  
-**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; later local candidates include unverified 3.9 `e6f2bb0` and Phase 4 through review-package commit `d51e46c`. The independent Phase 4 review returned **changes requested** and remediation is unaccepted. Section 3 verification and the separate-identity 3.9 run remain deferred. Portable revocation, approval-expiry, and handoff-link evidence remain deferred.
+**Status:** Draft contract — accepted evaluation/authorization schema core through 2.3; implementation-driven 2.3d independently accepted at exact commit `aed80e2`; later local candidates include unverified 3.9 `e6f2bb0` and Phase 4. The independent Phase 4 review returned **changes requested**; exact remediation commit `ee720d4` passes builder verification but remains unaccepted pending independent re-review. Section 3 verification and the separate-identity 3.9 run remain deferred. Portable revocation, approval-expiry, and handoff-link evidence remain deferred.
 **Profile:** Minimum  
 **Date:** 2026-08-28
 **Supersedes for new work:** [SPEC-v0.1.md](./SPEC-v0.1.md) (frozen historical evidence)
@@ -726,7 +726,7 @@ Durable 0.2 records MUST attribute at least:
 
 The 0.2 object and evaluation/authorization schema core, conformance oracle, and bounded 2.3d review now exist. Implementations still MUST be described as draft or experimental—not production-safe 0.2—until they implement every applicable normative behavior, close the deferred execution-side evidence contract, emit schema-valid sealed evidence, and pass the eventual runtime profile.
 
-This document does not make the JavaScript or Go references a 0.2 authority. They do not implement authenticated atomic claim or PEP enforcement; JavaScript's 0.2 schema/policy/action/JCS/hash helpers are contract oracles, while both live permission paths remain historical/cooperative. The accepted Rust local-authority commit `aed80e2` has no execution receipt or PEP. Later candidates remain unaccepted. The independent Phase 4 review returned changes requested; remediation does not change that disposition until it is committed, fully rerun, and independently reviewed. The slice 3.9 restricted-PEP candidate still lacks its administrator-backed dedicated-identity run. The cooperative runner can be bypassed by a caller with direct capability access and therefore does not establish forced mediation.
+This document does not make the JavaScript or Go references a 0.2 authority. They do not implement authenticated atomic claim or PEP enforcement; JavaScript's 0.2 schema/policy/action/JCS/hash helpers are contract oracles, while both live permission paths remain historical/cooperative. The accepted Rust local-authority commit `aed80e2` has no execution receipt or PEP. Later candidates remain unaccepted. The independent Phase 4 review returned changes requested; exact remediation commit `ee720d4` passes the builder matrix but does not change that disposition until independently reviewed. The slice 3.9 restricted-PEP candidate still lacks its administrator-backed dedicated-identity run. The cooperative runner can be bypassed by a caller with direct capability access and therefore does not establish forced mediation.
 
 ---
 
