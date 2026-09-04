@@ -43,3 +43,6 @@ Thumbs.db
 skills.md
 skills-archive.md
 .grok/
+
+# Local upstream/reference repository checkouts
+reference-repos/
