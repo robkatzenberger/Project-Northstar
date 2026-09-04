@@ -16,6 +16,12 @@ fail() {
   exit 1
 }
 
+CHOWN=$(command -v chown 2>/dev/null || true)
+if [ -z "$CHOWN" ] && [ -x /usr/sbin/chown ]; then
+  CHOWN=/usr/sbin/chown
+fi
+[ -x "$CHOWN" ] || fail "slice 3.9 acceptance requires chown"
+
 pass() {
   echo "PASS  $*"
 }
@@ -113,17 +119,17 @@ MARKER=$PROTECTED_DIR/only-marker
 
 mkdir -p "$SERVICE_DIR" "$STATE_DIR" "$PROTECTED_DIR" "$AGENT_DIR"
 chmod 0711 "$ACCEPTANCE_ROOT"
-chown "$PEP_OWNER:$PEP_GROUP" "$SERVICE_DIR"
+"$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$SERVICE_DIR"
 chmod 0755 "$SERVICE_DIR"
-chown "$PEP_OWNER:$PEP_GROUP" "$STATE_DIR" "$PROTECTED_DIR"
+"$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$STATE_DIR" "$PROTECTED_DIR"
 chmod 0700 "$STATE_DIR" "$PROTECTED_DIR"
-chown "$AGENT_OWNER:$AGENT_GROUP" "$AGENT_DIR"
+"$CHOWN" "$AGENT_OWNER:$AGENT_GROUP" "$AGENT_DIR"
 chmod 0700 "$AGENT_DIR"
 cp "$SOURCE_BIN" "$STAGED_BIN"
-chown "$PEP_OWNER:$PEP_GROUP" "$STAGED_BIN"
+"$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$STAGED_BIN"
 chmod 0555 "$STAGED_BIN"
 dd if=/dev/urandom of="$KEY" bs=64 count=1 2>/dev/null
-chown "$PEP_OWNER:$PEP_GROUP" "$KEY"
+"$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$KEY"
 chmod 0400 "$KEY"
 
 write_config() {
@@ -144,7 +150,7 @@ write_config() {
     "max_connections=$maximum" \
     "claim_window_ms=$claim_window" \
     "claim_delay_ms=$claim_delay" > "$destination"
-  chown "$PEP_OWNER:$PEP_GROUP" "$destination"
+  "$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$destination"
   chmod 0400 "$destination"
 }
 
