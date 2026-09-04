@@ -26,6 +26,22 @@ pass() {
   echo "PASS  $*"
 }
 
+file_sha256() {
+  file=$1
+  if command -v shasum >/dev/null 2>&1; then
+    digest=$(shasum -a 256 "$file" | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    digest=$(sha256sum "$file" | awk '{print $1}')
+  else
+    fail "slice 3.9 acceptance requires shasum or sha256sum"
+  fi
+  case $digest in
+    *[!0-9a-f]*|'') fail "tested binary SHA-256 is malformed" ;;
+  esac
+  [ "${#digest}" -eq 64 ] || fail "tested binary SHA-256 has the wrong length"
+  printf 'sha256:%s\n' "$digest"
+}
+
 cleanup() {
   for pid in "$PEP_PID" "$EXPIRY_PID" "$RESTART_PID"; do
     if [ -n "$pid" ]; then
@@ -128,6 +144,13 @@ chmod 0700 "$AGENT_DIR"
 cp "$SOURCE_BIN" "$STAGED_BIN"
 "$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$STAGED_BIN"
 chmod 0555 "$STAGED_BIN"
+TESTED_BINARY_SHA256=$(file_sha256 "$STAGED_BIN")
+if [ -n "${TLPX_EXPECTED_BINARY_SHA256:-}" ] && \
+  [ "$TESTED_BINARY_SHA256" != "$TLPX_EXPECTED_BINARY_SHA256" ]; then
+  fail "staged binary SHA-256 does not match the runner's clean-tree digest"
+fi
+echo "TESTED_BINARY_SHA256 $TESTED_BINARY_SHA256"
+pass "staged tested binary matches reported SHA-256"
 dd if=/dev/urandom of="$KEY" bs=64 count=1 2>/dev/null
 "$CHOWN" "$PEP_OWNER:$PEP_GROUP" "$KEY"
 chmod 0400 "$KEY"
@@ -269,10 +292,18 @@ expect_contains "$response" "OK COMPLETED" "authenticated exact request complete
 pass "PEP identity owns the protected side effect"
 
 response=$(as_agent "$STAGED_BIN" request "$SOCKET" allowed-1 CREATE_MARKER)
-expect_contains "$response" "DENY PEP_PROTECTED_TARGET_EXISTS" "authorization reuse cannot repeat the side effect"
+expect_contains "$response" "DENY PEP_PROTECTED_TARGET_EXISTS" "existing protected target blocks a repeat request before evaluation"
 
 response=$(as_agent "$STAGED_BIN" request "$SOCKET" mutated-2 CREATE_MARKER)
-expect_contains "$response" "DENY PEP_PROTECTED_TARGET_EXISTS" "new request cannot reopen the one-shot target"
+expect_contains "$response" "DENY PEP_PROTECTED_TARGET_EXISTS" "existing protected target blocks a new request"
+
+as_pep /bin/rm "$MARKER"
+[ ! -e "$MARKER" ] || fail "PEP-owned test cleanup did not remove the protected marker"
+response=$(as_agent "$STAGED_BIN" request "$SOCKET" allowed-1 CREATE_MARKER)
+expect_contains "$response" "DENY ALREADY_CLAIMED" "consumed authorization cannot be replayed after PEP-owned target deletion"
+[ ! -e "$MARKER" ] || fail "consumed authorization replay recreated the protected marker"
+as_pep /usr/bin/touch "$MARKER"
+[ "$(file_uid "$MARKER")" -eq "$PEP_UID" ] || fail "PEP-owned restart fixture has the wrong owner"
 
 response=$(as_agent "$STAGED_BIN" raw "$SOCKET" "EXECUTE	path-1	CREATE_MARKER	/tmp/alternate")
 expect_contains "$response" "DENY PEP_REQUEST_INVALID" "caller cannot inject an alternate path or argv"
@@ -280,6 +311,7 @@ expect_contains "$response" "DENY PEP_REQUEST_INVALID" "caller cannot inject an 
 wait "$PEP_PID"
 PEP_PID=
 [ ! -e "$SOCKET" ] || fail "PEP did not remove its endpoint after bounded shutdown"
+pass "unauthenticated peer does not consume the authenticated-work budget"
 
 response=$(as_agent "$STAGED_BIN" probe-bind "$SOCKET")
 expect_contains "$response" "DENY PEP_REPLACEMENT_BIND" "restricted agent cannot bind a replacement endpoint"
@@ -287,6 +319,16 @@ expect_contains "$response" "DENY PEP_REPLACEMENT_BIND" "restricted agent cannot
 EVIDENCE=$STATE_DIR/evidence.jsonl
 as_pep "$STAGED_BIN" verify "$CONFIG" >"$EVIDENCE" 2>"$STATE_DIR/verify.log"
 "$NODE" "$REPO_DIR/implementations/javascript/scripts/validate-pep-evidence.mjs" "$EVIDENCE"
+if [ -n "${TLPX_EVIDENCE_OUT:-}" ]; then
+  case $TLPX_EVIDENCE_OUT in
+    /tmp/northstar-3.9-evidence.*) ;;
+    *) fail "retained evidence output must be a scoped /tmp path" ;;
+  esac
+  [ -f "$TLPX_EVIDENCE_OUT" ] || fail "retained evidence output was not pre-created"
+  [ ! -L "$TLPX_EVIDENCE_OUT" ] || fail "retained evidence output must not be a symlink"
+  cp "$EVIDENCE" "$TLPX_EVIDENCE_OUT"
+  chmod 0600 "$TLPX_EVIDENCE_OUT"
+fi
 pass "sealed execution and denial evidence independently reconciles and validates"
 
 before_restart=$(file_mtime "$MARKER")

@@ -173,7 +173,7 @@ impl<'a> CooperativeShellRunner<'a> {
 
     pub fn execute(&self, request: CooperativeShellRequest<'_>) -> Result<CooperativeShellOutcome> {
         let plan = self.validate_request(&request)?;
-        let started_at_ms = self.authority.trusted_now_ms()?;
+        let started_at_ms = self.authority.transition_time_candidate_ms()?;
         let executed = request.authorized_action.binding();
         let executed = ExecutedAction {
             executing_principal: executed.executing_principal,

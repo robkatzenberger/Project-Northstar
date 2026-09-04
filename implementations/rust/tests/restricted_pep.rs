@@ -107,8 +107,8 @@ fn request(socket: &Path, line: &str) -> String {
 }
 
 #[test]
-fn bounded_service_denies_mutation_replay_and_expired_claim() {
-    let active = fixture(5, 5_000, 0);
+fn bounded_service_denies_mutation_consumed_replay_and_expired_claim() {
+    let active = fixture(6, 5_000, 0);
     let mut server = spawn_server(&active);
 
     assert!(request(&active.socket, "EXECUTE\tdenied-1\tDELETE_MARKER")
@@ -132,6 +132,12 @@ fn bounded_service_denies_mutation_replay_and_expired_claim() {
         request(&active.socket, "EXECUTE\tmutated-2\tCREATE_MARKER"),
         "DENY PEP_PROTECTED_TARGET_EXISTS"
     );
+    fs::remove_file(&active.marker).unwrap();
+    assert_eq!(
+        request(&active.socket, "EXECUTE\tallowed-1\tCREATE_MARKER"),
+        "DENY ALREADY_CLAIMED"
+    );
+    assert!(!active.marker.exists());
     assert!(server.wait().unwrap().success());
     assert!(!active.socket.exists());
 

@@ -11,7 +11,9 @@ use crate::error::{Error, Result};
 use crate::evidence::{EvidenceConfig, EvidenceReconciliation, PartyType, SealedEvidence};
 use crate::jcs::Value;
 use crate::keys::KeyRing;
-use crate::local_auth::{LocalAuthenticator, LocalPrincipalMapping, LocalRole};
+use crate::local_auth::{
+    AuthenticatedIdentity, LocalAuthenticator, LocalPrincipalMapping, LocalRole,
+};
 use crate::policy::{
     AuthorizationTemplate, CapabilityRegistry, Decision, PolicyBundle, PolicyEffect, PolicyRule,
     Principal, Switchboard,
@@ -207,15 +209,33 @@ pub fn serve_restricted_pep(config_path: impl AsRef<Path>) -> Result<()> {
     fs::set_permissions(&config.socket, fs::Permissions::from_mode(0o666))
         .map_err(|_| pep_config("PEP socket permissions could not be restricted"))?;
 
-    for stream in listener.incoming().take(config.max_connections) {
-        let mut stream = match stream {
-            Ok(stream) => stream,
+    let mut authenticated_connections = 0;
+    while authenticated_connections < config.max_connections {
+        let (mut stream, _) = match listener.accept() {
+            Ok(connection) => connection,
             Err(_) => continue,
         };
-        let response = handle_connection(
+        if stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .is_err()
+        {
+            let response = Err(pep_request("PEP request timeout could not be applied"));
+            let _ = write_response(&mut stream, &response);
+            continue;
+        }
+        let identity = match authenticator.authenticate_stream(&stream) {
+            Ok(identity) => identity,
+            Err(error) => {
+                let response = Err(error);
+                let _ = write_response(&mut stream, &response);
+                continue;
+            }
+        };
+        authenticated_connections += 1;
+        let response = handle_authenticated_connection(
             &mut stream,
             &config,
-            &authenticator,
+            &identity,
             &adapter,
             &adapter_binary_hash,
             &authority,
@@ -228,20 +248,16 @@ pub fn serve_restricted_pep(config_path: impl AsRef<Path>) -> Result<()> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn handle_connection(
+fn handle_authenticated_connection(
     stream: &mut UnixStream,
     config: &RestrictedPepConfig,
-    authenticator: &LocalAuthenticator,
+    identity: &AuthenticatedIdentity,
     adapter: &AuthenticatedAdapterSession,
     adapter_binary_hash: &str,
     authority: &Authority,
     runner: &CooperativeShellRunner<'_>,
     executable: &Path,
 ) -> Result<String> {
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .map_err(|_| pep_request("PEP request timeout could not be applied"))?;
-    let identity = authenticator.authenticate_stream(stream)?;
     let request = read_request(stream)?;
     let action = if request.operation == REQUEST_OPERATION {
         if config.protected_marker.exists() {
@@ -261,7 +277,7 @@ fn handle_connection(
         &request.request_id,
         action,
     );
-    let outcome = authority.evaluate_authenticated(&identity, &intent)?;
+    let outcome = authority.evaluate_authenticated(identity, &intent)?;
     let Some(issued) = outcome.authorization.as_ref() else {
         return Ok(format!(
             "DENY {} {}",
@@ -275,7 +291,7 @@ fn handle_connection(
     let outcome = runner.execute(CooperativeShellRequest {
         authorization: issued,
         authorized_action: &authorized,
-        executor: &identity,
+        executor: identity,
         adapter,
         adapter_binary_hash,
     })?;
