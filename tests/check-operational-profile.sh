@@ -32,7 +32,7 @@ for topic in \
   "### Evidence, chain, or database integrity failure" \
   "### Stale exporter lock" \
   "### Torn or incomplete sink row" \
-  "### Audit backlog or 64 MiB hard stop" \
+  "### Audit backlog or configured audit hard stop" \
   "### Authorization-MAC or audit-sealing key compromise" \
   "### Trusted-time rollback or uncertainty" \
   "### Outcome unknown or reconciliation required" \
@@ -44,6 +44,8 @@ done
 
 require_text "$PROFILE" "production HA"
 require_text "$PROFILE" "no safe rotation implementation"
+require_text "$PROFILE" "EvidenceConfig.max_export_bytes"
+require_text "$PROFILE" "two live role-key ids"
 require_text "$INCIDENT" "Never delete the persistent lock file to bypass a held advisory lock"
 require_text "$INCIDENT" "disable automatic retry"
 require_text "$INCIDENT" "does not convert builder verification into independent acceptance"

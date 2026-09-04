@@ -2,7 +2,12 @@
 
 ## Overview
 
-Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execution trust checkpoint, plus product extensions and a **0.2 schema/policy/typed-action/JCS/hash oracle**. Runtime decisions remain 0.1:
+The repository contains two deliberately distinct lines:
+
+- a cooperative **TL-PX 0.1 JavaScript reference** plus a **0.2 schema/policy/typed-action/JCS/hash oracle**; and
+- an emerging Rust 0.2 authority whose bounded evaluate/issue/atomic-claim scope is independently accepted at `aed80e2`, while later execution, operations, handoff, and restricted-PEP candidates remain unaccepted.
+
+The public JavaScript runtime still emits 0.1 records:
 
 - **Switchboard** — identity / whitelist / credibility / approval routing  
 - **Air-gapped audit chain** — authorization derived only from append-only JSONL  
@@ -10,7 +15,7 @@ Northstar is a **local reference implementation** of the **TL-PX 0.1** pre-execu
 
 It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`) and pairs with **Prism** as an optional intent signal dialect.
 
-## Logical layers
+## JavaScript 0.1 reference layers
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
@@ -64,6 +69,10 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 | `standard.mjs` | Standard id/version/record type constants |
 | `ids.mjs` | UUID, receipt id (time + entropy) |
 | `index.mjs` | Public exports |
+
+## Emerging Rust authority boundary
+
+The Rust line owns durable policy selection, authenticated local identities, approval and revocation state, atomic one-time claim, terminal execution evidence, bounded local audit export, and candidate protected execution. Exact Phase 4 remediation `ee720d4` passes builder verification but awaits independent re-review. Slice 3.9 still lacks its administrator-backed dedicated-identity acceptance run, so neither Section 3 completion nor forced mediation is claimed. See [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) for delivery status and [the Phase 4 remediation report](../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) for exact evidence.
 
 ## CLI
 

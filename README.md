@@ -19,6 +19,8 @@
 | AI collaborator | [`NORTHSTAR-SESSION-START.md`](NORTHSTAR-SESSION-START.md) |
 | Private continuity | local `skills.md` (gitignored) |
 
+Latest point-in-time handoff: [`docs/EOD-SUMMARY-2026-08-28.md`](docs/EOD-SUMMARY-2026-08-28.md). The build sheet and dated verification reports remain authoritative for acceptance.
+
 ---
 
 ## Repository layout
@@ -112,7 +114,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates through 3.8 add policy activation, typed hashes, local authenticated roles, approval/revocation state, a durable terminal execution-receipt boundary, a mutually authenticated local adapter contract, and one same-UID cooperative direct-argv runner. Candidate `e6f2bb0` adds a bounded restricted-PEP service and acceptance harness, but its defining separate-OS-identity test has not run. Rust commit `aed80e2` independently passes only the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Full Section 3 verification is deferred, and neither forced mediation nor 3.9 completion is claimed. The running public gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates add policy activation, typed hashes, authenticated roles, approval/revocation and execution state, adapter contracts, bounded cooperative/restricted runners, local audit operations, and optional handoff preflight. Candidate `e6f2bb0` adds a bounded restricted-PEP service and acceptance harness, but its defining separate-OS-identity test has not run. Exact Phase 4 remediation `ee720d4` is builder-verified, not independently accepted. Rust commit `aed80e2` independently passes only the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Full Section 3 verification is deferred, and neither forced mediation nor 3.9 completion is claimed. The running public gate is still TL-PX 0.1.
 
 ---
 

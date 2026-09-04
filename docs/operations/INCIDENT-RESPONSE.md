@@ -45,7 +45,7 @@
 - Determine whether the database row remains pending and whether a complete copy exists elsewhere.
 - Recovery requires an explicitly reviewed forensic procedure or restoration from a verified backup. The exporter intentionally refuses to guess.
 
-### Audit backlog or 64 MiB hard stop
+### Audit backlog or configured audit hard stop
 
 - Stop new admissions no later than the critical threshold in the operations profile.
 - Drain only through the verified exporter. Do not mark rows exported manually.

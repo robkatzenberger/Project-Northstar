@@ -1,6 +1,6 @@
 # Bounded multi-agent handoff profile
 
-**Status:** slice 4.5 local preflight candidate at `536111a`; independent Phase 4 review returned changes requested
+**Status:** slice 4.5 local preflight candidate at `536111a`; independent Phase 4 review returned changes requested; exact remediation `ee720d4` narrows the claim to optional co-presentation preflight and awaits independent re-review
 
 This optional profile defines a co-present handoff preflight as a fresh TL-PX evaluation for one exact action. It does not transfer an existing authorization and it does not create a bearer handoff token. It is not universal multi-agent mediation: the ordinary authority evaluation API can still name a different executor without proving that executor is present at evaluation time. Deployments must not infer B's participation merely because an authorization names B; B is authenticated later at claim.
 

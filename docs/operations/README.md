@@ -4,13 +4,13 @@
 **Scope:** operational readiness for one SQLite authority and one protected local audit-export file  
 **Not:** a production HA, remote-ledger, managed-key, or forced-mediation profile
 
-This profile turns fail-closed behavior into explicit operator duties. It does not convert a local preview into a production service. The separate slice 3.9 administrator-backed enforcement test and Phase 4 independent review remain required.
+This profile turns fail-closed behavior into explicit operator duties. It does not convert a local preview into a production service. The separate slice 3.9 administrator-backed enforcement test and independent re-review of exact Phase 4 remediation `ee720d4` remain required.
 
 ## Readiness decision
 
 A deployment is ready for bounded testing only when every item below is true:
 
-- The exact build commit, configuration digest, policy manifest digest, adapter digest, and five role-key ids are recorded outside the authority database. Key bytes are never placed in the record.
+- The exact build commit, configuration digest, policy manifest digest, adapter digest, configured export-byte limit, and the two live role-key ids—authorization MAC and audit sealing—are recorded outside the authority database. Key bytes are never placed in the record. Service identity, operator authentication, and tenant trust remain reserved future key purposes.
 - The authority database, Unix socket/configuration, audit directory, audit sink, and lock are owned by the intended service identity with the documented restrictive modes.
 - The requester cannot write authority configuration, policy, adapter binaries, the database, audit files, or the protected capability through an alternate path.
 - Authority startup validation succeeds, and `FileAuditExporter::operational_readiness()` returns successfully before requests are admitted. `Authority::operational_snapshot()` covers SQLite only and is not the deploy/restore readiness boundary.
@@ -18,7 +18,7 @@ A deployment is ready for bounded testing only when every item below is true:
 - The audit exporter performs an idempotent no-op or a successful bounded export. The persistent lock file remains present, but its nonblocking advisory lock is acquirable; no live competing exporter, torn row, history mismatch, acknowledgement-MAC failure, or sink gap exists.
 - A verified offline backup/restore rehearsal has completed on a disposable copy. Live SQLite files were not copied while writes were active.
 - Alert ownership, incident commander, security escalation, key custodian, reconciler, and protected-system owner are named.
-- The 64 MiB local sink hard stop is acceptable for the test window. There is no safe rotation implementation in this profile.
+- The configured local sink hard stop, never above the 64 MiB profile ceiling, is acceptable for the test window. There is no safe rotation implementation in this profile.
 - Operators accept every non-claim in the applicable slice reports.
 
 If any item is false or unknown, keep protected capability access disabled.
@@ -43,11 +43,11 @@ The snapshot does not inspect disk capacity, socket ownership, process identity 
 
 ## Audit capacity and backpressure
 
-The local exporter enforces `MAX_AUDIT_SINK_BYTES = 64 MiB` before append. It does not rotate or compact history.
+Authority admission enforces the configured `EvidenceConfig.max_export_bytes` against the exact complete canonical export inside the same state transaction. The configured limit must be between 1 byte and the `MAX_AUDIT_SINK_BYTES = 64 MiB` profile ceiling. The exporter independently refuses to append beyond the ceiling. This profile does not rotate or compact history.
 
-- At 32 MiB: warning; forecast time to the hard stop and schedule an orderly test shutdown.
-- At 48 MiB: critical; stop admitting new work and drain/export existing transitions.
-- At or near 64 MiB: keep capability admission disabled. Do not delete, truncate, compress in place, or rename the active history and pretend export can continue.
+- At 50% of the configured limit: warning; forecast time to the hard stop and schedule an orderly test shutdown.
+- At 75% of the configured limit: critical; stop admitting new work and drain/export existing transitions.
+- At or near the configured limit: keep capability admission disabled. Do not delete, truncate, compress in place, or rename the active history and pretend export can continue.
 
 Continuing beyond the hard stop requires a separately designed segmented/remote export increment and review. Increasing or bypassing the bound is not an incident workaround.
 

@@ -74,10 +74,12 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 
 ## Status snapshot
 
-- TL-PX 0.1 frozen; 0.2 accepted evaluation/authorization contract core through 2.3 plus unaccepted local candidates through exact-commit builder-verified cooperative slice 3.8 `7c41450`
+- TL-PX 0.1 frozen; 0.2 evaluation/authorization contract core through 2.3 and bounded Rust 2.3d scope at `aed80e2` accepted; later local candidates remain unaccepted
+- Restricted-PEP candidate `e6f2bb0` still lacks its dedicated-identity acceptance run; forced mediation is not established
+- Independent Phase 4 review returned **changes requested**; exact remediation `ee720d4` passes builder verification and awaits independent re-review
 - Reference implementation: Switchboard + air-gap + fail-closed policy compile (still emits 0.1)  
 - Conformance + formal technical test #1 **passed**  
-- Local-only until public release is intentionally chosen  
+- A private baseline remote exists; post-baseline hardening remains local until an explicit push is chosen
 
 ## Open product questions
 
@@ -87,4 +89,4 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 4. Signed authorization tokens profile  
 5. Governance split: standards nonprofit vs commercial Glass ops  
 
-See [Architecture](./architecture.md) and [SPEC-v0.1](./standard/SPEC-v0.1.md).
+See [Architecture](./architecture.md), frozen [SPEC-v0.1](./standard/SPEC-v0.1.md), and draft [SPEC-v0.2](./standard/SPEC-v0.2.md).

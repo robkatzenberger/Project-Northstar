@@ -1,10 +1,10 @@
 # Northstar / TL-PX — Documentation Suite
 
 **Project codename:** Northstar  
-**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope. Later candidates remain unaccepted. The independent Phase 4 review returned **changes requested** and local remediation awaits full verification/re-review. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run; execution-side evidence schema acceptance remains deferred. The JavaScript gate still emits 0.1.
+**Standard:** TL-PX v0.1 frozen; v0.2 accepted evaluation/authorization schema core through 2.3 plus accepted 2.3d local-authority scope. Later candidates remain unaccepted. The independent Phase 4 review returned **changes requested**; exact remediation `ee720d4` passes the full non-privileged builder matrix and awaits independent re-review. Restricted-PEP candidate `e6f2bb0` still needs its separate-identity acceptance run; execution-side evidence schema acceptance remains deferred. The JavaScript gate still emits 0.1.
 **Reference implementation:** Glass / `tlpx-reference`  
 **License:** Apache-2.0  
-**Status:** Local development (not published to a remote by default)
+**Status:** Private baseline remote; post-baseline work remains local until explicitly pushed
 
 This is the full documentation hub for the Trust Layer air-gapped pre-execution checkpoint: intent before action, Switchboard identity routing, deterministic policy, human escalation, fail-closed execution, and dual human/machine accountability.
 
@@ -28,6 +28,7 @@ This is the full documentation hub for the Trust Layer air-gapped pre-execution 
 | Document | Description |
 | --- | --- |
 | [vision.md](./vision.md) | Problem, product thesis, non-goals, success metrics |
+| [EOD-SUMMARY-2026-08-28.md](./EOD-SUMMARY-2026-08-28.md) | Latest point-in-time project handoff; not specification or acceptance evidence |
 | [concepts.md](./concepts.md) | Core mental model: Prism, Switchboard, Glass, parties, chain |
 | [architecture.md](./architecture.md) | Layers, data flow, module map, inheritance from APEX-Lite |
 | [glossary.md](./glossary.md) | Terms and enums |

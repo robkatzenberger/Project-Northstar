@@ -150,6 +150,8 @@ Inspect `git status` before acting. Do not commit or push unless Robert asks.
 
 Evidence: `tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`, `tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`, `tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`, the dated slice reports, `tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`, and the explicitly unverified 3.9 candidate report. Sequence and bars: `docs/BUILD-SPEC-SHEET.md`. Protocol: `docs/standard/SPEC-v0.2.md`.
 
+Latest point-in-time handoff: `docs/EOD-SUMMARY-2026-08-28.md`. It is a navigation summary, not acceptance evidence.
+
 ## 6. Non-negotiable engineering rules
 
 - Switchboard runs before policy and hard-denies unknown, untrusted, or out-of-scope principals.
