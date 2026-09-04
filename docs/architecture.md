@@ -72,7 +72,7 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 
 ## Emerging Rust authority boundary
 
-The Rust line owns durable policy selection, authenticated local identities, approval and revocation state, atomic one-time claim, terminal execution evidence, bounded local audit export, and candidate protected execution. Exact Phase 4 remediation `ee720d4` passes builder verification but awaits independent re-review. Slice 3.9 still lacks its administrator-backed dedicated-identity acceptance run, so neither Section 3 completion nor forced mediation is claimed. See [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) for delivery status and [the Phase 4 remediation report](../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) for exact evidence.
+The Rust line owns durable policy selection, authenticated local identities, approval and revocation state, atomic one-time claim, terminal execution evidence, bounded local audit export, and candidate protected execution. Exact aggregate candidate `4ca86d6` passes the Rust builder matrix and the bounded macOS slice 3.9 administrator gate but awaits independent re-review. Neither Section 3 completion nor universal forced mediation is claimed. See [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) for delivery status and [the exact 3.9 report](../tests/reports/slice-3.9-administrator-gate-2026-09-04-054905.md) for the bounded separate-identity evidence.
 
 ## CLI
 

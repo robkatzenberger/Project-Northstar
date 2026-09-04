@@ -8,7 +8,7 @@
 **License:** Apache-2.0  
 **Running reference:** JavaScript TL-PX 0.1
 
-**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later candidates remain unaccepted. The independent Phase 4 review of target `64d0820` returned **changes requested**. Exact local remediation commit `ee720d4` passes the full non-privileged builder matrix and awaits independent re-review. The separate 3.9 administrator-backed dedicated-identity test remains outstanding.
+**Emerging authoritative core:** accepted Rust local-authority MVP at `aed80e2`; later candidates remain unaccepted. The independent Phase 4 review of target `64d0820` returned **changes requested**. Exact aggregate candidate `4ca86d6` passes the Rust builder matrix and the separate administrator-backed macOS 3.9 dedicated-identity gate; it awaits independent re-review.
 
 **Who should read what**
 
@@ -38,7 +38,7 @@ northstar/
     javascript/              Frozen cooperative 0.1 reference + 0.2 contract oracle
     go/                      Historical cooperative 0.1-era secondary reference
     java/                    Policy + Switchboard evaluate
-    rust/                    tlpx local authority MVP + unverified restricted-PEP candidate
+    rust/                    tlpx local authority MVP + builder-verified restricted-PEP candidate
     python/                  Placeholder
   var/                       Local audit logs (gitignored)
 ```
@@ -63,14 +63,16 @@ northstar/
 | [`tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md`](tests/reports/slice-3.6-execution-reconciliation-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.6 commit `9028346` |
 | [`tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md`](tests/reports/slice-3.7-authenticated-adapter-builder-verification-2026-08-18.md) | Full exact-commit builder matrix and limits for local 3.7 commit `518899a` |
 | [`tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md) | Full exact-commit builder matrix and limits for local cooperative 3.8 commit `7c41450` |
-| [`tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Restricted-PEP candidate `e6f2bb0`; required separate-identity acceptance test not yet run |
+| [`tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md) | Point-in-time pre-gate report for restricted-PEP candidate `e6f2bb0`; superseded for current status by the exact 2026-09-04 gate report |
+| [`tests/reports/slice-3.9-administrator-gate-2026-09-04-054905.md`](tests/reports/slice-3.9-administrator-gate-2026-09-04-054905.md) | Exact candidate `4ca86d6`; local administrator-backed macOS separate-identity gate passed with cleanup |
+| [`tests/reports/exact-candidate-4ca86d6-builder-verification-2026-09-04.md`](tests/reports/exact-candidate-4ca86d6-builder-verification-2026-09-04.md) | Combined exact-candidate Rust and bounded slice 3.9 local builder evidence; independent re-review remains open |
 | [`tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md`](tests/reports/slice-4.1-separated-key-roles-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original key-role candidate; later review requested changes |
 | [`tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md`](tests/reports/slice-4.2-durable-audit-export-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original audit-export candidate; later review requested changes |
 | [`tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md`](tests/reports/slice-4.3-race-time-crash-assurance-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original assurance candidate; later review requested changes |
 | [`tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.4-operational-readiness-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the original operations candidate; later review requested changes |
 | [`tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md`](tests/reports/slice-4.5-multi-agent-handoff-builder-verification-2026-08-27.md) | Point-in-time pre-review builder evidence for the optional handoff wrapper; later review requested changes |
 | [`tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md`](tests/reports/slice-4.6-external-security-review-readiness-builder-verification-2026-08-27.md) | Point-in-time builder evidence for review package `d51e46c`; independent disposition was changes requested |
-| [`tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) | Exact-commit builder verification for remediation `ee720d4`; independent re-review and slice 3.9 remain open |
+| [`tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](tests/reports/phase-4-remediation-builder-verification-2026-08-28.md) | Exact-commit builder verification for remediation `ee720d4`; later aggregate candidate `4ca86d6` still needs independent re-review |
 | [`implementations/README.md`](implementations/README.md) | Multi-language guide |
 | [`implementations/javascript/`](implementations/javascript/) | **Run JS code / tests here** |
 
@@ -114,7 +116,7 @@ The accepted direction is a small Rust authoritative core/PEP, a TypeScript-read
 
 > One authorization permits one authenticated executor to perform one exact action, one time.
 
-See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates add policy activation, typed hashes, authenticated roles, approval/revocation and execution state, adapter contracts, bounded cooperative/restricted runners, local audit operations, and optional handoff preflight. Candidate `e6f2bb0` adds a bounded restricted-PEP service and acceptance harness, but its defining separate-OS-identity test has not run. Exact Phase 4 remediation `ee720d4` is builder-verified, not independently accepted. Rust commit `aed80e2` independently passes only the bounded local evaluate → authorize → SQLite atomic-claim acceptance gate. Full Section 3 verification is deferred, and neither forced mediation nor 3.9 completion is claimed. The running public gate is still TL-PX 0.1.
+See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requirements. The 2.3 evaluation/authorization schema core is accepted; later unaccepted local candidates add policy activation, typed hashes, authenticated roles, approval/revocation and execution state, adapter contracts, bounded cooperative/restricted runners, local audit operations, and optional handoff preflight. Exact aggregate candidate `4ca86d6` passes the local Rust matrix and the bounded macOS separate-identity 3.9 administrator gate. Rust commit `aed80e2` remains the independently accepted boundary. Full Section 3 verification and independent re-review are deferred; the 3.9 pass does not establish production readiness, hostile same-UID containment, or universal forced mediation. The running public gate is still TL-PX 0.1.
 
 ---
 
@@ -136,7 +138,7 @@ See [`docs/BUILD-SPEC-SHEET.md`](docs/BUILD-SPEC-SHEET.md) for planned requireme
 - [x] Slice 3.6 terminal execution receipt and unknown-outcome reconciliation local commit `9028346` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.7 authenticated adapter contract and integrity tests local commit `518899a` (full exact-commit builder matrix passed; not independently accepted)
 - [x] Slice 3.8 bounded cooperative shell runner local commit `7c41450` (full exact-commit builder matrix passed; not forced mediation or independently accepted)
-- [ ] Slice 3.9 restricted-PEP candidate local commit `e6f2bb0` (ordinary checks passed; required `sudo` separate-identity acceptance test not run)
+- [x] Slice 3.9 bounded restricted-PEP builder gate (exact aggregate candidate `4ca86d6`; administrator-backed macOS separate-identity acceptance passed; independent acceptance remains open)
 - [x] Slice 4.1 original key-role candidate through local commit `efa7f0f` (builder verified; independent review requested HMAC naming and live-role scope corrections)
 - [x] Slice 4.2 durable local audit export and reconciliation at `833d8d4` (exact builder/red-team matrix passed; not independently accepted)
 - [x] Slice 4.3 concurrency, trusted-time, cancellation-race, and crash/restart assurance at `eb0e624` (exact builder/red-team matrix passed; not independently accepted)

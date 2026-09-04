@@ -30,5 +30,5 @@ The ordinary decision, authorization, claim, and execution evidence identifies t
 - The `evaluate_handoff_authenticated*` wrapper proves both local identity objects were presented to that call only. Code with direct access to the ordinary `Authority` API can bypass this optional preflight, so it is an API profile, not a security boundary.
 - Test identities use the existing authenticated local identity abstraction. Same-UID fixtures do not prove separate operating-system identity or forced mediation.
 - This profile does not provide agent discovery, cross-authority federation, network transport, confidentiality, public-key proof of possession, portable claim tickets, or hierarchical authorization.
-- It does not complete the separate slice 3.9 administrator-backed acceptance gate.
+- It is not evidence for the separate slice 3.9 administrator-backed acceptance gate, which passed independently for exact aggregate candidate `4ca86d6`.
 - Builder testing is not independent review or acceptance; the independent Phase 4 reviewer rejected the stronger handoff-security claim.

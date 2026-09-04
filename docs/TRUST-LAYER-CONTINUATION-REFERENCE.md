@@ -81,8 +81,8 @@ The next continuation gate should remain narrow:
 
 1. Freeze feature expansion.
 2. Produce a clean exact candidate commit for the current H1/M2 and composition-test changes.
-3. Run and separately record the dedicated-identity slice 3.9 administrator gate.
-4. Obtain independent re-review of the exact candidate.
+3. Preserve the completed dedicated-identity slice 3.9 administrator-gate evidence for exact candidate `4ca86d6`.
+4. Obtain independent re-review of that exact candidate.
 5. Demonstrate one real external capability for which exact-action binding, authenticated single-use claim, and durable execution evidence close a gap not covered by ordinary agent sandboxing or review.
 
 If that sequence cannot establish a meaningful enforcement advantage, preserve Prism and APEX-Lite as historical references and stop expanding Northstar. If it succeeds, continue Northstar as a provider-neutral authorization-and-receipt kernel rather than a universal trust or orchestration platform.
