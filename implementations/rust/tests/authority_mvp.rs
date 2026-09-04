@@ -2935,7 +2935,7 @@ fn trusted_time_rollback_is_rejected_and_persists_across_restart() {
             .unwrap();
         assert_eq!(exact_replay.receipt_id, outcome.receipt_id);
         let rollback = authority
-            .evaluate_and_issue_at("agent.requester", &intent("req-time-rollback"), NOW - 1)
+            .evaluate_and_issue_at("agent.requester", &intent("req-time-rollback"), NOW - 1_001)
             .unwrap_err();
         assert_eq!(rollback.code(), "TRUSTED_TIME_INVALID");
         assert_eq!(authority.evaluation_event_count().unwrap(), 1);
@@ -2947,7 +2947,7 @@ fn trusted_time_rollback_is_rejected_and_persists_across_restart() {
             .evaluate_and_issue_at(
                 "agent.requester",
                 &intent("req-time-restart-rollback"),
-                NOW - 1,
+                NOW - 1_001,
             )
             .unwrap_err();
         assert_eq!(rollback.code(), "TRUSTED_TIME_INVALID");

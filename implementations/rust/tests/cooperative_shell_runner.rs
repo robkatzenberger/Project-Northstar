@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -6,9 +7,9 @@ use std::sync::Barrier;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tlpx::{
     exact_match_policy_content_hash, sha256_file, Adapter, AdapterContract, AdapterRegistry,
-    AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
-    AuthorizationTemplate, AuthorizedAction, AuthzState, CapabilityRegistry,
-    ConfiguredPolicyBundle, CooperativeShellConfig, CooperativeShellOutcome,
+    ApprovalOutcome, ApprovalPresentation, AuthenticatedAdapterSession, AuthenticatedIdentity,
+    Authority, AuthorityConfig, AuthorizationTemplate, AuthorizedAction, AuthzState,
+    CapabilityRegistry, ConfiguredPolicyBundle, CooperativeShellConfig, CooperativeShellOutcome,
     CooperativeShellRequest, CooperativeShellRunner, Decision, EvidenceConfig, KeyRing,
     LocalAuthenticator, LocalPrincipalMapping, LocalRole, PartyType, PolicyBundle,
     PolicyBundleManifest, PolicyCatalog, PolicyEffect, PolicyIssuer, PolicyIssuerType, PolicyRule,
@@ -27,6 +28,22 @@ fn identity(principal_id: &str, role: LocalRole) -> AuthenticatedIdentity {
         party_type: PartyType::Machine,
         roles: vec![role],
         approval_routes: vec![],
+    }])
+    .unwrap();
+    let (server, client) = UnixStream::pair().unwrap();
+    let identity = authenticator.authenticate_stream(&server).unwrap();
+    drop(client);
+    identity
+}
+
+fn human_operator_identity() -> AuthenticatedIdentity {
+    let authenticator = LocalAuthenticator::new(vec![LocalPrincipalMapping {
+        uid: nix::unistd::Uid::effective().as_raw(),
+        gid: nix::unistd::Gid::effective().as_raw(),
+        principal_id: "operator.shell-review".into(),
+        party_type: PartyType::Human,
+        roles: vec![LocalRole::Operator],
+        approval_routes: vec!["ops.shell".into()],
     }])
     .unwrap();
     let (server, client) = UnixStream::pair().unwrap();
@@ -65,6 +82,10 @@ fn adapter_session() -> AuthenticatedAdapterSession {
 }
 
 fn authority_config(targets: &[String]) -> AuthorityConfig {
+    authority_config_with_review(targets, false)
+}
+
+fn authority_config_with_review(targets: &[String], require_review: bool) -> AuthorityConfig {
     let template = AuthorizationTemplate {
         derived_risk: Risk::High,
         capability: "shell.command".into(),
@@ -72,11 +93,24 @@ fn authority_config(targets: &[String]) -> AuthorityConfig {
         risk_reasons: vec!["protected_shell_command".into()],
         risk_source: "policy:cooperative-shell-runner@1.0.0".into(),
     };
+    let effect = if require_review {
+        PolicyEffect::require_approval(
+            "POLICY_REQUIRE_APPROVAL",
+            template,
+            vec!["ops.shell".into()],
+        )
+    } else {
+        PolicyEffect::allow("POLICY_ALLOW", template)
+    };
     let policy = PolicyBundle {
         rules: vec![PolicyRule {
-            id: "allow-shell-prototype".into(),
+            id: if require_review {
+                "review-shell-prototype".into()
+            } else {
+                "allow-shell-prototype".into()
+            },
             action: "shell.exec".into(),
-            effect: PolicyEffect::allow("POLICY_ALLOW", template),
+            effect,
         }],
         default: PolicyEffect::deny("POLICY_DENY"),
     };
@@ -348,6 +382,141 @@ fn protected_marker_executes_once_and_replay_is_blocked() {
     assert!(marker.exists());
     let replay = execute(&runner, &issued, &authorized).unwrap_err();
     assert_eq!(replay.code(), "ALREADY_CLAIMED");
+    std::fs::remove_file(marker).unwrap();
+}
+
+#[test]
+fn human_review_gates_side_effect_and_seals_metadata_only_evidence() {
+    let (touch, pinned) = executable("/usr/bin/touch");
+    let authority = Authority::in_memory(authority_config_with_review(
+        &[touch.to_string_lossy().into()],
+        true,
+    ))
+    .unwrap();
+    let marker = temp_marker("runner-human-review");
+    let arguments = plan(
+        vec![marker.to_string_lossy().into_owned()],
+        &std::env::temp_dir(),
+        vec![],
+        500,
+    );
+    let private_payload = b"private-payload-that-must-not-enter-the-authority";
+    let payload_hash = format!("sha256:{:x}", Sha256::digest(private_payload));
+    let intent = SubmittedIntent {
+        requesting_principal: "agent.requester".into(),
+        executing_principal: "runtime.shell".into(),
+        action: "shell.exec".into(),
+        intent_class: "protected_command".into(),
+        target: touch.to_string_lossy().into_owned(),
+        arguments: arguments.clone(),
+        environment: "test".into(),
+        tenant: "local_test".into(),
+        declared_risk: Risk::High,
+        data_classes: vec!["private".into()],
+        requested_capability: "shell.command".into(),
+        resource_scope: vec![touch.to_string_lossy().into_owned()],
+        payload_hash: Some(payload_hash.clone()),
+        artifact_hash: None,
+        adapter: Adapter {
+            id: "adapter.shell".into(),
+            version: "1.0.0".into(),
+        },
+        request_id: "runner-human-review".into(),
+        retry_of_receipt_id: None,
+    };
+    let pending = authority
+        .evaluate_authenticated(&identity("agent.requester", LocalRole::Requester), &intent)
+        .unwrap();
+    assert_eq!(pending.decision, Decision::RequireApproval);
+    assert!(pending.authorization.is_none());
+    assert!(!marker.exists());
+
+    let operator = human_operator_identity();
+    let view = authority
+        .pending_approval_authenticated(&pending.receipt_id, &operator)
+        .unwrap();
+    assert!(view.authorized_action_json.contains(&payload_hash));
+    assert!(!view
+        .authorized_action_json
+        .as_bytes()
+        .windows(private_payload.len())
+        .any(|window| window == private_payload));
+    let resolution = authority
+        .resolve_pending_authenticated(
+            &pending.receipt_id,
+            &operator,
+            ApprovalOutcome::Approve,
+            ApprovalPresentation {
+                authorized_action_hash: view.authorized_action_hash.clone(),
+                renderer_id: "approval.terminal".into(),
+                renderer_version: "1.0.0".into(),
+            },
+        )
+        .unwrap();
+    let issued = resolution.authorization.unwrap();
+    let authorized = AuthorizedAction {
+        requesting_principal: intent.requesting_principal,
+        executing_principal: intent.executing_principal,
+        action: intent.action,
+        target: intent.target,
+        arguments,
+        environment: intent.environment,
+        tenant: intent.tenant,
+        derived_risk: Risk::High,
+        effective_risk: Risk::High,
+        risk_reasons: vec!["protected_shell_command".into()],
+        risk_source: "policy:cooperative-shell-runner@1.0.0".into(),
+        data_classes: vec!["private".into()],
+        capability: "shell.command".into(),
+        resource_scope: issued.resource_scope.clone(),
+        payload_hash: Some(payload_hash.clone()),
+        artifact_hash: None,
+        policy_bundle_hash: issued.policy_bundle_hash.clone(),
+        adapter: intent.adapter,
+    };
+    assert_eq!(
+        authorized.authorized_action_hash().unwrap(),
+        issued.authorized_action_hash
+    );
+    let runner = CooperativeShellRunner::new(&authority, runner_config(vec![pinned], 1_024));
+    let outcome = execute(&runner, &issued, &authorized).unwrap();
+    assert_eq!(outcome.receipt.state, tlpx::ExecutionState::Completed);
+    assert!(marker.exists());
+
+    let evidence = authority.pending_evidence(20).unwrap();
+    let evidence_text = evidence
+        .iter()
+        .map(|row| row.record_json.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(evidence_text.contains("REQUIRE_APPROVAL"));
+    assert!(evidence_text.contains("APPROVE"));
+    assert!(evidence_text.contains(&issued.authorized_action_hash));
+    assert!(evidence_text.contains(&issued.intent_hash));
+    assert!(!evidence_text
+        .as_bytes()
+        .windows(private_payload.len())
+        .any(|window| { window == private_payload }));
+    for record_type in [
+        "tlpx.decision",
+        "tlpx.operator_action",
+        "tlpx.authorization",
+        "tlpx.authorization_claim",
+        "tlpx.execution",
+    ] {
+        assert!(
+            evidence.iter().any(|row| row.record_type == record_type),
+            "missing evidence record {record_type}"
+        );
+    }
+    assert_eq!(
+        evidence
+            .iter()
+            .filter(|row| row.record_type == "tlpx.execution")
+            .count(),
+        1
+    );
+    assert_eq!(authority.reconcile_evidence().unwrap().total, 5);
     std::fs::remove_file(marker).unwrap();
 }
 

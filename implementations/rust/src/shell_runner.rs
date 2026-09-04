@@ -23,7 +23,7 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 const SHELL_ACTION: &str = "shell.exec";
 const MAX_ARGUMENTS: usize = 64;
@@ -173,7 +173,7 @@ impl<'a> CooperativeShellRunner<'a> {
 
     pub fn execute(&self, request: CooperativeShellRequest<'_>) -> Result<CooperativeShellOutcome> {
         let plan = self.validate_request(&request)?;
-        let started_at_ms = wall_time_ms()?;
+        let started_at_ms = self.authority.trusted_now_ms()?;
         let executed = request.authorized_action.binding();
         let executed = ExecutedAction {
             executing_principal: executed.executing_principal,
@@ -819,17 +819,6 @@ fn result_summary(
 fn monotonic_end(started_at_ms: i64, elapsed: Duration) -> i64 {
     let elapsed_ms = i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX);
     started_at_ms.saturating_add(elapsed_ms)
-}
-
-fn wall_time_ms() -> Result<i64> {
-    let duration = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| {
-        Error::coded(
-            "SHELL_RUNNER_TIME_INVALID",
-            "system time precedes Unix epoch",
-        )
-    })?;
-    i64::try_from(duration.as_millis())
-        .map_err(|_| Error::coded("SHELL_RUNNER_TIME_INVALID", "system time overflow"))
 }
 
 fn runner_config_error(message: impl Into<String>) -> Error {

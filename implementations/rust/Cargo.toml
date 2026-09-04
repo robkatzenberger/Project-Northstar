@@ -7,6 +7,11 @@ description = "Northstar TL-PX 0.2 local authority MVP"
 publish = false
 rust-version = "1.70"
 
+[features]
+default = []
+# Test-only fixed-time seam. Runtime builds must leave this disabled.
+deterministic-time = []
+
 [dependencies]
 getrandom = "0.3"
 hmac = "0.12"
@@ -21,3 +26,23 @@ serde_json = "1"
 [lib]
 name = "tlpx"
 path = "src/lib.rs"
+
+[[test]]
+name = "authority_mvp"
+path = "tests/authority_mvp.rs"
+required-features = ["deterministic-time"]
+
+[[test]]
+name = "evidence_outbox"
+path = "tests/evidence_outbox.rs"
+required-features = ["deterministic-time"]
+
+[[test]]
+name = "multi_agent_handoff"
+path = "tests/multi_agent_handoff.rs"
+required-features = ["deterministic-time"]
+
+[[test]]
+name = "policy_activation"
+path = "tests/policy_activation.rs"
+required-features = ["deterministic-time"]

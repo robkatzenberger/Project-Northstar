@@ -653,6 +653,27 @@ impl Authority {
         Self::from_connection(connection, config)
     }
 
+    pub(crate) fn trusted_now_ms(&self) -> Result<i64> {
+        now_ms()
+    }
+
+    fn test_time_override(&self, presented_at_ms: i64) -> Result<Option<i64>> {
+        validate_external_time(presented_at_ms)?;
+        #[cfg(feature = "deterministic-time")]
+        {
+            Ok(Some(presented_at_ms))
+        }
+        #[cfg(not(feature = "deterministic-time"))]
+        {
+            Ok(None)
+        }
+    }
+
+    fn resolve_transition_time(&self, presented_at_ms: i64) -> Result<i64> {
+        self.test_time_override(presented_at_ms)?
+            .map_or_else(now_ms, Ok)
+    }
+
     fn from_connection(connection: Connection, config: AuthorityConfig) -> Result<Self> {
         connection
             .busy_timeout(Duration::from_secs(5))
@@ -962,7 +983,7 @@ impl Authority {
         authenticated_requester: &str,
         intent: &SubmittedIntent,
     ) -> Result<EvaluationOutcome> {
-        self.evaluate_trusted_embedding_at(authenticated_requester, intent, now_ms()?)
+        self.evaluate_trusted_embedding_with_time(authenticated_requester, intent, None)
     }
 
     pub fn evaluate_authenticated(
@@ -981,14 +1002,15 @@ impl Authority {
         evaluated_at_ms: i64,
     ) -> Result<EvaluationOutcome> {
         requester.require_role(LocalRole::Requester)?;
-        self.evaluate_trusted_embedding_at(requester.principal_id(), intent, evaluated_at_ms)
+        let evaluated_at_ms = self.test_time_override(evaluated_at_ms)?;
+        self.evaluate_trusted_embedding_with_time(requester.principal_id(), intent, evaluated_at_ms)
     }
 
-    fn evaluate_trusted_embedding_at(
+    fn evaluate_trusted_embedding_with_time(
         &self,
         authenticated_requester: &str,
         intent: &SubmittedIntent,
-        evaluated_at_ms: i64,
+        evaluated_at_ms: Option<i64>,
     ) -> Result<EvaluationOutcome> {
         let scoped_principal = nonempty(authenticated_requester);
         let scoped_request_id = nonempty(&intent.request_id);
@@ -1001,6 +1023,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
+        let evaluated_at_ms = evaluated_at_ms.map_or_else(now_ms, Ok)?;
 
         if let (Some(principal), Some(request_id)) = (scoped_principal, scoped_request_id) {
             if let Some(existing) = load_idempotent(&transaction, principal, request_id)? {
@@ -1248,6 +1271,7 @@ impl Authority {
         claimed_at_ms: i64,
     ) -> Result<ClaimRecord> {
         executor.require_role(LocalRole::Executor)?;
+        let claimed_at_ms = self.resolve_transition_time(claimed_at_ms)?;
         self.claim_trusted_embedding_at(
             authorization_id,
             executor.principal_id(),
@@ -1435,6 +1459,7 @@ impl Authority {
         started_at_ms: i64,
     ) -> Result<ExecutionStart> {
         executor.require_role(LocalRole::Executor)?;
+        let started_at_ms = self.resolve_transition_time(started_at_ms)?;
         let presented_action_hash = executed.executed_action_hash()?;
         assert_hash_string(adapter_binary_hash)
             .map_err(|_| Error::coded("ADAPTER_INTEGRITY_INVALID", "invalid binary hash"))?;
@@ -1591,6 +1616,7 @@ impl Authority {
         ended_at_ms: i64,
     ) -> Result<ExecutionReceipt> {
         executor.require_role(LocalRole::Executor)?;
+        let ended_at_ms = self.resolve_transition_time(ended_at_ms)?;
         if !matches!(
             terminal_state,
             ExecutionState::Completed | ExecutionState::Failed | ExecutionState::Cancelled
@@ -1660,6 +1686,7 @@ impl Authority {
                 "authenticated local principal lacks executor or reconciler role",
             ));
         }
+        let observed_at_ms = self.resolve_transition_time(observed_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -1713,6 +1740,7 @@ impl Authority {
         required_at_ms: i64,
     ) -> Result<ExecutionState> {
         reconciler.require_role(LocalRole::Reconciler)?;
+        let required_at_ms = self.resolve_transition_time(required_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -1764,6 +1792,7 @@ impl Authority {
         ended_at_ms: i64,
     ) -> Result<ExecutionReceipt> {
         reconciler.require_role(LocalRole::Reconciler)?;
+        let ended_at_ms = self.resolve_transition_time(ended_at_ms)?;
         if !matches!(
             terminal_state,
             ExecutionState::CompletedConfirmed
@@ -1839,6 +1868,7 @@ impl Authority {
         recovered_at_ms: i64,
     ) -> Result<ExecutionState> {
         reconciler.require_role(LocalRole::Reconciler)?;
+        let recovered_at_ms = self.resolve_transition_time(recovered_at_ms)?;
         self.recover_expired_claim_at(claim_id, recovered_at_ms)
     }
 
@@ -1991,6 +2021,7 @@ impl Authority {
         revoked_at_ms: i64,
     ) -> Result<RevocationRecord> {
         revoker.require_role(LocalRole::EmergencyCanceller)?;
+        let revoked_at_ms = self.resolve_transition_time(revoked_at_ms)?;
         self.revoke_scope_at(
             revoker.principal_id(),
             scope,
@@ -2115,6 +2146,7 @@ impl Authority {
         reason: CancellationReason,
         cancelled_at_ms: i64,
     ) -> Result<CancellationRecord> {
+        let cancelled_at_ms = self.resolve_transition_time(cancelled_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -2239,6 +2271,7 @@ impl Authority {
         operator: &AuthenticatedIdentity,
         viewed_at_ms: i64,
     ) -> Result<PendingApprovalView> {
+        let viewed_at_ms = self.resolve_transition_time(viewed_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -2295,6 +2328,7 @@ impl Authority {
         acted_at_ms: i64,
     ) -> Result<ApprovalResolution> {
         validate_approval_presentation(&presentation)?;
+        let acted_at_ms = self.resolve_transition_time(acted_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -2463,6 +2497,7 @@ impl Authority {
         expired_at_ms: i64,
     ) -> Result<i64> {
         system_authority.require_role(LocalRole::Authority)?;
+        let expired_at_ms = self.resolve_transition_time(expired_at_ms)?;
         self.expire_pending_at(receipt_id, expired_at_ms)
     }
 
@@ -4569,6 +4604,34 @@ fn random_id(prefix: &str) -> Result<String> {
     Ok(value)
 }
 
+const LOCAL_CLOCK_SKEW_MS: i64 = 1_000;
+
+fn validate_external_time(presented_at_ms: i64) -> Result<()> {
+    if presented_at_ms < 0 {
+        return Err(Error::coded(
+            "TRUSTED_TIME_INVALID",
+            "trusted time must not be negative",
+        ));
+    }
+    #[cfg(feature = "deterministic-time")]
+    {
+        Ok(())
+    }
+    #[cfg(not(feature = "deterministic-time"))]
+    {
+        let current_at_ms = now_ms()?;
+        let earliest = current_at_ms.saturating_sub(LOCAL_CLOCK_SKEW_MS);
+        let latest = current_at_ms.saturating_add(LOCAL_CLOCK_SKEW_MS);
+        if !(earliest..=latest).contains(&presented_at_ms) {
+            return Err(Error::coded(
+                "TRUSTED_TIME_INVALID",
+                "caller-provided time exceeds the local clock-skew bound",
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn observe_trusted_time(transaction: &Transaction<'_>, observed_at_ms: i64) -> Result<()> {
     if observed_at_ms < 0 {
         return Err(Error::coded(
@@ -4583,19 +4646,27 @@ fn observe_trusted_time(transaction: &Transaction<'_>, observed_at_ms: i64) -> R
             [observed_at_ms],
         )
         .map_err(db_error)?;
-    let updated = transaction
-        .execute(
-            "UPDATE tlpx_trusted_time SET last_observed_ms = ?1
-             WHERE singleton = 1 AND last_observed_ms <= ?1",
-            [observed_at_ms],
+    let last_observed_ms = transaction
+        .query_row(
+            "SELECT last_observed_ms FROM tlpx_trusted_time WHERE singleton = 1",
+            [],
+            |row| row.get::<_, i64>(0),
         )
         .map_err(db_error)?;
-    if updated != 1 {
+    if observed_at_ms.saturating_add(LOCAL_CLOCK_SKEW_MS) < last_observed_ms {
         return Err(Error::coded(
             "TRUSTED_TIME_INVALID",
             "trusted authority time moved backward",
         ));
     }
+    transaction
+        .execute(
+            "UPDATE tlpx_trusted_time
+             SET last_observed_ms = MAX(last_observed_ms, ?1)
+             WHERE singleton = 1",
+            [observed_at_ms],
+        )
+        .map_err(db_error)?;
     Ok(())
 }
 
@@ -4923,4 +4994,19 @@ fn has_unique_index(
         return Ok(true);
     }
     Ok(false)
+}
+
+#[cfg(all(test, not(feature = "deterministic-time")))]
+mod trusted_time_surface_tests {
+    use super::*;
+
+    #[test]
+    fn caller_time_is_bounded_before_it_can_reach_the_durable_time_floor() {
+        let current = now_ms().unwrap();
+        assert!(validate_external_time(current).is_ok());
+        let far_future = current.saturating_add(75 * 365 * 24 * 60 * 60 * 1_000);
+        let error = validate_external_time(far_future).unwrap_err();
+        assert_eq!(error.code(), "TRUSTED_TIME_INVALID");
+        assert!(error.message().contains("clock-skew"));
+    }
 }

@@ -5,7 +5,7 @@ use std::io::Write;
 use std::os::unix::fs::{symlink, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tlpx::{
     exact_match_policy_content_hash, Adapter, AdapterContract, AdapterRegistry,
     AuthenticatedAdapterSession, AuthenticatedIdentity, Authority, AuthorityConfig,
@@ -504,6 +504,68 @@ fn authority_denies_transition_before_outbox_capacity_can_be_exceeded() {
     let snapshot = authority.operational_snapshot().unwrap();
     assert_eq!(snapshot.evidence.total, 0);
     assert_eq!(snapshot.trusted_time_last_ms, None);
+}
+
+#[test]
+#[ignore = "dedicated full-reconciliation volume probe"]
+fn full_reconciliation_volume_probe_stays_inside_the_claim_window() {
+    const PROBE_ROWS: i64 = 999;
+    let authority = Authority::in_memory(config()).unwrap();
+    let cycles_before_probe = (PROBE_ROWS / 3) - 1;
+    let probe_base_ms = i64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap();
+    for cycle in 0..cycles_before_probe {
+        let evaluated_at = probe_base_ms + cycle * 2;
+        let issued = authority
+            .evaluate_and_issue_at(
+                "agent.requester",
+                &intent(&format!("req-volume-{cycle}")),
+                evaluated_at,
+            )
+            .unwrap()
+            .authorization
+            .unwrap();
+        authority
+            .claim_at(
+                &issued.authorization_id,
+                "runtime.mailer",
+                &executed(),
+                evaluated_at + 1,
+            )
+            .unwrap();
+    }
+
+    let evaluation_started = Instant::now();
+    let issued = authority
+        .evaluate_authenticated(
+            &role_identity("agent.requester", LocalRole::Requester),
+            &intent("req-volume-probe"),
+        )
+        .unwrap()
+        .authorization
+        .unwrap();
+    let evaluation_elapsed = evaluation_started.elapsed();
+    let claim_started = Instant::now();
+    authority
+        .claim_authenticated(&issued.authorization_id, &executor_identity(), &executed())
+        .unwrap();
+    let claim_elapsed = claim_started.elapsed();
+
+    assert!(evaluation_elapsed < Duration::from_secs(5));
+    assert!(claim_elapsed < Duration::from_secs(5));
+    assert_eq!(
+        authority.reconcile_evidence().unwrap().total,
+        cycles_before_probe * 3 + 3
+    );
+    println!(
+        "full-reconciliation probe at {} rows: evaluation={evaluation_elapsed:?}, claim={claim_elapsed:?}",
+        cycles_before_probe * 3 + 3
+    );
 }
 
 #[test]
