@@ -4,9 +4,11 @@ This directory keeps durable reports from independent or adversarial test runs s
 
 ## Current packet
 
+- [Scoped reviewer acceptance, 2026-09-05](../docs/reviews/restricted-marker-scoped-acceptance-2026-09-05.md) — source `82f5cd6`, evidence `6bb0a07`, administrator report `172840`; broader scopes remain open.
+
 - [Current review packet](../docs/reviews/CURRENT-REVIEW.md) — source/evidence identity and exact-candidate gates.
 - [Exact-candidate builder report](./reports/exact-candidate-82f5cd6-builder-verification-2026-09-05.md) — full non-administrator matrix passed at clean source `82f5cd6`.
-- [Administrator report 172840](./reports/slice-3.9-administrator-gate-2026-09-05-172840.md) and [canonical JSONL](./reports/slice-3.9-administrator-gate-2026-09-05-172840.evidence.jsonl) — bounded macOS marker gate passed at clean `82f5cd6`; cleanup status 0; independent acceptance remains pending.
+- [Administrator report 172840](./reports/slice-3.9-administrator-gate-2026-09-05-172840.md) and [canonical JSONL](./reports/slice-3.9-administrator-gate-2026-09-05-172840.evidence.jsonl) — bounded macOS marker gate passed at clean `82f5cd6`; cleanup status 0; the reviewer accepted only this named local marker profile.
 - [Earlier owner-supplied reviewer disposition, 2026-09-05](../docs/reviews/restricted-marker-review-disposition-2026-09-05.md) — changes requested; the current review packet records the subsequent source review and new administrator evidence.
 
 ## Historical evidence and reproduction inputs

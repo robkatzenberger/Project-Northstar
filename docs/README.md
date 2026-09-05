@@ -1,6 +1,6 @@
 # Northstar documentation
 
-**Current disposition: CHANGES REQUESTED.** The accepted Rust implementation boundary remains `aed80e2`. The marker-PEP runtime remediation is frozen at `77d77b8`. The complete candidate still requires clean exact-commit verification, fresh administrator evidence, and a scoped disposition from the existing reviewer. See the [current review packet](reviews/CURRENT-REVIEW.md).
+**Current disposition: SCOPED ACCEPT for the bounded macOS separate-identity marker PEP only.** The named source is `82f5cd6`, evidence child `6bb0a07`, administrator report `172840`. The independently accepted implementation baseline remains `aed80e2`; Phase 4, Section 3, network/egress, hostile same-UID, production, and universal forced mediation remain open. See the [current review packet](reviews/CURRENT-REVIEW.md).
 
 ## Current implementation and review
 
@@ -9,7 +9,7 @@
 | [Project overview](../README.md) | Scope, quick start, and repository map |
 | [Plain-language introduction](SHARE.md) | What Northstar is and its boundaries |
 | [Current review packet](reviews/CURRENT-REVIEW.md) | Candidate identity, evidence, findings, and outstanding gates |
-| [Latest reviewer disposition](reviews/restricted-marker-review-disposition-2026-09-05.md) | Owner-supplied request for a frozen hash and exact-candidate evidence |
+| [Latest reviewer disposition](reviews/restricted-marker-scoped-acceptance-2026-09-05.md) | Owner-supplied scoped acceptance of the named macOS marker profile and explicit remaining limits |
 | [Build specification](BUILD-SPEC-SHEET.md) | Delivery sequence, maturity, and acceptance requirements |
 | [GitHub delivery plan](GITHUB-DELIVERY-PLAN.md) | Scoped commits, history preservation, and publication steps |
 | [Architecture](architecture.md) | Components and trust boundaries |

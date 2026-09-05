@@ -6,7 +6,7 @@ Northstar is a pre-execution authorization boundary for human- and machine-initi
 
 The repository contains the versioned TL-PX specifications, JSON Schemas, a Rust local authority, and the JavaScript reference and conformance oracles. License: [Apache-2.0](LICENSE).
 
-**Current disposition: CHANGES REQUESTED.** The independently accepted implementation remains the bounded Rust evaluate/issue/claim MVP at `aed80e2`. The marker-PEP runtime remediation is frozen at `77d77b8`; this documentation packet completes the candidate for fresh exact-commit verification. Start with the [current review packet](docs/reviews/CURRENT-REVIEW.md) for its source/evidence identity and open gates.
+**Current disposition: SCOPED ACCEPT for the bounded macOS separate-identity marker PEP only.** The reviewer accepted source `82f5cd6` with evidence child `6bb0a07` and administrator report `172840`. The independently accepted implementation baseline remains the bounded Rust evaluate/issue/claim MVP at `aed80e2`. See the [recorded disposition](docs/reviews/restricted-marker-scoped-acceptance-2026-09-05.md) and [current review packet](docs/reviews/CURRENT-REVIEW.md) for exact hashes, evidence, and limits.
 
 The historical `f025332` / `064717` administrator run established a bounded macOS separate-identity marker result. It did not cover the later lock-wait deadline finding and does not establish acceptance of the remediation. Section 3, Phase 4, production readiness, hostile same-UID containment, and network-egress mediation remain open.
 
@@ -24,7 +24,7 @@ The historical `f025332` / `064717` administrator run established a bounded macO
 
 ## Local development
 
-The working-tree matrix was run with Rust/Cargo 1.97.1 and Node 25.5.0 on macOS. See [testing](docs/testing.md) for the full matrix and platform limits. These commands exercise local candidate behavior; passing them does not independently accept it.
+The exact-candidate matrix was run with Rust/Cargo 1.97.1 and Node 25.5.0 on macOS. See [testing](docs/testing.md) for the full matrix and platform limits. Passing these commands does not extend the reviewer's acceptance beyond the named local marker profile.
 
 ```bash
 cd implementations/rust

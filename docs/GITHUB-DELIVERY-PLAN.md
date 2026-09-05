@@ -6,13 +6,13 @@
 
 **Owner decision:** Preserve evidence history; curate current code and docs.
 
-**Execution status:** C1 is `9b68bdb`; C2 is `77d77b8745b342d8f61b326a468c53523fe945a1`; C3 is the frozen source `82f5cd6cc505cc64bdea73eebeb535c2a1b4cd11`. The full non-administrator matrix passed at clean C3. Robert subsequently ran the macOS administrator gate at the same clean source; report `172840` records PASS and cleanup status 0. C4 is this evidence-only child commit: exact-candidate reports, canonical JSONL, and documentation pointers/status corrections. Independent acceptance and publication remain pending. Incoming drafts were backed up outside the repository before curation.
+**Execution status:** C1 is `9b68bdb`; C2 is `77d77b8745b342d8f61b326a468c53523fe945a1`; C3 is frozen source `82f5cd6cc505cc64bdea73eebeb535c2a1b4cd11`. C4 is evidence child `6bb0a071ceb21df3b26558b9dc64a980d1a3f09c`, preserving the full non-administrator matrix and administrator report/JSONL `172840`, with PASS and cleanup 0. The reviewer subsequently accepted only the bounded macOS separate-identity marker profile. A separate documentation child records that disposition. Phase 4, Section 3, network/egress, hostile same-UID, production, and universal forced mediation remain open. Nothing has been pushed.
 
-**Latest review requirement:** the existing reviewer must assess C3 with its new administrator evidence. [CURRENT-REVIEW.md](reviews/CURRENT-REVIEW.md) records the exact source, reports, digests, and attributed review scope. The [earlier disposition](reviews/restricted-marker-review-disposition-2026-09-05.md) remains historical evidence. Nothing has been pushed.
+**Latest reviewer disposition:** [scoped acceptance, 2026-09-05](reviews/restricted-marker-scoped-acceptance-2026-09-05.md), against C3 with C4 and report `172840`. [CURRENT-REVIEW.md](reviews/CURRENT-REVIEW.md) remains the exact source/evidence entry point. Historical reports and dispositions stay unchanged. Publication requires owner authorization.
 
 ## Recommended delivery
 
-Preserve the 56 local commits that contain the implementation and its evidence. Add four focused commits for the remaining remediation, documentation, and exact-candidate evidence. Publish one review branch to the existing repository after owner authorization; review and merge that branch separately.
+Preserve the 56 local commits that contain the implementation and its evidence. The four focused remediation/documentation/evidence commits are complete; a separate documentation child records the reviewer's subsequent scoped acceptance. Publish one review branch to the existing repository after owner authorization; review and merge that branch separately.
 
 Keep the complete buildable source, schemas, tests, fixtures, dependency lockfile, and evidence needed to reproduce the claims. Make the README short and put detailed evidence behind a single review entry point. Leave the unfinished restricted-egress design, expanded incident essay, private notes, generated files, and local reference repositories out of the new delivery changes.
 
@@ -86,7 +86,7 @@ There are six documents whose current drafts link to the deferred egress profile
 
 **Done when:** newcomers see the current product and quick start; reviewers have one entry point; all included links and test inputs resolve without private files.
 
-## 4. Commit the remaining work in four packets
+## 4. Commit the delivery in focused packets
 
 Keep the 56 existing commits intact. Use explicit paths and selected hunks for the new packets. Confirm each staged diff and run its relevant checks. If a packet depends on another, preserve the order below; do not make an intermediate commit knowingly unbuildable.
 
@@ -96,6 +96,8 @@ Keep the 56 existing commits intact. Use explicit paths and selected hunks for t
 | C2 | `test(pep): harden administrator evidence validation` | JS validator, new validator tests, `package.json`, Rust `restricted_pep.rs` test, and `restricted-agent-acceptance.sh`; keep these coupled because the validator now requires the tested-binary digest. Run JS/oracles, restricted PEP integration, and harness syntax checks |
 | C3 | `docs: prepare focused GitHub review package` | Current scope corrections, curated navigation, this plan, the new current-review index, the existing working-tree report/hash file, and any narrow ignore-rule additions. Keep future drafts out. Check links, source fingerprints, historical package checks, and outgoing content |
 | C4 | `test: record exact-candidate verification and review evidence` | New dated exact-candidate builder report, administrator report/JSONL, and current-review index updates. Add the independent reviewer’s actual disposition when available, with attribution and exact scope |
+
+The subsequent disposition-only documentation child records the reviewer's scoped acceptance without altering C3, C4, or their reports.
 
 The full hash of C3 is the initial **source candidate**. C4 adds evidence for that candidate. The old working-tree report remains an honest historical record; do not rewrite it as if it had tested C3. If the reviewer changes code, tests, schemas, configuration, dependencies, or harnesses, make a new source candidate and rerun affected gates before claiming that the prior results cover it.
 
