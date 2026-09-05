@@ -2,6 +2,8 @@
 set -eu
 
 umask 077
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
 
 RUST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 REPO_DIR=$(CDPATH= cd -- "$RUST_DIR/../.." && pwd)
@@ -10,6 +12,8 @@ SOURCE_BIN=${1:-"$RUST_DIR/target/debug/tlpx-run"}
 PEP_PID=
 EXPIRY_PID=
 RESTART_PID=
+ACCEPTANCE_ROOT=
+ACCEPTANCE_ROOT_CREATED=0
 
 fail() {
   echo "FAIL  $*" >&2
@@ -49,12 +53,19 @@ cleanup() {
       wait "$pid" 2>/dev/null || true
     fi
   done
-  case ${ACCEPTANCE_ROOT:-} in
-    /tmp/northstar-3.9.*) rm -rf -- "$ACCEPTANCE_ROOT" ;;
+  case $ACCEPTANCE_ROOT_CREATED:$ACCEPTANCE_ROOT in
+    1:/tmp/northstar-3.9.*)
+      if [ -d "$ACCEPTANCE_ROOT" ] && [ ! -L "$ACCEPTANCE_ROOT" ]; then
+        /bin/rm -rf -- "$ACCEPTANCE_ROOT"
+      fi
+      ;;
   esac
 }
 
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 [ "$(id -u)" -eq 0 ] || fail "slice 3.9 acceptance requires root to enter separate numeric UIDs"
 case $(uname -s) in
@@ -114,14 +125,18 @@ case $(uname -s) in
     ;;
   *) fail "slice 3.9 acceptance supports Linux and macOS" ;;
 esac
-NODE=$(command -v node 2>/dev/null || true)
-if [ -z "$NODE" ] && [ -x /usr/local/bin/node ]; then
-  NODE=/usr/local/bin/node
-fi
+NODE=
+for candidate in /usr/bin/node /usr/local/bin/node /opt/homebrew/bin/node; do
+  if [ -x "$candidate" ]; then
+    NODE=$candidate
+    break
+  fi
+done
 [ -x "$NODE" ] || fail "Node.js is required for independent schema validation"
 [ -x "$SOURCE_BIN" ] || fail "build tlpx-run first: cargo build --offline --bin tlpx-run"
 
 ACCEPTANCE_ROOT=$(mktemp -d /tmp/northstar-3.9.XXXXXX)
+ACCEPTANCE_ROOT_CREATED=1
 SERVICE_DIR=$ACCEPTANCE_ROOT/service
 STATE_DIR=$ACCEPTANCE_ROOT/state
 PROTECTED_DIR=$ACCEPTANCE_ROOT/protected
@@ -209,6 +224,20 @@ file_mtime() {
   case $(uname -s) in
     Darwin) stat -f %m "$1" ;;
     *) stat -c %Y "$1" ;;
+  esac
+}
+
+file_mode() {
+  case $(uname -s) in
+    Darwin) stat -f %Lp "$1" ;;
+    *) stat -c %a "$1" ;;
+  esac
+}
+
+file_nlink() {
+  case $(uname -s) in
+    Darwin) stat -f %l "$1" ;;
+    *) stat -c %h "$1" ;;
   esac
 }
 
@@ -318,7 +347,8 @@ expect_contains "$response" "DENY PEP_REPLACEMENT_BIND" "restricted agent cannot
 
 EVIDENCE=$STATE_DIR/evidence.jsonl
 as_pep "$STAGED_BIN" verify "$CONFIG" >"$EVIDENCE" 2>"$STATE_DIR/verify.log"
-"$NODE" "$REPO_DIR/implementations/javascript/scripts/validate-pep-evidence.mjs" "$EVIDENCE"
+"$NODE" "$REPO_DIR/implementations/javascript/scripts/validate-pep-evidence.mjs" \
+  "$EVIDENCE" "$TESTED_BINARY_SHA256"
 if [ -n "${TLPX_EVIDENCE_OUT:-}" ]; then
   case $TLPX_EVIDENCE_OUT in
     /tmp/northstar-3.9-evidence.*) ;;
@@ -326,8 +356,19 @@ if [ -n "${TLPX_EVIDENCE_OUT:-}" ]; then
   esac
   [ -f "$TLPX_EVIDENCE_OUT" ] || fail "retained evidence output was not pre-created"
   [ ! -L "$TLPX_EVIDENCE_OUT" ] || fail "retained evidence output must not be a symlink"
-  cp "$EVIDENCE" "$TLPX_EVIDENCE_OUT"
-  chmod 0600 "$TLPX_EVIDENCE_OUT"
+  [ "$(file_uid "$TLPX_EVIDENCE_OUT")" -eq "$(id -u)" ] || \
+    fail "retained evidence output must be owned by the harness identity"
+  [ "$(file_mode "$TLPX_EVIDENCE_OUT")" = 600 ] || \
+    fail "retained evidence output must have mode 0600"
+  [ "$(file_nlink "$TLPX_EVIDENCE_OUT")" -eq 1 ] || \
+    fail "retained evidence output must have exactly one link"
+  evidence_sha256=$(file_sha256 "$EVIDENCE")
+  /bin/cp "$EVIDENCE" "$TLPX_EVIDENCE_OUT"
+  /bin/chmod 0600 "$TLPX_EVIDENCE_OUT"
+  [ "$(file_sha256 "$TLPX_EVIDENCE_OUT")" = "$evidence_sha256" ] || \
+    fail "retained evidence does not match the validated source"
+  "$NODE" "$REPO_DIR/implementations/javascript/scripts/validate-pep-evidence.mjs" \
+    "$TLPX_EVIDENCE_OUT" "$TESTED_BINARY_SHA256"
 fi
 pass "sealed execution and denial evidence independently reconciles and validates"
 

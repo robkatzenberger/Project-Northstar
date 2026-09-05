@@ -155,9 +155,11 @@ fn bounded_service_denies_mutation_consumed_replay_and_expired_claim() {
     fs::write(&evidence_path, evidence).unwrap();
     let javascript_validator = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../javascript/scripts/validate-pep-evidence.mjs");
+    let tested_binary_hash = tlpx::sha256_file(Path::new(env!("CARGO_BIN_EXE_tlpx-run"))).unwrap();
     let schema_validation = Command::new("node")
         .arg(javascript_validator)
         .arg(evidence_path)
+        .arg(tested_binary_hash)
         .output()
         .unwrap();
     assert!(

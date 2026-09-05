@@ -10,7 +10,7 @@
     "tlpx": "./bin/glass.mjs"
   },
   "scripts": {
-    "test": "node scripts/test.mjs && node scripts/test-switchboard.mjs && node scripts/test-airgap.mjs && node scripts/test-policy-ops.mjs && node scripts/test-policy-compile.mjs && node scripts/test-policy-v02.mjs && node scripts/test-action-types-v02.mjs && node scripts/test-jcs.mjs && node scripts/conformance-v02.mjs",
+    "test": "node scripts/test.mjs && node scripts/test-switchboard.mjs && node scripts/test-airgap.mjs && node scripts/test-policy-ops.mjs && node scripts/test-policy-compile.mjs && node scripts/test-policy-v02.mjs && node scripts/test-action-types-v02.mjs && node scripts/test-jcs.mjs && node scripts/conformance-v02.mjs && node scripts/test-pep-evidence.mjs",
     "test:jcs": "node scripts/test-jcs.mjs",
     "test:unit": "node scripts/test.mjs",
     "test:switchboard": "node scripts/test-switchboard.mjs",
@@ -23,7 +23,7 @@
     "conformance": "node scripts/conformance.mjs",
     "conformance:0.2": "node scripts/conformance-v02.mjs",
     "test:rust-evidence": "node scripts/validate-rust-evidence.mjs",
-    "test:pep-evidence": "node scripts/validate-pep-evidence.mjs",
+    "test:pep-evidence": "node scripts/test-pep-evidence.mjs",
     "demo": "node scripts/demo.mjs",
     "demo:switchboard": "node scripts/demo-switchboard.mjs",
     "tech-test": "node scripts/tech-test.mjs",
