@@ -653,27 +653,30 @@ impl Authority {
         Self::from_connection(connection, config)
     }
 
-    /// Returns a process-clock candidate. Every authority transition must
-    /// replace this with its durable-floor-clamped transactional time.
-    pub(crate) fn transition_time_candidate_ms(&self) -> Result<i64> {
-        now_ms()
-    }
-
-    fn test_time_override(&self, presented_at_ms: i64) -> Result<Option<i64>> {
-        validate_external_time(presented_at_ms)?;
+    fn transition_time_hint(&self, presented_at_ms: i64) -> Result<Option<i64>> {
+        if presented_at_ms < 0 {
+            return Err(Error::coded(
+                "TRUSTED_TIME_INVALID",
+                "trusted time must not be negative",
+            ));
+        }
         #[cfg(feature = "deterministic-time")]
         {
             Ok(Some(presented_at_ms))
         }
         #[cfg(not(feature = "deterministic-time"))]
         {
+            let current_at_ms = now_ms()?;
+            let earliest = current_at_ms.saturating_sub(LOCAL_CLOCK_SKEW_MS);
+            let latest = current_at_ms.saturating_add(LOCAL_CLOCK_SKEW_MS);
+            if !(earliest..=latest).contains(&presented_at_ms) {
+                return Err(Error::coded(
+                    "TRUSTED_TIME_INVALID",
+                    "caller-provided time exceeds the local clock-skew bound",
+                ));
+            }
             Ok(None)
         }
-    }
-
-    fn resolve_transition_time(&self, presented_at_ms: i64) -> Result<i64> {
-        self.test_time_override(presented_at_ms)?
-            .map_or_else(now_ms, Ok)
     }
 
     fn from_connection(connection: Connection, config: AuthorityConfig) -> Result<Self> {
@@ -1004,7 +1007,7 @@ impl Authority {
         evaluated_at_ms: i64,
     ) -> Result<EvaluationOutcome> {
         requester.require_role(LocalRole::Requester)?;
-        let evaluated_at_ms = self.test_time_override(evaluated_at_ms)?;
+        let evaluated_at_ms = self.transition_time_hint(evaluated_at_ms)?;
         self.evaluate_trusted_embedding_with_time(requester.principal_id(), intent, evaluated_at_ms)
     }
 
@@ -1025,7 +1028,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let evaluated_at_ms = evaluated_at_ms.map_or_else(now_ms, Ok)?;
+        let evaluated_at_ms = resolve_transition_time(evaluated_at_ms)?;
 
         if let (Some(principal), Some(request_id)) = (scoped_principal, scoped_request_id) {
             if let Some(existing) = load_idempotent(&transaction, principal, request_id)? {
@@ -1247,12 +1250,7 @@ impl Authority {
         authenticated_executor: &str,
         executed: &ExecutedAction,
     ) -> Result<ClaimRecord> {
-        self.claim_trusted_embedding_at(
-            authorization_id,
-            authenticated_executor,
-            executed,
-            now_ms()?,
-        )
+        self.claim_trusted_embedding_at(authorization_id, authenticated_executor, executed, None)
     }
 
     pub fn claim_authenticated(
@@ -1273,7 +1271,7 @@ impl Authority {
         claimed_at_ms: i64,
     ) -> Result<ClaimRecord> {
         executor.require_role(LocalRole::Executor)?;
-        let claimed_at_ms = self.resolve_transition_time(claimed_at_ms)?;
+        let claimed_at_ms = self.transition_time_hint(claimed_at_ms)?;
         self.claim_trusted_embedding_at(
             authorization_id,
             executor.principal_id(),
@@ -1287,7 +1285,7 @@ impl Authority {
         authorization_id: &str,
         authenticated_executor: &str,
         executed: &ExecutedAction,
-        claimed_at_ms: i64,
+        claimed_at_ms: Option<i64>,
     ) -> Result<ClaimRecord> {
         executed
             .validate()
@@ -1303,7 +1301,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let claimed_at_ms = effective_trusted_time(&transaction, claimed_at_ms)?;
+        let claimed_at_ms = effective_transition_time(&transaction, claimed_at_ms)?;
         let stored = load_authorization_row(&transaction, authorization_id)?
             .ok_or_else(|| Error::claim("AUTHORIZATION_DENIED"))?;
 
@@ -1450,6 +1448,27 @@ impl Authority {
     /// start the side effect. An exact retry returns `NotStarted`, including
     /// when the durable attempt itself remains in `STARTED`.
     #[allow(clippy::too_many_arguments)] // Every security-relevant presentation stays explicit.
+    pub fn begin_execution_authenticated(
+        &self,
+        claim_id: &str,
+        idempotency_key: &str,
+        executed: &ExecutedAction,
+        executor: &AuthenticatedIdentity,
+        adapter: &AuthenticatedAdapterSession,
+        adapter_binary_hash: &str,
+    ) -> Result<ExecutionStart> {
+        self.begin_execution_authenticated_with_time(
+            claim_id,
+            idempotency_key,
+            executed,
+            executor,
+            adapter,
+            adapter_binary_hash,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)] // Every security-relevant presentation stays explicit.
     pub fn begin_execution_authenticated_at(
         &self,
         claim_id: &str,
@@ -1460,8 +1479,30 @@ impl Authority {
         adapter_binary_hash: &str,
         started_at_ms: i64,
     ) -> Result<ExecutionStart> {
+        let started_at_ms = self.transition_time_hint(started_at_ms)?;
+        self.begin_execution_authenticated_with_time(
+            claim_id,
+            idempotency_key,
+            executed,
+            executor,
+            adapter,
+            adapter_binary_hash,
+            started_at_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)] // Every security-relevant presentation stays explicit.
+    fn begin_execution_authenticated_with_time(
+        &self,
+        claim_id: &str,
+        idempotency_key: &str,
+        executed: &ExecutedAction,
+        executor: &AuthenticatedIdentity,
+        adapter: &AuthenticatedAdapterSession,
+        adapter_binary_hash: &str,
+        started_at_ms: Option<i64>,
+    ) -> Result<ExecutionStart> {
         executor.require_role(LocalRole::Executor)?;
-        let started_at_ms = self.resolve_transition_time(started_at_ms)?;
         let presented_action_hash = executed.executed_action_hash()?;
         assert_hash_string(adapter_binary_hash)
             .map_err(|_| Error::coded("ADAPTER_INTEGRITY_INVALID", "invalid binary hash"))?;
@@ -1473,7 +1514,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let started_at_ms = effective_trusted_time(&transaction, started_at_ms)?;
+        let started_at_ms = effective_transition_time(&transaction, started_at_ms)?;
         if let Some(existing) = load_execution_by_claim(&transaction, claim_id)? {
             if existing.idempotency_key != idempotency_key
                 || existing.executing_principal != executor.principal_id()
@@ -1608,6 +1649,24 @@ impl Authority {
         }
     }
 
+    pub fn finish_execution_authenticated(
+        &self,
+        execution_id: &str,
+        executor: &AuthenticatedIdentity,
+        terminal_state: ExecutionState,
+        result: ExecutionResultEvidence,
+        cancellation_outcome: Option<CancellationOutcome>,
+    ) -> Result<ExecutionReceipt> {
+        self.finish_execution_authenticated_with_time(
+            execution_id,
+            executor,
+            terminal_state,
+            result,
+            cancellation_outcome,
+            None,
+        )
+    }
+
     pub fn finish_execution_authenticated_at(
         &self,
         execution_id: &str,
@@ -1617,8 +1676,27 @@ impl Authority {
         cancellation_outcome: Option<CancellationOutcome>,
         ended_at_ms: i64,
     ) -> Result<ExecutionReceipt> {
+        let ended_at_ms = self.transition_time_hint(ended_at_ms)?;
+        self.finish_execution_authenticated_with_time(
+            execution_id,
+            executor,
+            terminal_state,
+            result,
+            cancellation_outcome,
+            ended_at_ms,
+        )
+    }
+
+    fn finish_execution_authenticated_with_time(
+        &self,
+        execution_id: &str,
+        executor: &AuthenticatedIdentity,
+        terminal_state: ExecutionState,
+        result: ExecutionResultEvidence,
+        cancellation_outcome: Option<CancellationOutcome>,
+        ended_at_ms: Option<i64>,
+    ) -> Result<ExecutionReceipt> {
         executor.require_role(LocalRole::Executor)?;
-        let ended_at_ms = self.resolve_transition_time(ended_at_ms)?;
         if !matches!(
             terminal_state,
             ExecutionState::Completed | ExecutionState::Failed | ExecutionState::Cancelled
@@ -1629,6 +1707,7 @@ impl Authority {
             ));
         }
         validate_terminal_execution_input(terminal_state, &result, cancellation_outcome)?;
+        let explicit_end_time = ended_at_ms.is_some();
         let mut connection = self
             .db
             .lock()
@@ -1637,7 +1716,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let ended_at_ms = effective_trusted_time(&transaction, ended_at_ms)?;
+        let ended_at_ms = effective_transition_time(&transaction, ended_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if stored.executing_principal != executor.principal_id() {
@@ -1648,7 +1727,7 @@ impl Authority {
             if receipt.state == terminal_state
                 && receipt.result == result
                 && receipt.cancellation_outcome == cancellation_outcome
-                && receipt.ended_at_ms == ended_at_ms
+                && (!explicit_end_time || receipt.ended_at_ms == ended_at_ms)
             {
                 return Ok(receipt);
             }
@@ -1676,11 +1755,33 @@ impl Authority {
         Ok(receipt)
     }
 
+    pub fn mark_execution_outcome_unknown_authenticated(
+        &self,
+        execution_id: &str,
+        actor: &AuthenticatedIdentity,
+    ) -> Result<ExecutionState> {
+        self.mark_execution_outcome_unknown_authenticated_with_time(execution_id, actor, None)
+    }
+
     pub fn mark_execution_outcome_unknown_authenticated_at(
         &self,
         execution_id: &str,
         actor: &AuthenticatedIdentity,
         observed_at_ms: i64,
+    ) -> Result<ExecutionState> {
+        let observed_at_ms = self.transition_time_hint(observed_at_ms)?;
+        self.mark_execution_outcome_unknown_authenticated_with_time(
+            execution_id,
+            actor,
+            observed_at_ms,
+        )
+    }
+
+    fn mark_execution_outcome_unknown_authenticated_with_time(
+        &self,
+        execution_id: &str,
+        actor: &AuthenticatedIdentity,
+        observed_at_ms: Option<i64>,
     ) -> Result<ExecutionState> {
         if !actor.has_role(LocalRole::Executor) && !actor.has_role(LocalRole::Reconciler) {
             return Err(Error::coded(
@@ -1688,7 +1789,6 @@ impl Authority {
                 "authenticated local principal lacks executor or reconciler role",
             ));
         }
-        let observed_at_ms = self.resolve_transition_time(observed_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -1697,7 +1797,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let observed_at_ms = effective_trusted_time(&transaction, observed_at_ms)?;
+        let observed_at_ms = effective_transition_time(&transaction, observed_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if actor.has_role(LocalRole::Executor)
@@ -1742,7 +1842,7 @@ impl Authority {
         required_at_ms: i64,
     ) -> Result<ExecutionState> {
         reconciler.require_role(LocalRole::Reconciler)?;
-        let required_at_ms = self.resolve_transition_time(required_at_ms)?;
+        let required_at_ms = self.transition_time_hint(required_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -1751,7 +1851,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let required_at_ms = effective_trusted_time(&transaction, required_at_ms)?;
+        let required_at_ms = effective_transition_time(&transaction, required_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         match stored.state {
@@ -1794,7 +1894,7 @@ impl Authority {
         ended_at_ms: i64,
     ) -> Result<ExecutionReceipt> {
         reconciler.require_role(LocalRole::Reconciler)?;
-        let ended_at_ms = self.resolve_transition_time(ended_at_ms)?;
+        let ended_at_ms = self.transition_time_hint(ended_at_ms)?;
         if !matches!(
             terminal_state,
             ExecutionState::CompletedConfirmed
@@ -1807,6 +1907,9 @@ impl Authority {
             ));
         }
         validate_terminal_execution_input(terminal_state, &result, None)?;
+        // A production clock sample is observation metadata, not retry input.
+        // Only the deterministic test seam binds an explicitly supplied time.
+        let explicit_end_time = ended_at_ms.is_some();
         let mut connection = self
             .db
             .lock()
@@ -1815,14 +1918,14 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let ended_at_ms = effective_trusted_time(&transaction, ended_at_ms)?;
+        let ended_at_ms = effective_transition_time(&transaction, ended_at_ms)?;
         let stored = load_execution_by_id(&transaction, execution_id)?
             .ok_or_else(|| Error::coded("EXECUTION_NOT_FOUND", "execution does not exist"))?;
         if stored.state.is_terminal() {
             let receipt = stored.receipt()?;
             if receipt.state == terminal_state
                 && receipt.result == result
-                && receipt.ended_at_ms == ended_at_ms
+                && (!explicit_end_time || receipt.ended_at_ms == ended_at_ms)
             {
                 return Ok(receipt);
             }
@@ -1870,14 +1973,14 @@ impl Authority {
         recovered_at_ms: i64,
     ) -> Result<ExecutionState> {
         reconciler.require_role(LocalRole::Reconciler)?;
-        let recovered_at_ms = self.resolve_transition_time(recovered_at_ms)?;
+        let recovered_at_ms = self.transition_time_hint(recovered_at_ms)?;
         self.recover_expired_claim_at(claim_id, recovered_at_ms)
     }
 
     fn recover_expired_claim_at(
         &self,
         claim_id: &str,
-        recovered_at_ms: i64,
+        recovered_at_ms: Option<i64>,
     ) -> Result<ExecutionState> {
         let mut connection = self
             .db
@@ -1887,7 +1990,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let recovered_at_ms = effective_trusted_time(&transaction, recovered_at_ms)?;
+        let recovered_at_ms = effective_transition_time(&transaction, recovered_at_ms)?;
         if let Some(stored) = load_execution_by_claim(&transaction, claim_id)? {
             if recovered_at_ms < stored.lease_expires_at_ms {
                 return Err(Error::coded(
@@ -2011,7 +2114,8 @@ impl Authority {
         scope_id: &str,
         reason: RevocationReason,
     ) -> Result<RevocationRecord> {
-        self.revoke_authenticated_at(revoker, scope, scope_id, reason, now_ms()?)
+        revoker.require_role(LocalRole::EmergencyCanceller)?;
+        self.revoke_scope_at(revoker.principal_id(), scope, scope_id, reason, None)
     }
 
     pub fn revoke_authenticated_at(
@@ -2023,7 +2127,7 @@ impl Authority {
         revoked_at_ms: i64,
     ) -> Result<RevocationRecord> {
         revoker.require_role(LocalRole::EmergencyCanceller)?;
-        let revoked_at_ms = self.resolve_transition_time(revoked_at_ms)?;
+        let revoked_at_ms = self.transition_time_hint(revoked_at_ms)?;
         self.revoke_scope_at(
             revoker.principal_id(),
             scope,
@@ -2039,9 +2143,9 @@ impl Authority {
         scope: RevocationScope,
         scope_id: &str,
         reason: RevocationReason,
-        revoked_at_ms: i64,
+        revoked_at_ms: Option<i64>,
     ) -> Result<RevocationRecord> {
-        if revoking_principal.is_empty() || scope_id.is_empty() || revoked_at_ms < 0 {
+        if revoking_principal.is_empty() || scope_id.is_empty() {
             return Err(Error::coded(
                 "REVOCATION_INVALID",
                 "revocation actor, scope id, and timestamp must be valid",
@@ -2072,7 +2176,7 @@ impl Authority {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(db_error)?;
         evidence::reconcile(&transaction, &self.config.evidence)?;
-        let revoked_at_ms = effective_trusted_time(&transaction, revoked_at_ms)?;
+        let revoked_at_ms = effective_transition_time(&transaction, revoked_at_ms)?;
         let already_active = transaction
             .query_row(
                 "SELECT EXISTS(
@@ -2138,7 +2242,7 @@ impl Authority {
         canceller: &AuthenticatedIdentity,
         reason: CancellationReason,
     ) -> Result<CancellationRecord> {
-        self.cancel_pending_authenticated_at(receipt_id, canceller, reason, now_ms()?)
+        self.cancel_pending_authenticated_with_time(receipt_id, canceller, reason, None)
     }
 
     pub fn cancel_pending_authenticated_at(
@@ -2148,7 +2252,17 @@ impl Authority {
         reason: CancellationReason,
         cancelled_at_ms: i64,
     ) -> Result<CancellationRecord> {
-        let cancelled_at_ms = self.resolve_transition_time(cancelled_at_ms)?;
+        let cancelled_at_ms = self.transition_time_hint(cancelled_at_ms)?;
+        self.cancel_pending_authenticated_with_time(receipt_id, canceller, reason, cancelled_at_ms)
+    }
+
+    fn cancel_pending_authenticated_with_time(
+        &self,
+        receipt_id: &str,
+        canceller: &AuthenticatedIdentity,
+        reason: CancellationReason,
+        cancelled_at_ms: Option<i64>,
+    ) -> Result<CancellationRecord> {
         let mut connection = self
             .db
             .lock()
@@ -2180,7 +2294,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
-        let cancelled_at_ms = effective_trusted_time(&transaction, cancelled_at_ms)?;
+        let cancelled_at_ms = effective_transition_time(&transaction, cancelled_at_ms)?;
         if cancelled_at_ms >= pending.3 {
             expire_pending_transaction(&transaction, receipt_id, cancelled_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2264,7 +2378,7 @@ impl Authority {
         receipt_id: &str,
         operator: &AuthenticatedIdentity,
     ) -> Result<PendingApprovalView> {
-        self.pending_approval_authenticated_at(receipt_id, operator, now_ms()?)
+        self.pending_approval_authenticated_with_time(receipt_id, operator, None)
     }
 
     pub fn pending_approval_authenticated_at(
@@ -2273,7 +2387,16 @@ impl Authority {
         operator: &AuthenticatedIdentity,
         viewed_at_ms: i64,
     ) -> Result<PendingApprovalView> {
-        let viewed_at_ms = self.resolve_transition_time(viewed_at_ms)?;
+        let viewed_at_ms = self.transition_time_hint(viewed_at_ms)?;
+        self.pending_approval_authenticated_with_time(receipt_id, operator, viewed_at_ms)
+    }
+
+    fn pending_approval_authenticated_with_time(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+        viewed_at_ms: Option<i64>,
+    ) -> Result<PendingApprovalView> {
         let mut connection = self
             .db
             .lock()
@@ -2290,7 +2413,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
-        let viewed_at_ms = effective_trusted_time(&transaction, viewed_at_ms)?;
+        let viewed_at_ms = effective_transition_time(&transaction, viewed_at_ms)?;
         if viewed_at_ms >= pending.authorization.approval_expires_at_ms {
             expire_pending_transaction(&transaction, receipt_id, viewed_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2312,12 +2435,12 @@ impl Authority {
         outcome: ApprovalOutcome,
         presentation: ApprovalPresentation,
     ) -> Result<ApprovalResolution> {
-        self.resolve_pending_authenticated_at(
+        self.resolve_pending_authenticated_with_time(
             receipt_id,
             operator,
             outcome,
             presentation,
-            now_ms()?,
+            None,
         )
     }
 
@@ -2329,8 +2452,25 @@ impl Authority {
         presentation: ApprovalPresentation,
         acted_at_ms: i64,
     ) -> Result<ApprovalResolution> {
+        let acted_at_ms = self.transition_time_hint(acted_at_ms)?;
+        self.resolve_pending_authenticated_with_time(
+            receipt_id,
+            operator,
+            outcome,
+            presentation,
+            acted_at_ms,
+        )
+    }
+
+    fn resolve_pending_authenticated_with_time(
+        &self,
+        receipt_id: &str,
+        operator: &AuthenticatedIdentity,
+        outcome: ApprovalOutcome,
+        presentation: ApprovalPresentation,
+        acted_at_ms: Option<i64>,
+    ) -> Result<ApprovalResolution> {
         validate_approval_presentation(&presentation)?;
-        let acted_at_ms = self.resolve_transition_time(acted_at_ms)?;
         let mut connection = self
             .db
             .lock()
@@ -2347,7 +2487,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
-        let acted_at_ms = effective_trusted_time(&transaction, acted_at_ms)?;
+        let acted_at_ms = effective_transition_time(&transaction, acted_at_ms)?;
         if acted_at_ms >= pending.authorization.approval_expires_at_ms {
             expire_pending_transaction(&transaction, receipt_id, acted_at_ms)?;
             transaction.commit().map_err(db_error)?;
@@ -2499,11 +2639,11 @@ impl Authority {
         expired_at_ms: i64,
     ) -> Result<i64> {
         system_authority.require_role(LocalRole::Authority)?;
-        let expired_at_ms = self.resolve_transition_time(expired_at_ms)?;
+        let expired_at_ms = self.transition_time_hint(expired_at_ms)?;
         self.expire_pending_at(receipt_id, expired_at_ms)
     }
 
-    fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: i64) -> Result<i64> {
+    fn expire_pending_at(&self, receipt_id: &str, expired_at_ms: Option<i64>) -> Result<i64> {
         let mut connection = self
             .db
             .lock()
@@ -2520,7 +2660,7 @@ impl Authority {
                 "pending approval already has a terminal outcome",
             ));
         }
-        let expired_at_ms = effective_trusted_time(&transaction, expired_at_ms)?;
+        let expired_at_ms = effective_transition_time(&transaction, expired_at_ms)?;
         if expired_at_ms < pending.authorization.approval_expires_at_ms {
             return Err(Error::coded(
                 "APPROVAL_NOT_EXPIRED",
@@ -4608,30 +4748,27 @@ fn random_id(prefix: &str) -> Result<String> {
 
 const LOCAL_CLOCK_SKEW_MS: i64 = 1_000;
 
-fn validate_external_time(presented_at_ms: i64) -> Result<()> {
-    if presented_at_ms < 0 {
-        return Err(Error::coded(
-            "TRUSTED_TIME_INVALID",
-            "trusted time must not be negative",
-        ));
-    }
+/// Resolves the time used by an authority transition only after its write
+/// transaction has been acquired. Deterministic test builds may supply an
+/// explicit time; production builds always sample the process clock here.
+fn resolve_transition_time(time_hint_ms: Option<i64>) -> Result<i64> {
     #[cfg(feature = "deterministic-time")]
     {
-        Ok(())
+        time_hint_ms.map_or_else(now_ms, Ok)
     }
     #[cfg(not(feature = "deterministic-time"))]
     {
-        let current_at_ms = now_ms()?;
-        let earliest = current_at_ms.saturating_sub(LOCAL_CLOCK_SKEW_MS);
-        let latest = current_at_ms.saturating_add(LOCAL_CLOCK_SKEW_MS);
-        if !(earliest..=latest).contains(&presented_at_ms) {
-            return Err(Error::coded(
-                "TRUSTED_TIME_INVALID",
-                "caller-provided time exceeds the local clock-skew bound",
-            ));
-        }
-        Ok(())
+        debug_assert!(time_hint_ms.is_none());
+        now_ms()
     }
+}
+
+fn effective_transition_time(
+    transaction: &Transaction<'_>,
+    time_hint_ms: Option<i64>,
+) -> Result<i64> {
+    let observed_at_ms = resolve_transition_time(time_hint_ms)?;
+    effective_trusted_time(transaction, observed_at_ms)
 }
 
 fn effective_trusted_time(transaction: &Transaction<'_>, observed_at_ms: i64) -> Result<i64> {
@@ -4995,19 +5132,4 @@ fn has_unique_index(
         return Ok(true);
     }
     Ok(false)
-}
-
-#[cfg(all(test, not(feature = "deterministic-time")))]
-mod trusted_time_surface_tests {
-    use super::*;
-
-    #[test]
-    fn caller_time_is_bounded_before_it_can_reach_the_durable_time_floor() {
-        let current = now_ms().unwrap();
-        assert!(validate_external_time(current).is_ok());
-        let far_future = current.saturating_add(75 * 365 * 24 * 60 * 60 * 1_000);
-        let error = validate_external_time(far_future).unwrap_err();
-        assert_eq!(error.code(), "TRUSTED_TIME_INVALID");
-        assert!(error.message().contains("clock-skew"));
-    }
 }

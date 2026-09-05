@@ -173,7 +173,6 @@ impl<'a> CooperativeShellRunner<'a> {
 
     pub fn execute(&self, request: CooperativeShellRequest<'_>) -> Result<CooperativeShellOutcome> {
         let plan = self.validate_request(&request)?;
-        let started_at_ms = self.authority.transition_time_candidate_ms()?;
         let executed = request.authorized_action.binding();
         let executed = ExecutedAction {
             executing_principal: executed.executing_principal,
@@ -186,22 +185,20 @@ impl<'a> CooperativeShellRunner<'a> {
             artifact_hash: executed.artifact_hash,
             adapter: executed.adapter,
         };
-        let claim = self.authority.claim_authenticated_at(
+        let claim = self.authority.claim_authenticated(
             &request.authorization.authorization_id,
             request.executor,
             &executed,
-            started_at_ms,
         )?;
         let lease = self
             .authority
-            .begin_execution_authenticated_at(
+            .begin_execution_authenticated(
                 &claim.claim_id,
                 &request.authorization.idempotency_key,
                 &executed,
                 request.executor,
                 request.adapter,
                 request.adapter_binary_hash,
-                started_at_ms,
             )?
             .into_started()?;
 
@@ -209,7 +206,6 @@ impl<'a> CooperativeShellRunner<'a> {
             return self.finish_without_child(
                 &lease.execution_id,
                 request.executor,
-                started_at_ms,
                 "protected executable changed before spawn",
             );
         }
@@ -231,7 +227,6 @@ impl<'a> CooperativeShellRunner<'a> {
                 return self.finish_without_child(
                     &lease.execution_id,
                     request.executor,
-                    started_at_ms,
                     "protected command could not be spawned",
                 );
             }
@@ -242,8 +237,6 @@ impl<'a> CooperativeShellRunner<'a> {
             return self.mark_unknown_after_process(
                 &lease.execution_id,
                 request.executor,
-                started_at_ms,
-                timer.elapsed(),
                 "protected command stdout pipe is missing",
             );
         };
@@ -253,8 +246,6 @@ impl<'a> CooperativeShellRunner<'a> {
             return self.mark_unknown_after_process(
                 &lease.execution_id,
                 request.executor,
-                started_at_ms,
-                timer.elapsed(),
                 "protected command stderr pipe is missing",
             );
         };
@@ -285,8 +276,6 @@ impl<'a> CooperativeShellRunner<'a> {
                             return self.mark_unknown_after_process(
                                 &lease.execution_id,
                                 request.executor,
-                                started_at_ms,
-                                timer.elapsed(),
                                 "timed-out protected command could not be reaped",
                             );
                         }
@@ -298,8 +287,6 @@ impl<'a> CooperativeShellRunner<'a> {
                     return self.mark_unknown_after_process(
                         &lease.execution_id,
                         request.executor,
-                        started_at_ms,
-                        timer.elapsed(),
                         "protected command status could not be observed",
                     );
                 }
@@ -325,14 +312,8 @@ impl<'a> CooperativeShellRunner<'a> {
             stderr.len(),
             stdout_capture_failed || stderr_capture_failed,
         );
-        let ended_at_ms = monotonic_end(started_at_ms, timer.elapsed());
-        let receipt = self.finish_or_mark_unknown(
-            &lease.execution_id,
-            request.executor,
-            state,
-            summary,
-            ended_at_ms,
-        )?;
+        let receipt =
+            self.finish_or_mark_unknown(&lease.execution_id, request.executor, state, summary)?;
         Ok(CooperativeShellOutcome {
             receipt,
             exit_code: status.code(),
@@ -441,7 +422,6 @@ impl<'a> CooperativeShellRunner<'a> {
         &self,
         execution_id: &str,
         executor: &AuthenticatedIdentity,
-        started_at_ms: i64,
         summary: &str,
     ) -> Result<CooperativeShellOutcome> {
         let receipt = self.finish_or_mark_unknown(
@@ -449,7 +429,6 @@ impl<'a> CooperativeShellRunner<'a> {
             executor,
             ExecutionState::Failed,
             summary.into(),
-            started_at_ms,
         )?;
         Ok(CooperativeShellOutcome {
             receipt,
@@ -468,9 +447,8 @@ impl<'a> CooperativeShellRunner<'a> {
         executor: &AuthenticatedIdentity,
         state: ExecutionState,
         summary: String,
-        ended_at_ms: i64,
     ) -> Result<ExecutionReceipt> {
-        match self.authority.finish_execution_authenticated_at(
+        match self.authority.finish_execution_authenticated(
             execution_id,
             executor,
             state,
@@ -480,17 +458,12 @@ impl<'a> CooperativeShellRunner<'a> {
                 external_evidence_reference: None,
             },
             None,
-            ended_at_ms,
         ) {
             Ok(receipt) => Ok(receipt),
             Err(error) => {
                 let _ = self
                     .authority
-                    .mark_execution_outcome_unknown_authenticated_at(
-                        execution_id,
-                        executor,
-                        ended_at_ms,
-                    );
+                    .mark_execution_outcome_unknown_authenticated(execution_id, executor);
                 Err(error)
             }
         }
@@ -500,18 +473,11 @@ impl<'a> CooperativeShellRunner<'a> {
         &self,
         execution_id: &str,
         executor: &AuthenticatedIdentity,
-        started_at_ms: i64,
-        elapsed: Duration,
         message: &str,
     ) -> Result<CooperativeShellOutcome> {
-        let observed_at_ms = monotonic_end(started_at_ms, elapsed);
         let _ = self
             .authority
-            .mark_execution_outcome_unknown_authenticated_at(
-                execution_id,
-                executor,
-                observed_at_ms,
-            );
+            .mark_execution_outcome_unknown_authenticated(execution_id, executor);
         Err(Error::coded("SHELL_RUNNER_IO_FAILED", message))
     }
 }
@@ -814,11 +780,6 @@ fn result_summary(
             status.code().map_or_else(|| "signal".into(), |code| code.to_string())
         )
     }
-}
-
-fn monotonic_end(started_at_ms: i64, elapsed: Duration) -> i64 {
-    let elapsed_ms = i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX);
-    started_at_ms.saturating_add(elapsed_ms)
 }
 
 fn runner_config_error(message: impl Into<String>) -> Error {
