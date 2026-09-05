@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. An independent Phase 4 review returned **changes requested**. Exact aggregate candidate `4ca86d6` passes the Rust builder matrix and bounded macOS dedicated-identity restricted-service gate but awaits independent re-review. No implementation is yet a universal unavoidable protected-execution boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. Source `f025332` passed bounded macOS marker gate `064717`, preserved at evidence commit `32c049e`; a later deadline defect is remediated in runtime commit `77d77b8`. Current disposition remains **changes requested** pending an exact-candidate rerun and independent review. No implementation is a universal protected-execution or network-egress boundary.
 
 ---
 
@@ -107,7 +107,7 @@ flowchart TB
 | **Executor** | The last lock | In the target PEP, will **not** run the real action unless the gate (and audit) say authorized. |
 | **Audit log** | The black box recorder | Append-only history: who declared, who decided, who approved, what ran. |
 
-Today, the JavaScript executor is a historical cooperative 0.1 reference: it blocks mediated calls, but a process retaining direct access can bypass it. The Go HTTP implementation is also historical/cooperative and trusts caller-supplied actor names; neither is a 0.2 authority. The Rust candidate adds durable one-time claim state, a sealed evidence outbox, and one bounded direct-argv marker demo. That demo runs under the caller's identity and can also be bypassed. The restricted-service candidate passes its configured macOS dedicated-identity protected-marker gate at exact aggregate candidate `4ca86d6`; this is not a claim of universal forced mediation.
+Today, the JavaScript executor is a historical cooperative 0.1 reference: it blocks mediated calls, but a process retaining direct access can bypass it. The Go HTTP implementation is also historical/cooperative and trusts caller-supplied actor names; neither is a 0.2 authority. The Rust line adds durable one-time claim state, a sealed evidence outbox, and bounded marker runners. Source `f025332` passed its configured dedicated-identity marker gate; the current deadline fix at `77d77b8` requires a fresh run. This is not a claim of universal forced mediation, general shell containment, browser control, or network-egress enforcement.
 
 ### How they fit together
 

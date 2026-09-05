@@ -1,5 +1,7 @@
 # Notes: OpenAI evaluation / Hugging Face incident (Jul 2026 reporting)
 
+> Historical architectural note, preserved for context. Its public-incident narrative was not reverified in this candidate preparation and is not acceptance evidence. Current Northstar mediates one bounded local marker operation; no HTTP/browser/network-egress PEP exists. Read [the current review packet](../reviews/CURRENT-REVIEW.md) for the accepted boundary and outstanding gates.
+
 ## What was reported (public narrative)
 
 During **evaluation / security testing**, advanced OpenAI models in a **controlled sandbox** (intended offline):

@@ -4,7 +4,7 @@
 **Scope:** operational readiness for one SQLite authority and one protected local audit-export file  
 **Not:** a production HA, remote-ledger, managed-key, or forced-mediation profile
 
-This profile turns fail-closed behavior into explicit operator duties. It does not convert a local preview into a production service. The bounded slice 3.9 administrator-backed macOS gate passes at exact aggregate candidate `4ca86d6`; independent re-review and production hardening remain required.
+This profile turns fail-closed behavior into explicit operator duties. It does not convert a local preview into a production service. Source `f025332` passed bounded administrator gate `064717`, preserved at evidence commit `32c049e`; the current deadline remediation at `77d77b8` still needs a fresh exact-candidate run and independent re-review. Production hardening remains required.
 
 ## Readiness decision
 

@@ -2,6 +2,8 @@
 
 How to connect real systems to the Trust Layer **without** abandoning the air-gapped design.
 
+> **Status boundary:** Patterns A–C below describe cooperative TL-PX 0.1 integration. Pattern D is a future authority-transport sketch. None is a Rust 0.2 authority, protected-execution PEP, HTTP semantic classifier, or network-egress boundary.
+
 ## Principle
 
 ```text
@@ -114,7 +116,7 @@ Do not claim “Grok is secured” until the hook is fail-closed for the tools y
 
 ---
 
-## Pattern D — Future local service
+## Pattern D — Future authority transport sketch
 
 HTTP/Unix socket profile (not shipped yet):
 
@@ -127,21 +129,25 @@ POST /v1/execution
 
 Keep the same records and audit semantics for TL-PX conformance.
 
+This is an inbound control-plane shape, not outbound mediation. Exposing an evaluate endpoint does not remove direct curl/browser/socket routes, authenticate an executor, construct destination semantics, or perform a protected action. Do not use historical Go `tlpxd` for TL-PX 0.2 permission traffic.
+
 ---
 
 ## Mapping host actions → intent
 
 | Host action | Suggested `action` | Typical risk |
 | --- | --- | --- |
-| Read-only search | `read` / omit | low |
+| Destination-specific read | Typed adapter-owned operation; do not infer from HTTP GET | deployment-specific |
 | Edit files | `modify_file` | medium |
 | Shell | `shell` | medium–high |
-| Network egress | `access_api` | medium–high |
+| Network egress | No generic action; future destination-specific profile only | high |
 | Deploy | `deploy` | high |
 | Payments | `transfer_funds` | high |
 | Spawn subagent | `spawn_agent` | medium |
 
 Keep Switchboard `allowed_actions` tight per principal.
+
+For a future network capability, direct outbound sockets, DNS, proxies, browsers, package helpers, and credentials must be unavailable to the agent. The PEP must construct the request from a versioned destination contract; forwarding caller-supplied arbitrary URLs as `http.get` or `access_api` is not exact semantic mediation. Network-egress implementation remains deferred.
 
 ---
 
@@ -168,6 +174,8 @@ Until operator authN exists in-repo, treat operator id as an integration respons
 - [ ] Separate principals for interactive vs CI  
 - [ ] Incident runbook uses `chain` + accountability  
 - [ ] Conformance + tech-test green in CI  
+- [ ] No direct route exists around each claimed protected PEP
+- [ ] Network actions, if any, use a destination-specific accepted profile rather than method/host labels
 
 ---
 

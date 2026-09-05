@@ -1,6 +1,8 @@
 # HTTP control plane (`tlpxd`)
 
-Local air-gapped **Go** service wrapping evaluate / operator / execution / verify.
+> **Status:** Historical/cooperative TL-PX 0.1-era Go control plane. It trusts caller-supplied identities and is not the Rust authority, a TL-PX 0.2 adapter endpoint, a protected-execution PEP, or a network-egress PEP. `/v1/execution` records a caller report; it does not execute or mediate outbound HTTP.
+
+Local air-gapped **Go** service wrapping evaluate / operator / caller-reported execution / verify.
 
 ## Run
 

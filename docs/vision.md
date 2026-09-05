@@ -75,8 +75,8 @@ Ship a **minimum everyone can implement**; keep differentiated enterprise featur
 ## Status snapshot
 
 - TL-PX 0.1 frozen; 0.2 evaluation/authorization contract core through 2.3 and bounded Rust 2.3d scope at `aed80e2` accepted; later local candidates remain unaccepted
-- Restricted-PEP slice 3.9 passes its bounded macOS dedicated-identity builder gate at exact aggregate candidate `4ca86d6`; universal forced mediation is not established
-- Independent Phase 4 review returned **changes requested**; exact aggregate candidate `4ca86d6` awaits independent re-review
+- Restricted-marker PEP slice 3.9 passed bounded macOS gate `064717` at source `f025332`, preserved by evidence commit `32c049e`; universal forced mediation and network-egress mediation are not established
+- Review disposition remains **changes requested**: the working tree repairs a subsequently found pre-lock deadline defect but needs exact-candidate evidence and independent re-review
 - Reference implementation: Switchboard + air-gap + fail-closed policy compile (still emits 0.1)  
 - Conformance + formal technical test #1 **passed**  
 - A private baseline remote exists; post-baseline hardening remains local until an explicit push is chosen

@@ -4,9 +4,9 @@
 **Current baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md) §14 and §14.1  
 **Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
 
-A16 remains real: calling the library is optional, so this is not yet an enforcement boundary. That diagnosis stands.
+A16 remains real for every capability not placed behind an OS-enforced PEP. The bounded 3.9 marker profile has separate-identity builder evidence; that does not generalize to the shell, browser, or network.
 
-Do not treat the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as the acceptance test. Slice 3.8 now provides the explicitly labeled cooperative `tlpx-run-demo` at local commit `7c41450`; it runs under the caller's UID and is bypassable. Slice 3.9 requires separate OS identities and the eight acceptance assertions in the build sheet. Forced mediation is not current implementation status; only the bounded `aed80e2` Rust evaluate/issue/claim scope is independently accepted.
+Do not treat the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as an acceptance test. Slice 3.8 provides an explicitly cooperative demo. Source `f025332` passed the bounded 3.9 marker gate recorded at evidence commit `32c049e`; a later deadline defect is remediated in runtime commit `77d77b8`. Only the bounded `aed80e2` evaluate/issue/claim scope is independently accepted. No universal forced-mediation or network-egress claim exists.
 
 ## Goal
 
@@ -42,10 +42,10 @@ Always-approve coding harnesses make this worse: UI prompts are not the control.
 
 | Host action | Intent `action` | Typical risk |
 | --- | --- | --- |
-| Read-only search / list | `read` or omit | low |
+| Destination-specific read/list | Named typed operation; never infer read-only from HTTP method | deployment-specific |
 | Edit / write files | `modify_file` | medium |
 | Shell | `shell` | medium–high |
-| Network egress | `access_api` | medium–high |
+| Network egress | No generic action; use a destination-specific future profile | high |
 | Deploy | `deploy` | high |
 | Payments | `transfer_funds` | high |
 | Spawn subagent | `spawn_agent` | medium |
@@ -66,7 +66,7 @@ Already documented in `docs/integration.md` Pattern A.
 
 Job runner shells out to `glass` / `tlpx` evaluate; only runs payload if AUTHORIZED.
 
-### A3 — Local HTTP PEP client → `tlpxd`
+### A3 — Historical HTTP transport sketch, not a PEP
 
 ```text
 Agent tool request
@@ -76,6 +76,8 @@ Agent tool request
   → if AUTHORIZED: perform tool
   → POST /v1/execution
 ```
+
+This sketch is not implemented by the Rust authority and does not mediate outbound HTTP. The Go `tlpxd` path trusts caller-supplied identities and records caller-reported execution. Do not route 0.2 permission traffic through it or present it as protected egress. A future OS/network boundary remains deferred.
 
 ### A4 — Harness hook (e.g. Grok Build PreToolUse)
 
@@ -110,7 +112,6 @@ Hooks are a distribution channel; air-gapped gate remains the authority.
 
 ## Relationship to OpenAI/HF-style incidents
 
-PEP helps for **tool-mediated** steps (HTTP, shell, credential use via harness).  
-It does **not** replace sandbox/hypervisor containment if the model escapes without using the tool API.
+Northstar helps only when the complete capability is forcibly mediated and a trusted adapter constructs its exact semantics. A generic HTTP method/host mapping or optional harness hook does not meet that bar. It does not replace sandbox/hypervisor containment if the model reaches the capability outside the PEP.
 
 See [openai-hf-incident-notes.md](./openai-hf-incident-notes.md).

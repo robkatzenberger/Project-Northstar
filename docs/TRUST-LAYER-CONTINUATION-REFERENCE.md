@@ -80,12 +80,12 @@ Use the three repositories to preserve lineage and clarify the public story, whi
 The next continuation gate should remain narrow:
 
 1. Freeze feature expansion.
-2. Produce a clean exact candidate commit for the current H1/M2 and composition-test changes.
-3. Preserve the completed dedicated-identity slice 3.9 administrator-gate evidence for exact candidate `4ca86d6`.
-4. Obtain independent re-review of that exact candidate.
-5. Demonstrate one real external capability for which exact-action binding, authenticated single-use claim, and durable execution evidence close a gap not covered by ordinary agent sandboxing or review.
+2. Review the runtime remediation at `77d77b8` for post-lock production time, administrator cleanup, and exact evidence validation.
+3. With owner approval, produce a clean exact candidate commit and rerun the complete matrix plus the administrator gate. The last committed marker evidence is source `f025332`, evidence commit `32c049e`, report `064717`; it is not evidence for later changes.
+4. Obtain independent re-review of the new exact candidate.
+5. Only then consider a future restricted-egress profile or another real external capability for which exact-action binding, authenticated single-use claim, and durable execution evidence close a gap not covered by ordinary sandboxing.
 
-If that sequence cannot establish a meaningful enforcement advantage, preserve Prism and APEX-Lite as historical references and stop expanding Northstar. If it succeeds, continue Northstar as a provider-neutral authorization-and-receipt kernel rather than a universal trust or orchestration platform.
+If that sequence cannot establish a meaningful enforcement advantage, preserve Prism and APEX-Lite as historical references and stop expanding Northstar. If it succeeds, continue Northstar as a provider-neutral authorization-and-receipt kernel rather than a universal trust, semantic-consequence predictor, containment, or orchestration platform.
 
 ## Authority order
 

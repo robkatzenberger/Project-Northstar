@@ -9,17 +9,17 @@
 **Slice 3.4 local commit:** Human-only route approval/rejection, canonical display binding, fresh post-approval issuance, and atomic approval expiry at `133cd94` — full exact-commit builder matrix passed, not independently accepted
 **Slices 3.5–3.7 local commits:** Transactional revocation `ad95653`; terminal execution/reconciliation `9028346`; authenticated adapter contract `518899a` — full exact-commit builder matrices passed, not independently accepted
 **Slice 3.8 local commit:** bounded `CooperativeShellRunner` plus `tlpx-run-demo` at `7c41450` — full exact-commit builder matrix passed, cooperative only, not independently accepted
-**Slice 3.9 unverified candidate:** bounded restricted-marker `tlpx-run` service and separate-identity acceptance harness at `e6f2bb0` — ordinary pre-commit checks passed, required administrator-backed acceptance run not performed, incomplete and unaccepted
-**Phase 4 review disposition:** **CHANGES REQUESTED** for security-code target `64d0820`; exact remediation commit `ee720d4` passes the full non-privileged builder matrix but is not accepted until independently re-reviewed
-**Remediation scope:** authorization MAC/audit-seal live roles; Switchboard-before-policy; post-claim revocation at execution start; exact transaction-time audit capacity; streamed source-content reconciliation; authenticated export acknowledgements plus combined database/sink readiness; schema index/constraint checks; cooperative exporter lock; protected executable provenance; honest legacy/handoff/3.9 boundaries
+**Slice 3.9 evidence:** bounded restricted-marker source candidate `f025332` passed administrator gate `064717`; direct-child evidence commit `32c049e` preserves its canonical JSONL. A later hard review found a production lock-wait deadline defect, so the runtime remediation at `77d77b8` needs a fresh exact-candidate gate and independent review.
+**Phase 4 review disposition:** **CHANGES REQUESTED**. The accepted boundary remains `aed80e2`; neither `f025332`, evidence-only `32c049e`, nor runtime commit `77d77b8` is independently accepted.
+**Current runtime remediation at `77d77b8`:** samples production transition time after acquiring each SQLite write transaction; adds claim/approval/lease lock-wait regressions; hardens root cleanup and exact evidence cardinality/linkage/binary checks. The 2026-09-05 follow-up also fixes identical production reconciliation retries and rejects a leading BOM in canonical evidence; [builder results](../../tests/reports/review-followup-builder-verification-2026-09-05.md) remain working-tree evidence only. No HTTP or network-egress PEP is implemented.
 **Crate:** `tlpx` 0.2.0  
-**Not yet:** verified separate-identity enforcement, hostile same-UID isolation, full Section 3 verification, active cancellation of already-started effects, portable revocation/expiry evidence, a general hardened service, Phase 4 re-review, or acceptance
+**Not yet:** exact-commit evidence for the current remediation, hostile same-UID isolation, full Section 3 verification, active cancellation of already-started effects, portable revocation/expiry evidence, a general hardened service, network-egress mediation, Phase 4 re-review, or acceptance
 
 This is the start of the authoritative 0.2 core. It does not replace the running JavaScript 0.1 gate and does not yet advertise a conforming 0.2 runtime. It is pinned to the accepted 0.2 schemas and must continue to match both the JCS vectors and the typed-action/hash vectors under `tests/fixtures/tlpx-0.2/` exactly.
 
 Builder verification details and non-claims are recorded in [`../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md). Independent exact-commit acceptance is recorded in [`../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). The `c9bdd0f` evidence increment and later slice reports are under [`../../tests/reports/`](../../tests/reports/). Exact Phase 4 remediation evidence is in [`../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md`](../../tests/reports/phase-4-remediation-builder-verification-2026-08-28.md).
 
-The MVP plus the unaccepted 3.1 candidate proves this local authority seam:
+The accepted MVP plus later unaccepted candidates implement this local authority seam:
 
 ```text
 validated Submitted Intent
@@ -83,13 +83,11 @@ npm run test:rust-evidence
 # Cooperative 3.8 demonstration; creates only a previously absent marker.
 cargo run --bin tlpx-run-demo -- /tmp/northstar-runner.sqlite /tmp/northstar-marker request-1
 
-# REQUIRED before claiming slice 3.9: real PEP/agent OS-identity separation.
-# On macOS, first create three dedicated inactive test accounts; shared system
-# accounts (_www/nobody/daemon) are refused. Then supply their names explicitly.
-sudo TLPX_PEP_USER=tlpx_pep_test \
-  TLPX_AGENT_USER=tlpx_agent_test \
-  TLPX_OTHER_USER=tlpx_other_test \
-  ./scripts/restricted-agent-acceptance.sh
+# macOS administrator gate. From the repository root, first run the read-only
+# prerequisite check; after an exact candidate commit, run the one-command gate.
+cd ../..
+./run-northstar-3.9.sh --check
+sudo ./run-northstar-3.9.sh
 ```
 
 Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
@@ -112,7 +110,7 @@ Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies inc
 - SQLite stores decisions, evaluation errors, and claimable authorizations durably. `(authenticated principal, request_id)` is immutable once a terminal outcome commits.
 - Exact error retries return the stored error; changed intent under the same id blocks with `IDEMPOTENCY_CONFLICT`; an eligible successor uses a new id and may link only to a retryable receipt owned by the same authenticated principal.
 - One authority-wide transactional sequence orders decisions, evaluation errors, and successful claims.
-- Normal process time advances from a monotonic anchor. A transactional SQLite watermark rejects negative or backward time on new time-bearing authority transitions across connections and restarts.
+- Normal process time advances from a monotonic anchor. Runtime commit `77d77b8` carries an unresolved runtime-time source into each write transaction, samples production time only after `BEGIN IMMEDIATE`, and then applies the transactional SQLite watermark. Lock-wait regressions cover authorization expiry, human-approval expiry, and execution-start lease expiry. Identical production completion/reconciliation retries return the durable receipt without treating a new clock sample as changed request content; explicit deterministic test times remain bound. This is working-tree evidence only until an exact candidate is rerun.
 - `operational_snapshot()` returns a database-only integrity-gated aggregate view. Deploy/restore readiness uses `FileAuditExporter::operational_readiness()` so database acknowledgements are checked against actual sink bytes.
 - Decision, evaluation-error, authorization, and claim JSON is canonical JCS and matches the accepted 0.2 schemas under the JS oracle.
 - Decision requester party type is explicit trusted-embedding configuration; use separate authority instances when requester populations have different party types.
@@ -143,7 +141,7 @@ The SQLite schema is pre-release and intentionally has no migration-compatibilit
 
 The slice 3.8 `tlpx-run-demo` can create one marker through `/usr/bin/touch`, but it runs under the caller's UID and authors its own narrow prototype request. A process that can reach a capability directly can still bypass Northstar. The argv allowlist is exact authorization binding, not an operand sandbox; a privileged runner would need capability-specific operand confinement. The runner's ownership/mode, descriptor-hash, and immediate inode-identity checks exclude replacement by the separately identified untrusted account, but do not contain a hostile process sharing the PEP UID. Interpreter rejection is defense in depth, not confinement of every executable that can launch another program.
 
-The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected marker capability. The marker path is present in authorization resource scope as well as the exact operation arguments, and the administrator harness stages service code as PEP-owned/non-writable. Ordinary tests still cannot establish which OS identity created the marker inode. The defining separate-identity run has not been performed. The macOS harness now refuses shared accounts and requires three explicitly named dedicated inactive test identities. Until that run passes, do not claim forced mediation, alternate-route resistance, protected-marker provenance, 3.9 completion, Section 3 completion, or acceptance. The precise evidence and remaining assertions are recorded in [`../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md`](../../tests/reports/slice-3.9-restricted-pep-candidate-unverified-2026-08-27.md).
+The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected marker capability. The marker path is present in authorization resource scope as well as the exact operation arguments, and the administrator harness stages service code as PEP-owned/non-writable. Source `f025332` passed the defining separate-identity run; evidence commit `32c049e` preserves [`../../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md`](../../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md) and its five canonical records. That result remains valid for the observed marker scenario but did not exercise the subsequently reproduced SQLite lock-wait deadline crossing. Runtime commit `77d77b8` also initializes cleanup ownership before installing traps, pins destructive cleanup to the system binary, requires an internally created non-symlink directory, and makes the evidence oracle enforce exact record order/cardinality/linkage and the tested binary digest. A fresh exact-candidate administrator run is required. Do not broaden this bounded result into Section 3 completion, independent acceptance, hostile same-UID containment, universal forced mediation, or network-egress mediation.
 
 ## Requirements
 
@@ -155,4 +153,4 @@ The slice 3.9 candidate adds the reserved `tlpx-run` service for one protected m
 
 ## Next gate
 
-Obtain independent re-review of exact remediation commit `ee720d44d43904612a148b8f968ea22f59b43f73`. The dedicated-identity slice 3.9 acceptance script remains outstanding; do not broaden Phase 4 checks into that OS-enforcement claim.
+Runtime remediation is frozen at `77d77b8745b342d8f61b326a468c53523fe945a1`. Complete the approved documentation commit, then rerun the full non-privileged matrix and `sudo ./run-northstar-3.9.sh`, preserve the new report/JSONL in a separate evidence commit if desired, refresh exact hashes, and obtain independent re-review. Do not start the future restricted-egress profile until this gate is complete.

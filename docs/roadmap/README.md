@@ -1,9 +1,8 @@
 # Roadmap & product ideas (local)
 
-This folder captures **historical product thinking** for Northstar / Trust Layer beyond the current reference implementation.  
-It is design and intent — not all of it is built yet.
+This folder captures **historical and future product thinking** beyond the accepted Northstar boundary. It is not implementation or acceptance evidence. In particular, no HTTP/browser/network-egress PEP exists; the bounded Rust PEP protects one local marker operation.
 
-**Last updated:** 2026-08-14  
+**Last updated:** 2026-09-04
 **Current build baseline:** [`../BUILD-SPEC-SHEET.md`](../BUILD-SPEC-SHEET.md)  
 **Disposition:** [`../reviews/build-plan-review-disposition-2026-08-13.md`](../reviews/build-plan-review-disposition-2026-08-13.md)
 
@@ -50,7 +49,7 @@ It is design and intent — not all of it is built yet.
 
 **Also in repo:**
 
-- Go: Switchboard, sealed audit, ops CLI, HTTP `tlpxd`  
+- Go: historical cooperative Switchboard, sealed audit, ops CLI, and inbound HTTP `tlpxd` sketch; not a 0.2 authority or PEP
 - Java: policy + Switchboard evaluate  
 - Full docs suite + shareable `docs/SHARE.md`  
 
@@ -72,5 +71,5 @@ It is design and intent — not all of it is built yet.
 - [../SHARE.md](../SHARE.md) — plain-language overview for sharing  
 - [../README.md](../README.md) — docs hub  
 - [../security.md](../security.md) — threat model  
-- [../http-api.md](../http-api.md) — Go control plane API  
+- [../http-api.md](../http-api.md) — historical cooperative Go control-plane API
 - [../standard/SPEC-v0.1.md](../standard/SPEC-v0.1.md) — normative minimum standard  

@@ -5,10 +5,11 @@
 ```bash
 cd ~/projects/northstar/implementations/javascript
 
-npm test                      # unit + switchboard + air-gap + policy compile + 0.2 contract oracles
+npm test                      # unit + switchboard + air-gap + policy/0.2 oracles + PEP-evidence negatives
 npm run test:jcs              # TL-PX 0.2 JCS / hash fixtures only
 npm run test:policy:0.2       # slice 2.4 provenance/precedence/ordering oracle
 npm run test:actions:0.2      # slice 3.2 typed-action/hash oracle
+npm run test:pep-evidence     # exact 3.9 JSONL oracle: one positive + adversarial negatives
 npm run test:unit
 npm run test:switchboard
 npm run test:airgap
@@ -25,12 +26,28 @@ Rust local authority MVP (separate toolchain):
 ```bash
 cd ~/projects/northstar/implementations/rust
 cargo fmt --all -- --check
-cargo test --all-targets --offline      # 88 JCS/types + authority/lifecycle + evidence + cooperative-runner tests at 3.8
+cargo test --all-targets --offline --features deterministic-time
+cargo test --all-targets --offline      # production-time and restricted-PEP paths
+cargo clippy --all-targets --offline --features deterministic-time -- -D warnings
 cargo clippy --all-targets --offline -- -D warnings
 cargo run --example local_authority -- /tmp/northstar-authority.sqlite request-1
 ```
 
-The example performs evaluation, issuance, one durable SQLite claim, and—when emitting evidence—a kernel-authenticated pending cancellation. It deliberately performs no external side effect. The separate `tlpx-run-demo` binary exercises the bounded same-UID cooperative runner; neither is a forced-mediation PEP test.
+The example performs evaluation, issuance, one durable SQLite claim, and—when emitting evidence—a kernel-authenticated pending cancellation. It deliberately performs no external side effect. The separate `tlpx-run-demo` binary exercises the bounded same-UID cooperative runner; neither is a forced-mediation PEP test. The production-mode suite includes lock-wait regressions for claim, human-approval, and execution-start expiry after SQLite write-transaction acquisition. It also checks that identical completion and reconciliation retries return the durable receipt despite a later server-clock sample, while changed reconciliation results remain rejected.
+
+The [2026-09-05 working-tree review report](../tests/reports/review-followup-builder-verification-2026-09-05.md) records the reproduced reconciliation-retry and UTF-8 BOM validation defects, their fixes, the added approval-expiry regression, and the complete non-administrator verification matrix. It is builder evidence, not exact-commit or independent acceptance.
+
+The macOS separate-identity gate is a distinct administrator test:
+
+```bash
+cd ~/projects/northstar
+./run-northstar-3.9.sh --check
+sudo ./run-northstar-3.9.sh
+```
+
+Run it only against the exact candidate intended for review. It creates and removes dedicated temporary identities and writes a dated report plus canonical JSONL under `tests/reports/`.
+
+For a direct oracle check, `validate-pep-evidence.mjs` requires exactly two arguments after the script name: the JSONL path and the independently computed staged-binary digest in canonical `sha256:` plus 64 lowercase hexadecimal form. The administrator harness supplies both; `npm run test:pep-evidence` runs the committed positive fixture and adversarial mutations.
 
 ---
 
@@ -49,6 +66,8 @@ The example performs evaluation, issuance, one durable SQLite claim, and—when 
 | `scripts/conformance.mjs` | Frozen TL-PX 0.1 spec conformance (47 fixtures) | temp files |
 | `scripts/conformance-v02.mjs` | Distinct TL-PX 0.2 schema/validator suite | none |
 | `scripts/validate-rust-evidence.mjs` | Rust-emitted canonical decision/error/authorization/claim records against the JS 0.2 oracle | temporary in-memory SQLite |
+| `scripts/validate-pep-evidence.mjs` | Validates one exact ordered 3.9 DENY/ALLOW/authorization/claim/completion chain and binds it to a caller-supplied tested-binary SHA-256 | administrator-gate JSONL |
+| `scripts/test-pep-evidence.mjs` | Positive fixture plus cardinality, ordering, linkage, binary, encoding, and framing negatives for the 3.9 evidence validator | committed `064717` JSONL + temp mutations |
 | `scripts/tech-test.mjs` | **Formal E2E technical test #1** | monorepo `var/tech-test-audit.jsonl` |
 | `scripts/adversarial-redteam.mjs` | Red team / residual risk | temp files |
 | `scripts/no-bs.mjs` | Earlier theory scoreboard | temp files |
@@ -79,9 +98,9 @@ The example performs evaluation, issuance, one durable SQLite claim, and—when 
 
 `npm test` also runs `test-policy-v02.mjs`, `test-action-types-v02.mjs`, `test-jcs.mjs`, and `conformance-v02.mjs`. Those are 0.2 contract oracles. They do not make the gate 0.2-conforming. `npm run conformance` remains the frozen 47.
 
-At local slice 3.8 commit `7c41450`, the Rust suite has 88 tests: 3 typed-action tests, 47 authority tests, 10 cooperative-runner tests, 13 evidence/outbox tests, 9 JCS/hash tests, and 6 policy-activation tests. The runner cases cover startup allowlists, executable mutation, literal metacharacters, environment clearing, bounded output, timeout process-group cleanup, demo replay, lease bounds, spawn failure after durable start, and concurrent one-winner execution. The JavaScript combined suite passes 935 checks, including 82/82 draft 0.2 contract checks, and the JS crosscheck validates 10 Rust-emitted records. These tests do not establish portable revocation evidence, alternate-route resistance, separate-identity forced mediation, or independent acceptance.
+The historical slice 3.8 report at commit `7c41450` counted 88 Rust tests. Later unaccepted slices add authority lifecycle, evidence/outbox, handoff, restricted-PEP, and production-time coverage, so do not reuse that historical count as the current suite size. The JavaScript combined suite now also runs the dedicated 3.9 evidence-oracle negatives. These non-privileged tests do not establish portable revocation evidence, alternate-route resistance, separate-identity enforcement, or independent acceptance.
 
-Named-commit results for `aed80e2` and its independent acceptance are recorded in [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) and [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). Named commit `c9bdd0f` has builder evidence in [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) and still requires an independent exact-commit review. Dated reports under [`../tests/reports/`](../tests/reports/) record the local 2.4/3.x candidates; slice 3.8 exact-commit evidence is in [`../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md`](../tests/reports/slice-3.8-cooperative-shell-runner-builder-verification-2026-08-20.md). Full Section 3 verification and independent review remain deferred until Section 3 is complete.
+Named-commit results for `aed80e2` and its independent acceptance are recorded in [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) and [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). Source `f025332` passed the bounded macOS marker gate recorded in [`../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md`](../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md) and preserved by direct-child evidence commit `32c049e`. A later review reproduced a production lock-wait deadline defect; its runtime remediation at `77d77b8` and stronger evidence oracle require a clean exact-candidate full rerun, new administrator report, and independent re-review. Full Section 3 remains unaccepted, and no general forced-mediation or network-egress claim follows from the marker gate.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 
@@ -115,7 +134,7 @@ node scripts/adversarial-redteam.mjs
 ```
 
 Interprets **PASS / FAIL / WARN**.  
-WARN items (audit file write, bypass outside library, operator spoof) may remain by design until deployment controls exist.
+WARN items remain deployment or trust-boundary reminders. In particular, A16 survives for every capability outside the one bounded 3.9 marker profile; even that profile requires fresh exact-candidate evidence for the current remediation.
 
 Do not treat red team PASS as “no residual risk.”
 
@@ -140,5 +159,6 @@ cd implementations/javascript
 node --version
 npm test
 npm run conformance
+npm run test:pep-evidence
 node scripts/tech-test.mjs
 ```

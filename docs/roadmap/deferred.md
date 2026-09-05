@@ -1,12 +1,13 @@
 # Deferred (explicitly not-now)
 
-Items that matter eventually but should **not** block Phase A/B.
+Items that matter eventually but should not expand the current remediation before exact-candidate rerun and independent review.
 
 | Item | Why deferred |
 | --- | --- |
 | Full SSO / OIDC for operators | Allowlist + route enough until real ops product |
 | Multi-region HA / active-active | Premature before single-node control plane is used in anger |
-| Java sealed-audit full parity | Go `tlpxd` covers service shape |
+| Java sealed-audit full parity | The historical Go `tlpxd` sketches service shape only; it is not a 0.2 authority or PEP |
+| Restricted network egress | Requires the current deadline fix/re-review, a platform threat model, typed destination contract, and separate-identity acceptance |
 | Deep intent inspection / DPI | Fights declared-intent model; different product |
 | ML risk scoring as primary gate | Breaks determinism story |
 | Public open-source marketing launch | Owner decision; private repo is fine |
@@ -35,3 +36,4 @@ Pick up deferred items when:
 - An ops console needs SSO  
 - Two production agent fleets need cross-hop tokens  
 - Counsel asks for public claim wording  
+- A concrete customer needs one narrow destination-specific operation and can remove every direct network route from the agent
