@@ -6,7 +6,7 @@
 
 A16 remains real for every capability not placed behind an OS-enforced PEP. The bounded 3.9 marker profile has separate-identity builder evidence; that does not generalize to the shell, browser, or network.
 
-Do not treat the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as an acceptance test. Slice 3.8 provides an explicitly cooperative demo. Source `f025332` passed the bounded 3.9 marker gate recorded at evidence commit `32c049e`; a later deadline defect is remediated in runtime commit `77d77b8`. Only the bounded `aed80e2` evaluate/issue/claim scope is independently accepted. No universal forced-mediation or network-egress claim exists.
+Do not treat the August 7 first deliverable (`pep-run.mjs` / cooperative CLI wrapper) as an acceptance test. Slice 3.8 provides an explicitly cooperative demo. The reviewer later accepted only the bounded macOS marker profile at source `82f5cd6`, evidence child `6bb0a07`, administrator report `172840`; see the [current review packet](../reviews/CURRENT-REVIEW.md). The independently accepted implementation baseline remains the bounded `aed80e2` evaluate/issue/claim scope. No universal forced-mediation, hostile same-UID, production, or network-egress claim follows.
 
 ## Goal
 

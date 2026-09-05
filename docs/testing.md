@@ -1,5 +1,11 @@
 # Testing
 
+## Reproduction environment
+
+The complete recorded matrix used Rust/Cargo **1.97.1**, Node **25.5.0**, and npm **11.8.0** on macOS **26.6.2**. Use those versions to reproduce the named results. The crate manifest declares Rust 1.70, but locked test dependencies such as `serde_json` 1.0.151 and `serde_derive` 1.0.229 declare Rust 1.71; Rust 1.70 is not a supported reproduction target for this test packet. Node 18 and other toolchain/platform minima were not verified by this run. The frozen manifest and lockfile remain unchanged; minimum-version alignment belongs in a separately tested source change.
+
+JavaScript has no external npm dependencies, so no npm lockfile or dependency installation is needed for these commands. Rust uses the committed `Cargo.lock`; fetch its dependencies before an offline run. The macOS administrator wrapper additionally requires Node at `/usr/local/bin/node`, a built default-feature `tlpx-run`, and an interactive administrator login.
+
 ## Quick commands
 
 ```bash
@@ -100,7 +106,7 @@ For a direct oracle check, `validate-pep-evidence.mjs` requires exactly two argu
 
 The historical slice 3.8 report at commit `7c41450` counted 88 Rust tests. Later unaccepted slices add authority lifecycle, evidence/outbox, handoff, restricted-PEP, and production-time coverage, so do not reuse that historical count as the current suite size. The JavaScript combined suite now also runs the dedicated 3.9 evidence-oracle negatives. These non-privileged tests do not establish portable revocation evidence, alternate-route resistance, separate-identity enforcement, or independent acceptance.
 
-Named-commit results for `aed80e2` and its independent acceptance are recorded in [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) and [`../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md). Source `f025332` passed the bounded macOS marker gate recorded in [`../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md`](../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md) and preserved by direct-child evidence commit `32c049e`. A later review reproduced a production lock-wait deadline defect; its runtime remediation at `77d77b8` and stronger evidence oracle require a clean exact-candidate full rerun, new administrator report, and independent re-review. Full Section 3 remains unaccepted, and no general forced-mediation or network-egress claim follows from the marker gate.
+The [accepted 2.3d review](../tests/reports/phase-2.3d-rust-authority-independent-crosscheck-2026-08-14.md) identifies implementation baseline `aed80e2`. The [exact-candidate non-administrator report](../tests/reports/exact-candidate-82f5cd6-builder-verification-2026-09-05.md) and [administrator report 172840](../tests/reports/slice-3.9-administrator-gate-2026-09-05-172840.md) identify source `82f5cd6`; evidence child `6bb0a07` preserves the reports and canonical JSONL. The [subsequent reviewer disposition](reviews/restricted-marker-scoped-acceptance-2026-09-05.md) accepts only the bounded macOS separate-identity marker profile. Historical `064717` remains evidence only for `f025332`. Full Section 3, Phase 4, production, hostile same-UID, universal forced mediation, and network/egress remain open.
 
 Claims **TL-PX 0.1 Minimum Profile CONFORMING** when:
 
@@ -134,7 +140,7 @@ node scripts/adversarial-redteam.mjs
 ```
 
 Interprets **PASS / FAIL / WARN**.  
-WARN items remain deployment or trust-boundary reminders. In particular, A16 survives for every capability outside the one bounded 3.9 marker profile; even that profile requires fresh exact-candidate evidence for the current remediation.
+WARN items remain deployment or trust-boundary reminders. In particular, A16 survives for capabilities outside the one bounded 3.9 marker profile. That profile has exact-candidate evidence and scoped reviewer acceptance at source `82f5cd6`; it does not generalize to the shell, browser, network, or hostile same-UID execution.
 
 Do not treat red team PASS as “no residual risk.”
 

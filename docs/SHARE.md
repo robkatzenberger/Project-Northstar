@@ -5,7 +5,7 @@
 
 **Who it’s for:** Founders, partners, operators, engineers, and anyone who needs the *story* without reading the full technical suite.  
 
-**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The Rust local authority's bounded evaluate/issue/claim path is independently accepted at `aed80e2`; later Section 3 and Phase 4 candidates are not accepted. Source `f025332` passed bounded macOS marker gate `064717`, preserved at evidence commit `32c049e`; a later deadline defect is remediated in runtime commit `77d77b8`. Current disposition remains **changes requested** pending an exact-candidate rerun and independent review. No implementation is a universal protected-execution or network-egress boundary.
+**Status:** The cooperative JavaScript TL-PX 0.1 reference passed technical test #1. The independently accepted Rust implementation baseline remains the bounded evaluate/issue/claim MVP at `aed80e2`. The reviewer separately accepted only the bounded macOS separate-identity marker PEP at source `82f5cd6`, evidence `6bb0a07`, administrator report `172840`; see the [current review packet](reviews/CURRENT-REVIEW.md). Phase 4, Section 3, network/egress, hostile same-UID containment, production, and universal forced mediation remain open.
 
 ---
 

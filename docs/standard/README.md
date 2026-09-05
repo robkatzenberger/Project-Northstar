@@ -2,7 +2,7 @@
 
 **Minimum Profile** — the open, testable contract for real-world adopters.
 
-TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3 and an independently accepted bounded 2.3d Rust scope at `aed80e2`. Later candidates remain unaccepted. Source `f025332` passed bounded restricted-marker gate `064717`, preserved by evidence commit `32c049e`; a later pre-lock deadline defect is remediated in runtime commit `77d77b8` and requires a fresh exact-candidate run plus independent review. Portable revocation, approval-expiry, and handoff-link evidence remain deferred. No HTTP/network-egress PEP exists. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/typed-action/JCS/hash oracle.
+TL-PX **0.1** is frozen historical evidence. **[SPEC-v0.2.md](./SPEC-v0.2.md)** is the draft 0.2 contract with an accepted evaluation/authorization schema core through 2.3 and an independently accepted bounded 2.3d Rust implementation baseline at `aed80e2`. The later [scoped acceptance](../reviews/CURRENT-REVIEW.md) is limited to the macOS separate-identity marker PEP at source `82f5cd6`, evidence `6bb0a07`, report `172840`; it does not accept the whole draft contract, Section 3, or Phase 4. Portable revocation, approval-expiry, and handoff-link evidence remain deferred. No HTTP/network-egress PEP exists. The JavaScript gate still implements 0.1 and hosts the 0.2 schema/policy/typed-action/JCS/hash oracle.
 
 ## Why a standard (not only a demo)
 

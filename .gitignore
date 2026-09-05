@@ -52,3 +52,7 @@ skills-archive.md
 
 # Local upstream/reference repository checkouts
 reference-repos/
+
+# Deferred local review output and future design; excluded from this delivery
+/Claude outputs/
+/docs/roadmap/restricted-egress-profile.md

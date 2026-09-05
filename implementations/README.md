@@ -10,6 +10,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`../schemas/tlpx-0.1/`](../schemas/tlpx-0.1/) | Frozen 0.1 JSON schemas |
 | [`../tests/fixtures/tlpx-0.2/jcs/`](../tests/fixtures/tlpx-0.2/jcs/) | Accepted 0.2 JCS / hash golden fixtures |
 | [`../tests/fixtures/tlpx-0.2/actions/`](../tests/fixtures/tlpx-0.2/actions/) | Slice 3.2 candidate typed-action/hash and exact Action Binding fixtures |
+| [Current review packet](../docs/reviews/CURRENT-REVIEW.md) | Exact source, evidence child, administrator report, scoped acceptance, and broader open limits |
 | [`../docs/BUILD-SPEC-SHEET.md`](../docs/BUILD-SPEC-SHEET.md) | Current hardened baseline for a separately versioned TL-PX 0.2 |
 | [`../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md`](../tests/reports/phase-2.3d-rust-authority-mvp-2026-08-14.md) | Named-commit Rust authority evidence and explicit limits |
 | [`../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md`](../tests/reports/rust-schema-evidence-outbox-builder-verification-2026-08-14.md) | Builder evidence for named commit `c9bdd0f` (not independently accepted) |
@@ -41,7 +42,7 @@ Language-specific reference implementations of **TL-PX** (Trust Layer Pre-Execut
 | [`javascript/`](./javascript/) | **Active 0.1 reference + 0.2 contract oracle** | Node 18+ ES modules; CLI, sealed audit, Phase 1 compile, schemas, policy/ordering/typed-action helpers, JCS fixtures |
 | [`go/`](./go/) | **Historical cooperative secondary** | 0.1-era Switchboard/sealed-audit/HTTP reference; caller-supplied actor IDs; not a 0.2 authority, adapter endpoint, or PEP |
 | [`java/`](./java/) | **Skeleton+** | Policy + Switchboard evaluate (Maven) |
-| [`rust/`](./rust/) | **Accepted bounded MVP + unaccepted remediation** | Commit `aed80e2` is the accepted boundary. Source `f025332` and evidence commit `32c049e` preserve bounded marker-gate report `064717`; a later pre-lock deadline defect is remediated in runtime commit `77d77b8`. A clean exact-candidate full rerun, administrator evidence, and independent review remain required. Full Section 3, Phase 4 acceptance, universal forced mediation, and network-egress mediation remain unverified. |
+| [`rust/`](./rust/) | **Accepted bounded MVP + scoped marker profile** | Implementation baseline `aed80e2`; separate scoped acceptance for the macOS marker PEP at source `82f5cd6`, evidence `6bb0a07`, administrator report `172840`. See the [current review packet](../docs/reviews/CURRENT-REVIEW.md). Phase 4, Section 3, network/egress, hostile same-UID, production, and universal forced mediation remain open. |
 | [`python/`](./python/) | Placeholder | Prototyping / data-platform adapters |
 
 ---

@@ -8,11 +8,7 @@ Trust Layer audit is **local JSONL only** (air-gapped). No cloud export by defau
 ~/projects/northstar/var/tech-test-audit.jsonl
 ```
 
-Absolute:
-
-```text
-/Users/home/projects/northstar/var/tech-test-audit.jsonl
-```
+Resolve this path relative to your own checkout.
 
 Audit logs live at the **monorepo root** `var/` (shared across language ports).  
 JavaScript code lives under `implementations/javascript/`.
@@ -38,9 +34,11 @@ node bin/glass.mjs evaluate <intent.json> config/policy.yaml \
 
 ## Library
 
+When running from `implementations/javascript/`:
+
 ```js
 evaluateIntent(intent, policy, {
-  auditPath: "/Users/home/projects/northstar/var/tech-test-audit.jsonl",
+  auditPath: "../../var/tech-test-audit.jsonl",
   switchboard
 });
 ```

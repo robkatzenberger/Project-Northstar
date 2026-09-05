@@ -72,7 +72,7 @@ It inherits decision philosophy from **APEX-Lite** (`ALLOW` / `REQUIRE_APPROVAL`
 
 ## Emerging Rust authority boundary
 
-The Rust line owns durable policy selection, authenticated local identities, approval and revocation state, atomic one-time claim, terminal execution evidence, bounded local audit export, and candidate protected execution. Source `f025332` passed the bounded macOS marker gate recorded by evidence commit `32c049e`; a later pre-lock deadline defect is remediated in runtime commit `77d77b8`. A fresh exact-candidate run and independent review remain required. Neither Section 3 completion, universal forced mediation, nor network-egress mediation is claimed. See [BUILD-SPEC-SHEET.md](./BUILD-SPEC-SHEET.md) and [report `064717`](../tests/reports/slice-3.9-administrator-gate-2026-09-04-064717.md).
+The Rust line owns durable policy selection, authenticated local identities, approval and revocation state, atomic one-time claim, terminal execution evidence, bounded local audit export, and protected execution for one local marker capability. The reviewer accepted only the bounded macOS separate-identity marker profile at source `82f5cd6`, evidence child `6bb0a07`, and administrator report `172840`. The independently accepted implementation baseline remains `aed80e2`; this scoped result does not accept every feature in the source tree. Phase 4, Section 3, production, hostile same-UID containment, universal forced mediation, and network/egress remain open. See the [current review packet](reviews/CURRENT-REVIEW.md) and [build specification](BUILD-SPEC-SHEET.md).
 
 ## CLI
 

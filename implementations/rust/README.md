@@ -90,7 +90,7 @@ cd ../..
 sudo ./run-northstar-3.9.sh
 ```
 
-Requires a local Rust toolchain (`rustc` / `cargo`). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
+Reproduce the reviewed packet with Rust/Cargo **1.97.1**. The manifest's Rust 1.70 declaration is not validated by this packet, and locked test dependencies declare Rust 1.71; see the [toolchain limitation](../../docs/testing.md#reproduction-environment). Production dependencies include `sha2`, `hmac`, `getrandom`, safe Unix credential access through `nix`, and bundled SQLite through `rusqlite`. `serde` and `serde_json` are test-only for loading the golden fixtures.
 
 ## Enforced by the accepted MVP plus current candidate
 

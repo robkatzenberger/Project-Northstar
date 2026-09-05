@@ -1,13 +1,13 @@
 # Deferred (explicitly not-now)
 
-Items that matter eventually but should not expand the current remediation before exact-candidate rerun and independent review.
+Items outside the accepted local marker profile that require a separately approved implementation scope. The [current review packet](../reviews/CURRENT-REVIEW.md) records the completed bounded review; this list is not authorization to start a new feature.
 
 | Item | Why deferred |
 | --- | --- |
 | Full SSO / OIDC for operators | Allowlist + route enough until real ops product |
 | Multi-region HA / active-active | Premature before single-node control plane is used in anger |
 | Java sealed-audit full parity | The historical Go `tlpxd` sketches service shape only; it is not a 0.2 authority or PEP |
-| Restricted network egress | Requires the current deadline fix/re-review, a platform threat model, typed destination contract, and separate-identity acceptance |
+| Restricted network egress | Requires a separately approved scope, platform threat model, typed destination contract, and its own separate-identity acceptance |
 | Deep intent inspection / DPI | Fights declared-intent model; different product |
 | ML risk scoring as primary gate | Breaks determinism story |
 | Public open-source marketing launch | Owner decision; private repo is fine |
