@@ -6,9 +6,9 @@
 
 **Owner decision:** Preserve evidence history; curate current code and docs.
 
-**Execution status:** Robert authorized C1–C3 and the clean non-administrator rerun. C1 is `9b68bdb`; C2 is `77d77b8745b342d8f61b326a468c53523fe945a1`; this documentation packet is C3. Code/test/harness bytes still match the working-tree builder report. Exact-candidate results will be recorded after C3 is committed. The administrator gate, evidence commit, independent acceptance, and publication remain pending. Incoming drafts were backed up outside the repository before curation.
+**Execution status:** C1 is `9b68bdb`; C2 is `77d77b8745b342d8f61b326a468c53523fe945a1`; C3 is the frozen source `82f5cd6cc505cc64bdea73eebeb535c2a1b4cd11`. The full non-administrator matrix passed at clean C3. Robert subsequently ran the macOS administrator gate at the same clean source; report `172840` records PASS and cleanup status 0. C4 is this evidence-only child commit: exact-candidate reports, canonical JSONL, and documentation pointers/status corrections. Independent acceptance and publication remain pending. Incoming drafts were backed up outside the repository before curation.
 
-**Latest review requirement:** [Reviewer disposition, 2026-09-05](reviews/restricted-marker-review-disposition-2026-09-05.md). The reviewer needs a frozen hash and evidence, not another reviewer. [CURRENT-REVIEW.md](reviews/CURRENT-REVIEW.md) is now the packet entry point. Owner authorization for C1–C3 and the non-administrator rerun is recorded; nothing has been pushed.
+**Latest review requirement:** the existing reviewer must assess C3 with its new administrator evidence. [CURRENT-REVIEW.md](reviews/CURRENT-REVIEW.md) records the exact source, reports, digests, and attributed review scope. The [earlier disposition](reviews/restricted-marker-review-disposition-2026-09-05.md) remains historical evidence. Nothing has been pushed.
 
 ## Recommended delivery
 
