@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-09-10T13:15:58.039Z",
+  "version": "0.0.2",
+  "decisionModel": "approve_escalate_v1",
+  "status": "PASS",
+  "browser": "152.0.7977.85",
+  "steps": [
+    "Unauthenticated visitors cannot edit rules or make human decisions.",
+    "Operator sign-in unlocks rules and clears the entered key.",
+    "APPROVE/ESCALATE rules activate; an invalid wildcard reports line 1 and preserves policy version 2.",
+    "read_file file:demo: APPROVE, recorded receipt and cleared credential.",
+    "delete_file file:demo: ESCALATE, recorded receipt and cleared credential.",
+    "send_email recipient:demo: ESCALATE, recorded receipt and cleared credential.",
+    "write_file file:demo: ESCALATE, recorded receipt and cleared credential.",
+    "read_file file:other: BLOCKED, recorded receipt and cleared credential.",
+    "read_file *: ERROR, recorded receipt and cleared credential.",
+    "Only gate escalations enter review; each shows the exact declaration, verified principal, registry, policy, matched rules, reason, and receipt.",
+    "Whitespace-only human context is rejected by the form.",
+    "Human APPROVE accepts padded context, stores trimmed text, renders HTML-looking context literally, and preserves the original gate ESCALATE.",
+    "Human DENY records separate context and outcome bound to the escalation receipt.",
+    "Stale approval receives 409, refreshes the queue, preserves context, disables Approve, and permits a human Deny.",
+    "Reload preserves saved rules, session, human outcomes/comments, and receipt binding; resolved reviews remain read-only.",
+    "390 px layout has no horizontal overflow.",
+    "Six assessments and three human outcomes reconcile with the journal and exact unchanged assessment hashes; credentials are absent."
+  ],
+  "assessments": 6,
+  "humanReviews": 3,
+  "pageErrors": []
+}

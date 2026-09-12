@@ -1,0 +1,257 @@
+﻿
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APEX-Lite Operator Console</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+    --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+    --text:#e8eaed;--muted:#7a8494;
+    --allow:#1d9e75;--allow-bg:rgba(29,158,117,0.12);--allow-b:rgba(29,158,117,0.3);
+    --esc:#ef9f27;--esc-bg:rgba(239,159,39,0.12);--esc-b:rgba(239,159,39,0.3);
+    --human:#7f77dd;--human-bg:rgba(127,119,221,0.12);--human-b:rgba(127,119,221,0.3);
+    --sb:#e24b4a;--sb-bg:rgba(226,75,74,0.1);--sb-b:rgba(226,75,74,0.3);
+    --accent:#5dcaa5;
+    --mono:Consolas,'Courier New',monospace;--disp:'Franklin Gothic Medium','Arial Narrow',sans-serif;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;}
+  .shell{padding:14px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border2);}
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  .logo{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:2px;color:var(--accent);}
+  .badge-live{display:flex;align-items:center;gap:5px;background:var(--allow-bg);border:0.5px solid var(--allow-b);border-radius:4px;padding:2px 8px;font-size:10px;color:var(--allow);letter-spacing:1px;text-transform:uppercase;}
+  .badge-paused{display:flex;align-items:center;gap:5px;background:var(--esc-bg);border:0.5px solid var(--esc-b);border-radius:4px;padding:2px 8px;font-size:10px;color:var(--esc);letter-spacing:1px;text-transform:uppercase;}
+  .pulse{width:6px;height:6px;border-radius:50%;background:var(--allow);animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .topbar-right{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;flex-wrap:wrap;justify-content:flex-end;}
+  .clock{color:var(--text);font-size:12px;}
+  .ctrl-btn{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;padding:5px 14px;border-radius:4px;cursor:pointer;border:none;transition:opacity .15s;}
+  .ctrl-btn:hover{opacity:.75;}
+  .btn-stop{background:var(--sb-bg);border:0.5px solid var(--sb-b);color:var(--sb);}
+  .btn-resume{background:var(--allow-bg);border:0.5px solid var(--allow-b);color:var(--allow);}
+  .confirm-bar{display:none;align-items:center;gap:10px;background:var(--sb-bg);border:0.5px solid var(--sb-b);border-radius:5px;padding:8px 14px;margin-bottom:12px;}
+  .confirm-bar.show{display:flex;}
+  .confirm-msg{font-size:11px;color:var(--sb);flex:1;}
+  .confirm-yes{font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:4px 12px;border-radius:3px;cursor:pointer;background:var(--sb-bg);border:0.5px solid var(--sb-b);color:var(--sb);}
+  .confirm-no{font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:4px 12px;border-radius:3px;cursor:pointer;background:var(--surface2);border:0.5px solid var(--border2);color:var(--muted);}
+  .confirm-yes:hover,.confirm-no:hover{opacity:.7;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .metric{background:var(--surface);border:0.5px solid var(--border);border-radius:6px;padding:9px 11px;}
+  .metric-label{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:3px;}
+  .metric-value{font-size:20px;font-weight:700;font-family:var(--disp);line-height:1;}
+  .metric-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+  .mv-allow{color:var(--allow);}.mv-esc{color:var(--esc);}.mv-human{color:var(--human);}.mv-neutral{color:var(--accent);}
+  .main-grid{display:grid;grid-template-columns:1fr 310px;gap:10px;margin-bottom:10px;}
+  .panel{background:var(--surface);border:0.5px solid var(--border);border-radius:6px;overflow:hidden;}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:0.5px solid var(--border);background:var(--surface2);}
+  .panel-title{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
+  .panel-count{font-size:10px;color:var(--accent);}
+  .feed-scroll{height:280px;overflow-y:auto;scrollbar-width:none;}
+  .feed-scroll::-webkit-scrollbar{display:none;}
+  .txn{display:grid;grid-template-columns:58px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 88px;align-items:start;gap:8px;padding:7px 12px;border-bottom:0.5px solid var(--border);animation:slideIn .25s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:translateX(0);}}
+  .txn:hover{background:var(--surface2);}
+  .txn-time{color:var(--muted);font-size:11px;padding-top:1px;}
+  .txn-col{min-width:0;}
+  .txn-row1{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .txn-row2{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .txn-verdict{display:flex;justify-content:flex-end;padding-top:1px;}
+  .verdict{font-size:10px;font-weight:700;letter-spacing:.8px;padding:2px 6px;border-radius:3px;text-transform:uppercase;}
+  .v-allow{background:var(--allow-bg);border:0.5px solid var(--allow-b);color:var(--allow);}
+  .v-esc{background:var(--esc-bg);border:0.5px solid var(--esc-b);color:var(--esc);}
+  .v-human{background:var(--human-bg);border:0.5px solid var(--human-b);color:var(--human);}
+  .feed-thead{display:grid;grid-template-columns:58px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 88px;gap:8px;padding:5px 12px;border-bottom:0.5px solid var(--border2);background:var(--surface2);}
+  .th{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+  .esc-scroll{max-height:280px;overflow-y:auto;scrollbar-width:none;}
+  .esc-scroll::-webkit-scrollbar{display:none;}
+  .esc-item{padding:9px 12px;border-bottom:0.5px solid var(--border);}
+  .esc-item:hover{background:var(--surface2);}
+  .esc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .esc-agent{font-size:11px;color:var(--esc);font-weight:500;}
+  .esc-timer{font-size:10px;color:var(--muted);}
+  .esc-meta{font-size:10px;color:var(--muted);margin-bottom:3px;line-height:1.5;}
+  .esc-parties{font-size:10px;color:var(--human);margin-bottom:6px;}
+  .esc-reason{font-size:10px;color:var(--esc);margin-bottom:7px;}
+  .esc-actions{display:flex;gap:6px;}
+  .esc-btn{flex:1;padding:4px 0;border-radius:3px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;cursor:pointer;text-align:center;transition:opacity .15s;border:none;text-transform:uppercase;}
+  .esc-btn:hover{opacity:.7;}
+  .esc-approve{background:var(--allow-bg);border:0.5px solid var(--allow-b);color:var(--allow);}
+  .esc-human{background:var(--human-bg);border:0.5px solid var(--human-b);color:var(--human);}
+  .bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .policy-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px;}
+  .policy-card{background:var(--surface2);border:0.5px solid var(--border);border-radius:5px;padding:8px 10px;}
+  .policy-name{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:3px;}
+  .policy-status{font-size:12px;font-weight:500;}
+  .ps-active{color:var(--allow);}.ps-warn{color:var(--esc);}
+  .policy-meta{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5;}
+  .chart-row{display:flex;align-items:flex-end;gap:3px;height:36px;padding:0 10px 8px;}
+  .chart-bar{flex:1;border-radius:2px;transition:height .5s ease;}
+  .cb-allow{background:var(--allow);opacity:.7;}.cb-esc{background:var(--esc);opacity:.7;}.cb-human{background:var(--human);opacity:.7;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field-wide{grid-column:1 / -1;}
+  .field label{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;}
+  .field input{width:100%;background:var(--surface2);border:0.5px solid var(--border2);color:var(--text);padding:8px 10px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+  .field input:focus{outline:none;border-color:var(--accent);}
+  .panel-actions{display:flex;justify-content:space-between;align-items:center;padding:0 10px 10px;gap:10px;}
+  .helper{font-size:10px;color:var(--muted);}
+  .trust-note{padding:10px;border-bottom:0.5px solid var(--border);background:var(--surface2);font-size:11px;line-height:1.5;color:var(--muted);}
+  .trust-note strong{color:var(--text);}
+  .action-btn{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;padding:7px 14px;border-radius:4px;cursor:pointer;border:none;background:var(--allow-bg);border:0.5px solid var(--allow-b);color:var(--allow);}
+  .action-btn[disabled]{opacity:.45;cursor:not-allowed;}
+  .receipt-status{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:0.5px solid var(--border);background:var(--surface2);}
+  .receipt-title{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;}
+  .receipt-meta{padding:10px;display:grid;grid-template-columns:1fr;gap:6px;}
+  .meta-row{display:grid;grid-template-columns:90px 1fr;gap:8px;font-size:11px;}
+  .meta-key{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.8px;}
+  .meta-value{color:var(--text);word-break:break-all;}
+  .json-view{background:var(--surface2);border-top:0.5px solid var(--border);padding:10px;max-height:205px;overflow:auto;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .log-outer{height:198px;overflow:hidden;display:flex;flex-direction:column;}
+  .log-scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+  .log-scroll::-webkit-scrollbar{display:none;}
+  .log-line{padding:4px 12px;font-size:11px;border-bottom:0.5px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+  .log-ts{color:var(--muted);white-space:nowrap;flex-shrink:0;}
+  .log-msg{color:var(--text);line-height:1.45;}
+  .log-warn{color:var(--esc);}.log-human{color:var(--human);}.log-ok{color:var(--allow);}
+  .actor-badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.6px;margin-left:4px;vertical-align:middle;}
+  .ab-agent{background:rgba(29,158,117,.1);color:var(--allow);border:0.5px solid var(--allow-b);}
+  .audit-list{max-height:198px;overflow-y:auto;scrollbar-width:none;}
+  .audit-list::-webkit-scrollbar{display:none;}
+  .audit-item{padding:8px 10px;border-bottom:0.5px solid var(--border);}
+  .audit-item:hover{background:var(--surface2);}
+  .audit-top{display:flex;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:4px;}
+  .audit-hashes{font-size:10px;color:var(--muted);line-height:1.5;word-break:break-all;}
+  .empty{padding:12px;color:var(--muted);font-size:11px;}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="logo">APEX</span>
+      <span id="status-badge" class="badge-live"><span class="pulse"></span> live</span>
+    </div>
+    <div class="topbar-right">
+      <span>policy gate v2.1</span>
+      <span>|</span>
+      <span>execution console</span>
+      <span>|</span>
+      <span class="clock" id="clock">--:--:--</span>
+      <button class="ctrl-btn btn-stop" id="btn-stop" type="button">pause</button>
+      <button class="ctrl-btn btn-resume" id="btn-resume" type="button" style="display:none">resume</button>
+    </div>
+  </div>
+
+  <div class="confirm-bar" id="confirm-bar">
+    <span class="confirm-msg">pause intent intake? manual evaluations will be held until resumed.</span>
+    <button class="confirm-yes" id="confirm-yes" type="button">yes, pause</button>
+    <button class="confirm-no" id="confirm-no" type="button">cancel</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total events</div><div class="metric-value mv-neutral" id="m-total">0</div><div class="metric-sub">this session</div></div>
+    <div class="metric"><div class="metric-label">Allowed</div><div class="metric-value mv-allow" id="m-allow">0</div><div class="metric-sub" id="m-allow-pct">0% of events</div></div>
+    <div class="metric"><div class="metric-label">Escalated</div><div class="metric-value mv-esc" id="m-esc">0</div><div class="metric-sub" id="m-esc-pct">0% to review</div></div>
+    <div class="metric"><div class="metric-label">Human events</div><div class="metric-value mv-human" id="m-human">0</div><div class="metric-sub">queue actions</div></div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">live transaction feed</span>
+        <span class="panel-count" id="feed-count">0 events</span>
+      </div>
+      <div class="feed-thead">
+        <span class="th">time</span>
+        <span class="th">actor / id</span>
+        <span class="th">intent</span>
+        <span class="th">target / reason</span>
+        <span class="th" style="text-align:right">verdict</span>
+      </div>
+      <div class="feed-scroll" id="feed"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">human escalation queue</span>
+        <span class="panel-count" id="esc-count">0 pending</span>
+      </div>
+      <div class="esc-scroll" id="esc-queue"></div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">policy gate status</span></div>
+      <div class="policy-grid">
+        <div class="policy-card"><div class="policy-name">engine</div><div class="policy-status ps-active">ACTIVE</div><div class="policy-meta">deterministic local evaluator</div></div>
+        <div class="policy-card"><div class="policy-name">policy file</div><div class="policy-status ps-active">ACTIVE</div><div class="policy-meta">example policy</div></div>
+        <div class="policy-card"><div class="policy-name">audit log</div><div class="policy-status ps-active">ACTIVE</div><div class="policy-meta">append-only JSONL</div></div>
+        <div class="policy-card"><div class="policy-name">api status</div><div class="policy-status ps-active" id="api-status">ONLINE</div><div class="policy-meta" id="pg-rate">0 evals/min</div></div>
+      </div>
+      <div class="panel-header" style="border-top:0.5px solid var(--border);border-bottom:none;background:none;padding:5px 12px 3px;">
+        <span class="panel-title">decision distribution</span>
+      </div>
+      <div class="chart-row" id="bar-chart"></div>
+      <div class="panel-header" style="border-top:0.5px solid var(--border);">
+        <span class="panel-title">audit log viewer</span>
+        <button class="ctrl-btn btn-resume" id="refresh-audit" type="button" style="display:inline-block">refresh</button>
+      </div>
+      <div class="audit-list" id="audit-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">intent input</span>
+        <span class="panel-count">manual evaluation</span>
+      </div>
+      <div class="trust-note">
+        <strong>Policy Gate Notice:</strong> this declared intent is being sent into a policy gate. Gaming the intent is not beneficial for any party and breaks trust on both sides.
+      </div>
+      <form id="intent-form">
+        <div class="form-grid">
+          <div class="field"><label for="operator">operator</label><input id="operator" name="operator" value="ops_local"></div>
+          <div class="field"><label for="intent_id">intent_id</label><input id="intent_id" name="intent_id" value="INT-001" required></div>
+          <div class="field"><label for="actor">actor</label><input id="actor" name="actor" value="agent_42" required></div>
+          <div class="field"><label for="intent_version">version</label><input id="intent_version" name="intent_version" value="1" required></div>
+          <div class="field"><label for="log_id">log_id</label><input id="log_id" name="log_id" value="LOG-001" required></div>
+          <div class="field"><label for="action">action</label><input id="action" name="action" value="send_email" required></div>
+          <div class="field"><label for="target">target</label><input id="target" name="target" value="external_user" required></div>
+          <div class="field"><label for="risk">risk</label><input id="risk" name="risk" value="medium" required></div>
+          <div class="field"><label for="timestamp">timestamp</label><input id="timestamp" name="timestamp" value="1730000000"></div>
+          <div class="field field-wide"><label for="declared_intent">declared_intent</label><input id="declared_intent" name="declared_intent" value="send external customer email with pii attachment" required></div>
+          <div class="field field-wide"><label for="data_classes">data_classes</label><input id="data_classes" name="data_classes" value="PII"></div>
+        </div>
+        <div class="panel-actions">
+          <span class="helper" id="form-status">ready to evaluate</span>
+          <button class="action-btn" id="evaluate-btn" type="submit">evaluate intent</button>
+        </div>
+      </form>
+      <div class="receipt-status">
+        <span class="receipt-title">latest receipt</span>
+        <span id="receipt-badge" class="verdict v-human">waiting</span>
+      </div>
+      <div class="receipt-meta" id="receipt-meta">
+        <div class="meta-row"><span class="meta-key">decision</span><span class="meta-value">No evaluations yet.</span></div>
+      </div>
+      <pre class="json-view" id="receipt-json">{}</pre>
+    </div>
+
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <div class="panel-header"><span class="panel-title">system log</span></div>
+      <div class="log-outer">
+        <div class="log-scroll" id="sys-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
+

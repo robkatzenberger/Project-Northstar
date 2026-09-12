@@ -1,0 +1,8 @@
+{
+  "actor": "agent_12",
+  "action": "summarize_report",
+  "target": "internal_workspace",
+  "risk": "low",
+  "data_classes": [],
+  "timestamp": 1730000300
+}

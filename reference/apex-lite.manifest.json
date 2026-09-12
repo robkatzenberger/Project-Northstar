@@ -1,0 +1,215 @@
+{
+  "snapshot_format": 1,
+  "source_repository": "https://github.com/Trust-Layer-AI/Trust-Engine",
+  "source_commit": "b0dadd6d0f9c08f7c74e8524d324afd4623610aa",
+  "source_tree": "48c7904183a80fc916a3a8e314db484a05d66b41",
+  "source_package": "apex-lite",
+  "source_version": "0.1.0",
+  "snapshot_date": "2026-09-09",
+  "snapshot_directory": "apex-lite",
+  "files": [
+    {
+      "path": ".gitignore",
+      "git_mode": "100644",
+      "git_blob": "28a68a38f288f1a28cec31200f40cfdf7066c847",
+      "bytes": 64,
+      "sha256": "4e70f886e3c1a32acb173ad34e37ddac71fdb15cde12285790797d17ce570a71"
+    },
+    {
+      "path": "LICENSE",
+      "git_mode": "100644",
+      "git_blob": "ca910c75aceee305d7f3cc83c247a0561c5159da",
+      "bytes": 11353,
+      "sha256": "725535b84d317612cf509e9ba8a0bebe743a37c56d80d486219736c2a113f1fc"
+    },
+    {
+      "path": "README.md",
+      "git_mode": "100644",
+      "git_blob": "6faa53bb4d9698974c1e2a5c9d751b371f2c1a49",
+      "bytes": 8268,
+      "sha256": "92fb8d5d641f1dcea6adf8f4cf90740c0a813bc97a056e02224e28fbed7fc98e"
+    },
+    {
+      "path": "bin/apex-lite.js",
+      "git_mode": "100644",
+      "git_blob": "36d8e473834ca662491dc0134512438e0d2938ba",
+      "bytes": 1254,
+      "sha256": "8d111f8da6d1a5bf3e07a663cc660333caace98b0ff104cf4188f99e191d393c"
+    },
+    {
+      "path": "config/gates.json",
+      "git_mode": "100644",
+      "git_blob": "69487d6e77c8def98938a1b8db1b5aa7c7d4ad43",
+      "bytes": 1208,
+      "sha256": "12c727f81de3b88d4b72355bac2e4a95bfcf0d32f5eb19933691d16ff28a9355"
+    },
+    {
+      "path": "config/notifications.json",
+      "git_mode": "100644",
+      "git_blob": "79113c7f008f63b71595d2923667cbc5e6117431",
+      "bytes": 301,
+      "sha256": "b0d27ada4e1e79b8b5087485c8541396e99c4faaa673eb81c79a9ab9f62ce4ed"
+    },
+    {
+      "path": "docs/diagram",
+      "git_mode": "100644",
+      "git_blob": "a6262f069c0305f50dc89a0ad5ced844fb319fd1",
+      "bytes": 104,
+      "sha256": "c6c7a5feb5ebb8a8d33ca31e356bdce614eef36baff6c7b3b26877818021e89a"
+    },
+    {
+      "path": "docs/why-external.md",
+      "git_mode": "100644",
+      "git_blob": "e9b5ac873d5ef8b44bf301380768e9d373307c0c",
+      "bytes": 4440,
+      "sha256": "9dbd2fe1b38ee2ec9581218b619028741197bc450659dae5369388f7883a3615"
+    },
+    {
+      "path": "examples/decision.json",
+      "git_mode": "100644",
+      "git_blob": "5f1b03d0a5240ccd20a94a3160526ff64348375c",
+      "bytes": 173,
+      "sha256": "5db3bf848a74f84ad317fcfc3537641b549a3b25ee6f485233cbfa20fa042bcf"
+    },
+    {
+      "path": "examples/example.md",
+      "git_mode": "100644",
+      "git_blob": "eb560099589bc58d9a15863cdbf128ff0e24d9fc",
+      "bytes": 1723,
+      "sha256": "494ce2b6e674bd4ad469a1b4cd73eaf973ee83bb62f98794944a7465460806a1"
+    },
+    {
+      "path": "examples/intent-high-risk.json",
+      "git_mode": "100644",
+      "git_blob": "76f502a00a1cb17cfe4a9308c3fbf7714d2433ae",
+      "bytes": 166,
+      "sha256": "d72a36b754f395274e128c599cb3a05d59b65551810fc52820cd79da3efa34ab"
+    },
+    {
+      "path": "examples/intent-safe.json",
+      "git_mode": "100644",
+      "git_blob": "f0d27ca6e0e1d7c07c1d9582d0c5be1595a185b6",
+      "bytes": 158,
+      "sha256": "4d4616f1317760fcb2afdd82986a41c9d038c52306c4cb999dceca3122401a03"
+    },
+    {
+      "path": "examples/intent.json",
+      "git_mode": "100644",
+      "git_blob": "e02e3303f6c6021a775e543b23106b6b9f98ba32",
+      "bytes": 157,
+      "sha256": "d7a66dd847ab0d34080e53aed9a31df41a337a6b5fbf76e013ba8ad443374522"
+    },
+    {
+      "path": "examples/policy.yaml",
+      "git_mode": "100644",
+      "git_blob": "a321f5272c03cb38dfee8c114d2b39a94f1ba950",
+      "bytes": 288,
+      "sha256": "4b7e50d276cc8fb03e95c198890c34a27b3aee9e6de2bfc0060590e6f80c26ef"
+    },
+    {
+      "path": "package.json",
+      "git_mode": "100644",
+      "git_blob": "c8aba60f00ead518c7fb681d6231928f6ee021a1",
+      "bytes": 294,
+      "sha256": "7ce92d751ee3dee7cf02fbbca906b828d4559f7611820f5f8ef934ddd57ec751"
+    },
+    {
+      "path": "public/app.js",
+      "git_mode": "100644",
+      "git_blob": "4185b9955d25f7c17591823c2263835be819a1af",
+      "bytes": 15871,
+      "sha256": "77012590536d26622f4a4c8966cb1816e864e4c79dc21e2a6175cd533bc36815"
+    },
+    {
+      "path": "public/index.html",
+      "git_mode": "100644",
+      "git_blob": "92de23ec4dd95e97c821a920b677696a7b844801",
+      "bytes": 18140,
+      "sha256": "2bbcb73c2148dba6548d6614b56f1602e116c9eba5c722083368712378aa0812"
+    },
+    {
+      "path": "scripts/test-apex-lite.mjs",
+      "git_mode": "100644",
+      "git_blob": "b807ab0378ad2833b8887a55cb4d18abdfdc43f1",
+      "bytes": 17570,
+      "sha256": "ef9a2659ae35a4cc483c8237c4c83dbcd2180893a7ac87b2c9356db5e4291a83"
+    },
+    {
+      "path": "server.js",
+      "git_mode": "100644",
+      "git_blob": "130b40d034594bfaa53936bd649b108f66d9f777",
+      "bytes": 230,
+      "sha256": "67625838964cacf291c7313a40878d4f692a7d59a31e2df5a357552cdded52d9"
+    },
+    {
+      "path": "src/audit.js",
+      "git_mode": "100644",
+      "git_blob": "dae5136fc3602ba8c0b43e9035409299e98d06a2",
+      "bytes": 1328,
+      "sha256": "bced718f8a17f56345169eac0990eda2e2220276777466111c705bde07c1b65b"
+    },
+    {
+      "path": "src/engine.js",
+      "git_mode": "100644",
+      "git_blob": "8f50a0b8e9cd6183a5254174bf00c04a36affc01",
+      "bytes": 1940,
+      "sha256": "edd7b645788a5cc6d5c53b660ee5eb8b1bd2891ae17e73054ff59aa4e0454262"
+    },
+    {
+      "path": "src/gates.js",
+      "git_mode": "100644",
+      "git_blob": "0080a02ba632d19f94ef772f3252bc0a18ac736d",
+      "bytes": 1958,
+      "sha256": "8014ecd6ff18c25a59d421298bdfbc7794b3ce16cda004c6919bcc8c0f4ff008"
+    },
+    {
+      "path": "src/index.js",
+      "git_mode": "100644",
+      "git_blob": "c93d491ed0677910f7605278b365da7a5938ccbb",
+      "bytes": 3235,
+      "sha256": "dc07b48568a0b6245ec30c74369d655393791434612a65d3e1d9c2792189bb7c"
+    },
+    {
+      "path": "src/notifications.js",
+      "git_mode": "100644",
+      "git_blob": "0802f61609b1652118834978a38389831be2ead8",
+      "bytes": 3622,
+      "sha256": "639c95e2ed90438c582aa0e9fccfa3080756414c2701315b65ac329cf33dfced"
+    },
+    {
+      "path": "src/operator-action.js",
+      "git_mode": "100644",
+      "git_blob": "a9de83fd75fce5f0940768c49fada2a3a64900ee",
+      "bytes": 3367,
+      "sha256": "b64dfd04ec6f5784fdb1a3df550782e21171b64d07fd212df615bb1a15ef294a"
+    },
+    {
+      "path": "src/policy.js",
+      "git_mode": "100644",
+      "git_blob": "2e5b1f5b11522a3e17821b88e16a2e692968b72a",
+      "bytes": 1211,
+      "sha256": "945a6a44a72181c7a2441df5309eb9d19198d46c0738be9047833c69150950cd"
+    },
+    {
+      "path": "src/receipt.js",
+      "git_mode": "100644",
+      "git_blob": "9934a7061856a19f11641e5e3eaad65c11244f7f",
+      "bytes": 996,
+      "sha256": "baea64cb317b6a434318febbcee84842fc3755cd74337f424d6cf22bed4284be"
+    },
+    {
+      "path": "src/server.js",
+      "git_mode": "100644",
+      "git_blob": "9c9eb71b06bfa57119052ba29eada061ef55d84e",
+      "bytes": 5362,
+      "sha256": "8f92fd1cd004a715a58b5f872ec5e76f1450ed1f39bbcb7cf70e0847ef93cdbe"
+    },
+    {
+      "path": "status.md",
+      "git_mode": "100644",
+      "git_blob": "0c6c48020a69e57d6f485e102fa8d822ac174180",
+      "bytes": 352,
+      "sha256": "ce0e7f76f090500df79730b304dfe25138a6c150e3c6c3832f5f4a7888700231"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "originalEvidenceModified": false,
+  "passed": 3,
+  "total": 3,
+  "results": [
+    {
+      "name": "missing observed response",
+      "detected": true,
+      "issueCount": 2,
+      "issues": [
+        "Unexpected agent record count",
+        "cedar-r1-normal: missing/duplicate evidence"
+      ]
+    },
+    {
+      "name": "forged file provenance",
+      "detected": true,
+      "issueCount": 2,
+      "issues": [
+        "cedar-r1-normal: agent file provenance disagreement",
+        "cedar-r1-normal: declaration/identity disagreement"
+      ]
+    },
+    {
+      "name": "registry installation after its decisions",
+      "detected": true,
+      "issueCount": 10,
+      "issues": [
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round",
+        "Decision outside its installed registry round"
+      ]
+    }
+  ]
+}

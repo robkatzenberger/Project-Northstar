@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Apex Auditor · v0.0.2</title>
+    <link rel="stylesheet" href="/gate.css" />
+    <script type="module" src="/gate.js"></script>
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <a class="back-link" href="/index.html">← Operator whitelist</a>
+        <div class="title-row"><h1>Apex Auditor</h1><span class="version">v0.0.2</span></div>
+        <p class="purpose">Agent requests arrive automatically. Review escalations here.</p>
+        <p class="scope">The gate approves or escalates. A human approves or denies an escalation with context. No actions are executed.</p>
+      </header>
+
+      <section class="live-strip" id="live-strip" aria-label="Gate live status">
+        <div class="live-strip-row">
+          <div class="live-strip-status">
+            <span class="live-pulse" id="live-pulse" data-active="false" aria-hidden="true"></span>
+            <span class="live-label" id="live-label">Waiting for sign-in</span>
+          </div>
+          <div class="live-strip-meta">
+            <span id="live-activity">Last activity: —</span>
+            <span class="live-sep" aria-hidden="true">·</span>
+            <span id="live-pending">Pending reviews: —</span>
+            <span class="live-sep live-updated-sep" aria-hidden="true">·</span>
+            <span class="live-updated" id="live-updated">Updated —</span>
+          </div>
+        </div>
+        <p class="live-strip-note">Incoming assessments refresh while this page is open.</p>
+        <p class="live-strip-error muted" id="live-error" role="status" hidden></p>
+      </section>
+
+      <section class="panel sign-in-panel" id="sign-in-panel" aria-labelledby="sign-in-heading" hidden>
+        <h2 id="sign-in-heading">Auditor sign-in</h2>
+        <p class="muted">Use the operator key from the local server startup. This key manages rules and records; agents use separate credentials.</p>
+        <form id="sign-in-form" autocomplete="off">
+          <label for="operator-key">Operator key<input id="operator-key" type="password" required autocomplete="off" spellcheck="false" autocapitalize="off" /></label>
+          <button class="button primary" id="sign-in" type="submit">Sign in</button>
+        </form>
+        <p class="error" id="sign-in-error" role="alert" hidden></p>
+      </section>
+
+      <section class="panel rules-panel" aria-labelledby="rules-heading">
+        <div class="section-heading">
+          <div><h2 id="rules-heading">Human rules</h2><p>One decision, one action, one exact target per line.</p></div>
+          <span class="save-state" id="save-state" role="status">Loading rules…</span>
+        </div>
+        <label class="sr-only" for="rules">Deterministic gate rules</label>
+        <textarea id="rules" rows="9" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="syntax-help rule-error" disabled placeholder="APPROVE read_file file:demo&#10;ESCALATE delete_file file:demo&#10;ESCALATE send_email recipient:demo"></textarea>
+        <p class="syntax-help" id="syntax-help"><code>APPROVE</code> · <code>ESCALATE</code>. Start a comment line with <code>#</code>. Exact, case-sensitive matches; no wildcards. Unmatched in-scope requests escalate. An escalation rule wins over an approval rule.</p>
+        <p class="error" id="rule-error" role="alert" hidden></p>
+        <div class="panel-actions">
+          <div class="policy-meta"><span id="policy-version">Policy —</span><span class="hash" id="policy-hash"></span></div>
+          <div class="button-row"><button id="reload-rules" class="button secondary" type="button">Reload</button><button id="save-rules" class="button primary" type="button" disabled>Save rules</button></div>
+        </div>
+      </section>
+
+      <section class="action-reference" aria-labelledby="actions-heading">
+        <h2 id="actions-heading">Gate actions</h2>
+        <ul id="action-list" aria-live="polite"><li class="muted">Loading action catalog…</li></ul>
+        <p class="error" id="catalog-error" role="alert" hidden></p>
+      </section>
+
+      <section class="panel review-panel" aria-labelledby="reviews-heading">
+        <div class="section-heading"><div><h2 id="reviews-heading">Human review</h2><p>Inspect the recorded intent and gate assessment. Approve or deny with context.</p></div><button class="button secondary" id="refresh-reviews" type="button" disabled>Refresh</button></div>
+        <p class="error" id="reviews-error" role="alert" hidden></p>
+        <p class="refresh-note" id="reviews-paused" role="status" hidden>Automatic review updates are paused while you write. Refresh to load incoming requests; your context is kept.</p>
+        <p class="muted" id="reviews-empty">Sign in to inspect escalations.</p>
+        <div id="review-records" class="review-records"></div>
+      </section>
+      <section class="panel audit-panel" aria-labelledby="audit-heading">
+        <div class="section-heading"><div><h2 id="audit-heading">Audit trail</h2><p>Incoming activity refreshes automatically while this page is visible. ERROR and BLOCKED leave an assessment receipt for audit. They are not human approve/deny, and they do not mean the action ran.</p></div><button class="button secondary" id="refresh-audit" type="button" disabled>Refresh</button></div>
+        <div class="audit-filters" aria-label="Assessment filters">
+          <label for="audit-status-filter">Assessment (not HITL)
+            <select id="audit-status-filter">
+              <option value="">All records</option>
+              <option value="ERROR">Error</option>
+              <option value="BLOCKED">Blocked</option>
+              <option value="ESCALATE">Escalate</option>
+              <option value="APPROVE">Approve</option>
+              <option value="HUMAN">Human decisions</option>
+            </select>
+          </label>
+          <p class="muted audit-filter-note">Audit receipts only — not approve/deny.</p>
+        </div>
+        <p class="error" id="audit-error" role="alert" hidden></p>
+        <p class="muted" id="audit-empty">Sign in to inspect the saved records.</p>
+        <ol id="audit-records" class="audit-records"></ol>
+      </section>
+      <section class="panel connection-panel" id="agent-connection" aria-labelledby="connection-heading" hidden>
+        <div class="section-heading"><div><h2 id="connection-heading">Agent connection</h2><p>Issue an enrolled agent a private credential and give it the connection instructions. The agent declares each request itself.</p></div></div>
+        <p class="field-help">Enrollment and exact grants are managed in the <a href="/index.html">operator whitelist</a>. Issuing a credential grants no additional authority and replaces this agent’s previous temporary credential.</p>
+        <form id="connection-form" autocomplete="off">
+          <label for="connection-agent-id">Enrolled agent ID<input id="connection-agent-id" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="agent-id" /></label>
+          <button class="button primary" id="issue-agent-credential" type="submit" disabled>Issue agent credential</button>
+        </form>
+        <p class="credential-state" id="connection-state" role="status">No agent credential has been issued from this page.</p>
+        <div class="connection-secret" id="connection-secret" hidden>
+          <label for="connection-credential">Agent credential — available once<input id="connection-credential" type="password" readonly autocomplete="off" spellcheck="false" /></label>
+          <div class="button-row"><button class="button secondary" id="copy-agent-credential" type="button">Copy credential</button><button class="button secondary" id="clear-agent-credential" type="button">Clear</button></div>
+          <p class="field-help">Give this credential only to the agent’s private runtime. It clears after copying and is not stored by this page.</p>
+        </div>
+        <p class="connection-endpoint">Agent endpoint <code id="agent-endpoint">/api/gate/evaluate</code></p>
+        <a class="instructions-link" href="/agent-instructions.md" target="_blank" rel="noopener">Open agent connection instructions ↗</a>
+        <p class="field-help">A credential prepares an agent to connect; it does not prove the agent is running. Requests and outcomes appear above when received.</p>
+      </section>
+      <details id="developer-tools" class="developer-tools">
+        <summary>Developer test console — synthetic requests</summary>
+        <p class="field-help">Optional manual test tool. Connected agents submit their own requests through the API.</p>
+      <section class="panel check-panel" aria-labelledby="check-heading">
+        <div class="section-heading"><div><h2 id="check-heading">Check an intent</h2><p>Switchboard checks identity and authority first. The gate then applies saved rules.</p></div></div>
+        <form id="evaluate-form" autocomplete="off">
+          <div class="form-grid">
+            <label for="agent-id">Agent ID<input id="agent-id" name="agentId" required autocomplete="off" autocapitalize="off" spellcheck="false" value="demo-agent" /></label>
+            <label for="credential">Agent credential<input id="credential" name="credential" type="password" required autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="credential-help" /></label>
+            <label for="action">Action<select id="action" name="action" required disabled><option value="">Choose an action</option></select></label>
+            <label for="target">Exact target<input id="target" name="target" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="file:demo" /></label>
+          </div>
+          <div class="credential-actions"><p class="field-help" id="credential-help">The demo registry includes <code>demo-agent</code>. Other registries require an enrolled ID. Issuing replaces that agent’s temporary credential; the credential clears on check.</p><button class="button secondary" id="issue-credential" type="button" disabled>Issue test credential</button></div>
+          <p class="credential-state" id="credential-state" role="status" hidden></p>
+          <p class="unsaved-note" id="unsaved-note" hidden>Your edits are not active yet. This check uses the saved rules.</p>
+          <div class="check-actions"><p class="scope-detail">Checks the action and target only. Authority failures stay blocked and cannot enter human review.</p><button class="button primary" id="evaluate" type="submit" disabled>Check intent</button></div>
+        </form>
+
+        <div id="result" class="result" role="status" aria-live="polite" aria-atomic="true" hidden>
+          <div class="result-heading"><h3 id="result-title">Gate result</h3><span id="result-status" class="badge"></span></div>
+          <p id="result-reason"></p>
+          <dl class="result-meta" id="result-meta"></dl>
+          <div id="matched" hidden><h4>Matched rules</h4><ul id="matched-rules"></ul></div>
+          <p class="execution-note" id="execution-note">No action was executed.</p>
+        </div>
+      </section>
+      </details>
+      <footer>APEX <span aria-hidden="true">/</span> Deterministic screening</footer>
+    </main>
+  </body>
+</html>

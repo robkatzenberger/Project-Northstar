@@ -1,0 +1,118 @@
+{
+  "completed": true,
+  "finishedAt": "2026-09-10T04:24:57.444Z",
+  "roundTimings": [
+    {
+      "round": 1,
+      "elapsedMs": 4954.0109170000005,
+      "completedPingsPerSecond": 201.85664035750045
+    },
+    {
+      "round": 2,
+      "elapsedMs": 3469.4318330000006,
+      "completedPingsPerSecond": 288.23163219071085
+    },
+    {
+      "round": 3,
+      "elapsedMs": 2478.647665999999,
+      "completedPingsPerSecond": 403.4458038216394
+    },
+    {
+      "round": 4,
+      "elapsedMs": 1788.6995000000006,
+      "completedPingsPerSecond": 559.0653991908644
+    },
+    {
+      "round": 5,
+      "elapsedMs": 1191.7867910000004,
+      "completedPingsPerSecond": 839.0762572229244
+    },
+    {
+      "round": 6,
+      "elapsedMs": 794.1394579999996,
+      "completedPingsPerSecond": 1259.224673860747
+    },
+    {
+      "round": 7,
+      "elapsedMs": 497.9060840000002,
+      "completedPingsPerSecond": 2008.4108873833318
+    },
+    {
+      "round": 8,
+      "elapsedMs": 299.1552500000016,
+      "completedPingsPerSecond": 3342.745948800814
+    },
+    {
+      "round": 9,
+      "elapsedMs": 100.47450000000026,
+      "completedPingsPerSecond": 9952.774086957363
+    },
+    {
+      "round": 10,
+      "elapsedMs": 12.795834000000468,
+      "completedPingsPerSecond": 78150.43552455927
+    }
+  ],
+  "exits": [
+    {
+      "agentId": "agent.stress.01",
+      "pid": 88119,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.02",
+      "pid": 88120,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.03",
+      "pid": 88121,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.04",
+      "pid": 88122,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.05",
+      "pid": 88123,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.06",
+      "pid": 88124,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.08",
+      "pid": 88126,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.09",
+      "pid": 88127,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "agentId": "agent.stress.10",
+      "pid": 88128,
+      "code": 0,
+      "signal": null
+    }
+  ]
+}

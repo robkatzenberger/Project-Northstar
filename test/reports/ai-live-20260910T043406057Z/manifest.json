@@ -1,0 +1,83 @@
+{
+  "runId": "ai-live-20260910T043406057Z",
+  "startedAt": "2026-09-10T04:34:06.060Z",
+  "participants": [
+    "agent.ai.cedar",
+    "agent.ai.maple"
+  ],
+  "registries": [
+    {
+      "id": "apex.ai-live",
+      "version": 1,
+      "agents": [
+        {
+          "id": "agent.ai.cedar",
+          "whitelisted": true,
+          "grants": [
+            {
+              "id": "grant.agent.ai.cedar",
+              "action": "switchboard.ping",
+              "target": "gate:test",
+              "issuedBy": "operator:ai-test"
+            }
+          ]
+        },
+        {
+          "id": "agent.ai.maple",
+          "whitelisted": false,
+          "grants": [
+            {
+              "id": "grant.agent.ai.maple",
+              "action": "switchboard.ping",
+              "target": "gate:test",
+              "issuedBy": "operator:ai-test"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apex.ai-live",
+      "version": 2,
+      "agents": [
+        {
+          "id": "agent.ai.cedar",
+          "whitelisted": false,
+          "grants": [
+            {
+              "id": "grant.agent.ai.cedar",
+              "action": "switchboard.ping",
+              "target": "gate:test",
+              "issuedBy": "operator:ai-test"
+            }
+          ]
+        },
+        {
+          "id": "agent.ai.maple",
+          "whitelisted": true,
+          "grants": [
+            {
+              "id": "grant.agent.ai.maple",
+              "action": "switchboard.ping",
+              "target": "gate:test",
+              "issuedBy": "operator:ai-test"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "src/switchboard.js": "b079dfd4b00424e588b2ac8cf855c34ee7fcfcc5588ad2d56036cbe10832b63e",
+    "test/ai-live/gate.mjs": "1c42131649be3ea862e5c6dafcc6e76783152d06ca941688ead86f625de24b11",
+    "test/ai-live/client.mjs": "0494f6675cc03439a498f32284151402b2c6d79d8e6df8fd357e085031a3d172"
+  },
+  "environment": {
+    "node": "v25.5.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "gatePid": 90613
+  },
+  "gitHead": "b97c18ed56d1113ec88856309ef57150e675b1e3",
+  "scope": "Two actual AI subagents submit tool calls to one persistent deterministic gate over cooperative local file IPC. No execution or hostile-process isolation."
+}

@@ -1,0 +1,36 @@
+{
+  "recordedAt": "2026-09-10T13:16:28.782Z",
+  "gitHead": "b97c18ed56d1113ec88856309ef57150e675b1e3",
+  "sourceState": "uncommitted local Apex working tree; hashes identify tested files",
+  "environment": {
+    "node": "v25.5.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "reference": {
+    "commit": "b0dadd6d0f9c08f7c74e8524d324afd4623610aa",
+    "filesVerified": 29,
+    "status": "UNCHANGED"
+  },
+  "sha256": {
+    "package.json": "58b8f7efc6c5126b375025bbe796c5e87771c2b510c2db0730370fd0201ad9a3",
+    "config/action-catalog.json": "bdeb7c68451b94161b8cd1e88b681e76ab5e993785c2709979bfee5f1d0bcf1b",
+    "examples/auditor-agents.json": "3d651699746832a156f82d27e299e951c87c3e5983568b6d7bf55fcce6058c5c",
+    "src/gate.js": "acbe230239d1003ac16c51f9c74ec95b77b02b280ad35e1519da93f8d370cbfe",
+    "src/auditor-store.js": "ea91d9442d82daaf907c79c15463fcfdc978028d8ff60ad9798e506a44160c3f",
+    "src/server.js": "b27909d7e6551a74212c17a66cf0acbe0f1a327c3f070163ac7e6df267f97afd",
+    "src/switchboard.js": "b079dfd4b00424e588b2ac8cf855c34ee7fcfcc5588ad2d56036cbe10832b63e",
+    "src/registry-store.js": "cfc8baa1d69b1225c84de76aff2fac00ffc47aed2c63573cc802cfdb1bcd1fc1",
+    "src/audit-store.js": "ee8ae6a609b81ebc3f7481209ccd4169333f394d821cd7102593d877abb4ca9c",
+    "operator/gate.html": "5c1c56a48812ea1018254fa65f0483a6dc045c10086ae317f7e62054a20f98fe",
+    "operator/gate.js": "14be33273b17b00891312ec5a44a2b56e96df3a9fa74eec999f2ad96f9b01dc5",
+    "operator/gate.css": "fa2b7f128ea40a7dd35c711f4756b1469611fe0ac0a6c0a0a4d6e3ed6c7ef71e",
+    "test/gate.test.js": "a2589755b1c0d0d3d5558962fed41caa62248a03b6c52e370d1bee96f7098f6c",
+    "test/auditor.test.js": "f0edd621181f979d7109119bb3724d23309a9e456a5d64a97c7183f04f776c3f",
+    "test/human-review.test.js": "714f57ff58a5e4ce93190d6396e332ffee0d83b2b8fc8237146ed1fcfb134cc5",
+    "test/switchboard.test.js": "8f3d988ec3d0766d2903f0f3176b08f22ddfc00b3b9ecf1357a91d514d6ba280",
+    "test/registry-store.test.js": "2098afe85b94f15e561d4eb3f71ce60d66526276a28aaa5944bcb55531f594df",
+    "test/audit-store.test.js": "f1f5d52b1c91e4035043affee1f09abe92c98a41538bb1a3045b72e2a1bc0d85",
+    "test/browser/auditor.mjs": "e5852a0f96d0162469e95c1db9a33c9454e9bad3d7fb3a84b608d94e29aeca4d"
+  }
+}

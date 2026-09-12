@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-09-10T12:49:21.461Z",
+  "status": "PASS",
+  "browser": "152.0.7977.85",
+  "steps": [
+    "Unauthenticated visitors cannot edit rules.",
+    "Operator sign-in unlocks rules and clears the entered key.",
+    "Human-entered rules activate as policy version 2.",
+    "Invalid wildcard reports line 1 and leaves saved rules unchanged.",
+    "read_file file:demo: ALLOW, with a recorded receipt and cleared credential.",
+    "delete_file file:demo: DENY, with a recorded receipt and cleared credential.",
+    "send_email recipient:demo: REQUIRE APPROVAL, with a recorded receipt and cleared credential.",
+    "write_file file:demo: DENY, with a recorded receipt and cleared credential.",
+    "Reload preserves the saved rules, operator session, and audit trail.",
+    "390 px layout has no horizontal overflow."
+  ],
+  "assessments": 4,
+  "pageErrors": []
+}

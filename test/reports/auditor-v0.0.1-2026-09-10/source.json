@@ -1,0 +1,35 @@
+{
+  "recordedAt": "2026-09-10T12:52:08.090Z",
+  "gitHead": "b97c18ed56d1113ec88856309ef57150e675b1e3",
+  "sourceState": "uncommitted local Apex working tree; hashes identify tested files",
+  "environment": {
+    "node": "v25.5.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "reference": {
+    "commit": "b0dadd6d0f9c08f7c74e8524d324afd4623610aa",
+    "filesVerified": 29,
+    "status": "UNCHANGED"
+  },
+  "sha256": {
+    "package.json": "18c7e91f6f920a1b40c45dd0a5d75c8ad0d6a86ac83576b6bb873996c456cd6d",
+    "config/action-catalog.json": "bdeb7c68451b94161b8cd1e88b681e76ab5e993785c2709979bfee5f1d0bcf1b",
+    "examples/auditor-agents.json": "3d651699746832a156f82d27e299e951c87c3e5983568b6d7bf55fcce6058c5c",
+    "src/gate.js": "3d49bb5a9631643490369251d269da18887a68b78bf6d8afd348efa6b97ec57c",
+    "src/auditor-store.js": "4c2c6f16d35b944c99f8991cfb4d3d0ca2f135c3fcfcd1e7ffda42d0197bdec8",
+    "src/server.js": "3ff5aaac78f20964c7e6ad3abc78233c6a352a21b5d6020063c989bc74b7a352",
+    "src/switchboard.js": "b079dfd4b00424e588b2ac8cf855c34ee7fcfcc5588ad2d56036cbe10832b63e",
+    "src/registry-store.js": "cfc8baa1d69b1225c84de76aff2fac00ffc47aed2c63573cc802cfdb1bcd1fc1",
+    "src/audit-store.js": "ee8ae6a609b81ebc3f7481209ccd4169333f394d821cd7102593d877abb4ca9c",
+    "operator/gate.html": "2bd9e927da65e2c486111d16174ea04c3307382e123318d7c9df31b3934dc91a",
+    "operator/gate.js": "7cccfd45225e9fc9b0b22c297a6410e50d614322fc272ddef162815a1dc21408",
+    "operator/gate.css": "92793000df2b9c8af6329a989189254ae7c6f5926a175d84865bf63684d9ec9d",
+    "test/gate.test.js": "0a4fa2b3fc55104b081521fed80ff51d0247870e082b0bbf8cf34df0a642b859",
+    "test/auditor.test.js": "659db607a226e22c7c2b453aa611fc01c2dcdd8170a4eb6aa373189812788290",
+    "test/switchboard.test.js": "8f3d988ec3d0766d2903f0f3176b08f22ddfc00b3b9ecf1357a91d514d6ba280",
+    "test/registry-store.test.js": "2098afe85b94f15e561d4eb3f71ce60d66526276a28aaa5944bcb55531f594df",
+    "test/audit-store.test.js": "f1f5d52b1c91e4035043affee1f09abe92c98a41538bb1a3045b72e2a1bc0d85",
+    "test/browser/auditor.mjs": "63e019e5e83c7a5b319cfdce3b365db6f5cb57a316efc64c1082de88d1902df1"
+  }
+}

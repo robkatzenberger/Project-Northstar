@@ -1,0 +1,35 @@
+{
+  "id": "apex.live-ping",
+  "version": 1,
+  "agents": [
+    {
+      "id": "agent.arch",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant-arch-ping",
+          "action": "ping",
+          "target": "switchboard.g",
+          "issuedBy": "operator:g"
+        }
+      ]
+    },
+    {
+      "id": "agent.shield",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant-shield-ping",
+          "action": "ping",
+          "target": "switchboard.g",
+          "issuedBy": "operator:g"
+        }
+      ]
+    },
+    {
+      "id": "agent.docs",
+      "whitelisted": false,
+      "grants": []
+    }
+  ]
+}

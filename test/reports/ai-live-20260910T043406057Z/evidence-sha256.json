@@ -1,0 +1,15 @@
+{
+  "REPORT.md": "1d050bdfc5cc6931f27ca8f5747395b2a670cd28458054a6fa1a04b79124485a",
+  "agents/agent.ai.cedar.jsonl": "edd55bc76cf2bce664102602176cccd4d695e84a2dbb812532b727cbcfba079b",
+  "agents/agent.ai.maple.jsonl": "0638a826cfb66bf5ff47edd92b8e5f11c0c36bb7c2177ea5043718acd261eb0f",
+  "agents/cedar-observations.md": "3c4eda22a23c591f861981722a44180f1e6691cfca6f4ec29e6dd3db2e3623d4",
+  "agents/maple-observations.md": "0174ef46f19928d472df02569bd1dc03adddaf754ce4015324fd0cc4671a4787",
+  "gate.jsonl": "811d32fdeb014f2a4e6957be2f1eab1fcee38f8d155019e26989b8c5a3600408",
+  "manifest.json": "cfaea94074fc0375c591fa44f77f7ed736771a28e204b2af2f8fab7735a0cbde",
+  "registry-1.json": "4a083abe5fd5d3bc34eefb964f089dbbd2475da640bed6057efcdcb888c9f0c5",
+  "registry-2.json": "a86a7a231171f45c21aaadb63a7b7a0439fe029484f6331faae1ce6407661622",
+  "shutdown.json": "4ee1b512e59d39b0595ba9a681da3041bd65a7782b8ab8b4e7e300ee4e935b5e",
+  "test-plan.json": "575159a390652a558d99bb5d1fb5bf8756909d1de2eb5e3f935668171a06a755",
+  "verification.json": "86252e8f5bbaa5b9291cfa77f053d8b2746fb345fc93c1cdd5649bed30ae29bf",
+  "verifier-challenges.json": "5046e428a2abdb16b64a8827f83b59ec798125dd1d6d8390e40ceb61a415c017"
+}

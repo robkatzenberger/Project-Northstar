@@ -1,0 +1,17 @@
+{
+  "id": "apex.auditor-demo",
+  "version": 1,
+  "agents": [
+    {
+      "id": "demo-agent",
+      "whitelisted": true,
+      "grants": [
+        { "id": "demo-read", "action": "read_file", "target": "file:demo", "issuedBy": "operator:demo" },
+        { "id": "demo-write", "action": "write_file", "target": "file:demo", "issuedBy": "operator:demo" },
+        { "id": "demo-delete", "action": "delete_file", "target": "file:demo", "issuedBy": "operator:demo" },
+        { "id": "demo-execute", "action": "execute_file", "target": "executable:demo", "issuedBy": "operator:demo" },
+        { "id": "demo-email", "action": "send_email", "target": "recipient:demo", "issuedBy": "operator:demo" }
+      ]
+    }
+  ]
+}

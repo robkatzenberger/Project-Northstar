@@ -1,0 +1,28 @@
+{
+  "id": "apex.live-ping-reverse",
+  "version": 2,
+  "agents": [
+    {
+      "id": "agent.arch",
+      "whitelisted": false,
+      "grants": []
+    },
+    {
+      "id": "agent.shield",
+      "whitelisted": false,
+      "grants": []
+    },
+    {
+      "id": "agent.docs",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant-docs-ping",
+          "action": "ping",
+          "target": "switchboard.g",
+          "issuedBy": "operator:g"
+        }
+      ]
+    }
+  ]
+}

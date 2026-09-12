@@ -1,0 +1,39 @@
+{
+  "recordedAt": "2026-09-11T02:07:53.255Z",
+  "gitHead": "b97c18ed56d1113ec88856309ef57150e675b1e3",
+  "sourceState": "uncommitted local Apex working tree; hashes identify tested files",
+  "environment": {
+    "node": "v25.5.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "reference": {
+    "commit": "b0dadd6d0f9c08f7c74e8524d324afd4623610aa",
+    "filesVerified": 29,
+    "status": "UNCHANGED"
+  },
+  "sha256": {
+    "package.json": "360a777ff951b3d9095bb1bf0a8cf2d532a44ec6db6a043a0ec6fbf3ce0d12c6",
+    "config/action-catalog.json": "bdeb7c68451b94161b8cd1e88b681e76ab5e993785c2709979bfee5f1d0bcf1b",
+    "src/gate.js": "acbe230239d1003ac16c51f9c74ec95b77b02b280ad35e1519da93f8d370cbfe",
+    "src/auditor-store.js": "828f6d8163b034277ad84b4c099c5deabc483ae99bd7576ebfaeb64e596ae09b",
+    "src/server.js": "c318c25bc9eb58e70b9250cf5fe71cd1752d08a226dd962b6bc95ce2d69a404e",
+    "src/switchboard.js": "b079dfd4b00424e588b2ac8cf855c34ee7fcfcc5588ad2d56036cbe10832b63e",
+    "src/registry-store.js": "cfc8baa1d69b1225c84de76aff2fac00ffc47aed2c63573cc802cfdb1bcd1fc1",
+    "src/audit-store.js": "ee8ae6a609b81ebc3f7481209ccd4169333f394d821cd7102593d877abb4ca9c",
+    "src/agent-client.js": "9f9274dcc8b727e449862ddbf0fb7d1282441a8871da16785920239b39714d03",
+    "bin/apex-agent.mjs": "4c94ded120465df41e1b031903455d1041a84ea11ab3528964565b85d8c5c2a8",
+    "docs/agent-instructions.md": "5811d1c197d7361f6c099e05ba114c64fa066ca4755d9b23e8c46f6f3fb6fb4c",
+    "operator/gate.html": "63eb861e73650a5ec8ed698b5979ac62bf5aba19e2941b32f5776ece541a64dc",
+    "operator/gate.js": "196dd11828dc7c468974d86c1d53be64363030d4eef578136ff63a5639d987a8",
+    "operator/gate.css": "594be82c812783dab82c72821e04aa5e288c7f424baa2505e86202733d593126",
+    "test/gate.test.js": "a2589755b1c0d0d3d5558962fed41caa62248a03b6c52e370d1bee96f7098f6c",
+    "test/auditor.test.js": "cb5c6b8ab52036f921da15a7e0d77b6a99e6fc210306872aba65ea29076f5da5",
+    "test/human-review.test.js": "714f57ff58a5e4ce93190d6396e332ffee0d83b2b8fc8237146ed1fcfb134cc5",
+    "test/agent-client.test.js": "e8e5fd161b7d904b5d5cb406d282f0916f25d75f0e8ed267d75c67862edaee50",
+    "test/switchboard.test.js": "8f3d988ec3d0766d2903f0f3176b08f22ddfc00b3b9ecf1357a91d514d6ba280",
+    "test/registry-store.test.js": "2098afe85b94f15e561d4eb3f71ce60d66526276a28aaa5944bcb55531f594df",
+    "test/audit-store.test.js": "f1f5d52b1c91e4035043affee1f09abe92c98a41538bb1a3045b72e2a1bc0d85",
+    "test/browser/auditor.mjs": "5ae0d59eba0bb07a00c475fed3d83c0ad55611e75efdb0d6af5b9bf2f63c47ef"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "runId": "stress-20260910T042441767Z-25990a2a",
+  "baselinePassed": true,
+  "passed": 12,
+  "total": 12,
+  "results": [
+    {
+      "name": "missing agent response",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "Round 1, agent.stress.01, ping 0: expected one response; found 0."
+    },
+    {
+      "name": "duplicate gate decision",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "Round 1, agent.stress.03, ping 0: expected one decision; found 2."
+    },
+    {
+      "name": "matching but incorrect gate and agent decisions",
+      "detected": true,
+      "issueCount": 2,
+      "firstIssue": "gate.jsonl:3: result disagrees with independently derived whitelist/scope expectations."
+    },
+    {
+      "name": "wrong process identity",
+      "detected": true,
+      "issueCount": 2,
+      "firstIssue": "agents/agent.stress.01.jsonl:2: ping identity, round, sequence, ID, or PID disagrees with the plan."
+    },
+    {
+      "name": "registry snapshot differs from plan",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "registry-round-01.json: registry snapshot disagrees with the manifest."
+    },
+    {
+      "name": "worker exited unsuccessfully",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "run-status.json: a worker exit has an invalid identity, PID, code, or signal."
+    },
+    {
+      "name": "round failed to increase requested pace",
+      "detected": true,
+      "issueCount": 991,
+      "firstIssue": "manifest.json: requested intervals must strictly decrease each round."
+    },
+    {
+      "name": "agent reports incorrect send schedule",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "agents/agent.stress.01.jsonl:4: requested or actual send timing disagrees with the round schedule."
+    },
+    {
+      "name": "agent summary differs from its log",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "agents/agent.stress.01.summary.json: summary differs from the worker identity or its ten logged round completions."
+    },
+    {
+      "name": "gate and agent explanations disagree",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "Round 1, agent.stress.01, ping 0: agent response differs from gate result."
+    },
+    {
+      "name": "unexpected extra ping",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "gate.jsonl:20001: ping identity, round, sequence, ID, or PID disagrees with the plan."
+    },
+    {
+      "name": "malformed final log record",
+      "detected": true,
+      "issueCount": 1,
+      "firstIssue": "agents/agent.stress.01.jsonl:2013: invalid JSONL record."
+    }
+  ]
+}

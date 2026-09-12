@@ -1,0 +1,15 @@
+{
+  "recordedAt": "2026-09-11T02:08:54.875Z",
+  "status": "PASS",
+  "assessmentId": "db47dcb6-da9e-4583-9943-fde7efbd539c",
+  "agent": "demo-agent",
+  "participant": "/root/intent_participant",
+  "submissions": 1,
+  "statusLookups": 1,
+  "gate": "ESCALATE",
+  "humanReviewAtObservation": null,
+  "exactJournalMatch": true,
+  "credentialAbsentFromEvidence": true,
+  "privateCredentialFileRemoved": true,
+  "execution": "NOT_EXECUTED"
+}

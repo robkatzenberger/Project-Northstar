@@ -1,0 +1,8 @@
+{
+  "actor": "agent_77",
+  "action": "transfer_funds",
+  "target": "external_account",
+  "risk": "high",
+  "data_classes": ["FINANCIAL"],
+  "timestamp": 1730000200
+}

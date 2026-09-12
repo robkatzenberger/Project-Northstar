@@ -1,0 +1,126 @@
+{
+  "id": "apex.stress",
+  "version": 5,
+  "agents": [
+    {
+      "id": "agent.stress.01",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.01",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.02",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.02",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.03",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.03",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.04",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.04",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.05",
+      "whitelisted": false,
+      "grants": [
+        {
+          "id": "grant.agent.stress.05",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.06",
+      "whitelisted": false,
+      "grants": [
+        {
+          "id": "grant.agent.stress.06",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.07",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.07",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.08",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.08",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.09",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.09",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    },
+    {
+      "id": "agent.stress.10",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.stress.10",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:stress"
+        }
+      ]
+    }
+  ]
+}

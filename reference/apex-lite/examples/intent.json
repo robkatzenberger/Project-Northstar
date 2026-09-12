@@ -1,0 +1,9 @@
+{
+  "actor": "agent_42",
+  "action": "send_email",
+  "target": "external_user",
+  "risk": "medium",
+  "data_classes": ["PII"],
+  "timestamp": 1730000000
+} 
+

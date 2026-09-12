@@ -1,0 +1,30 @@
+{
+  "id": "apex.ai-live",
+  "version": 1,
+  "agents": [
+    {
+      "id": "agent.ai.cedar",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "grant.agent.ai.cedar",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:ai-test"
+        }
+      ]
+    },
+    {
+      "id": "agent.ai.maple",
+      "whitelisted": false,
+      "grants": [
+        {
+          "id": "grant.agent.ai.maple",
+          "action": "switchboard.ping",
+          "target": "gate:test",
+          "issuedBy": "operator:ai-test"
+        }
+      ]
+    }
+  ]
+}

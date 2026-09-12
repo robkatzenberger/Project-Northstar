@@ -1,0 +1,12 @@
+{
+  "stoppedAt": "2026-09-10T04:38:14.800Z",
+  "code": "COMPLETE",
+  "processed": 20,
+  "sourceUnchanged": true,
+  "credentialsRemoved": true,
+  "credentialScan": {
+    "filesScanned": 9,
+    "credentialsChecked": 2,
+    "literalMatches": 0
+  }
+}

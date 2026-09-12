@@ -1,0 +1,177 @@
+{
+  "runId": "stress-20260910T042441767Z-25990a2a",
+  "agentId": "agent.stress.07",
+  "pid": 88125,
+  "rounds": [
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 1,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 4950.96175,
+      "elapsedMs": 4952.581834,
+      "codes": {
+        "NOT_WHITELISTED": 100
+      },
+      "maxScheduleLagMs": 3.2029999999999745
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 2,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 3466.2019579999996,
+      "elapsedMs": 3466.395624999999,
+      "codes": {
+        "SCOPE_GRANTED": 100
+      },
+      "maxScheduleLagMs": 5.351458000000093
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 3,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 2475.963167,
+      "elapsedMs": 2477.003041,
+      "codes": {
+        "SCOPE_GRANTED": 100
+      },
+      "maxScheduleLagMs": 5.478457999999591
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 4,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 1784.9672910000008,
+      "elapsedMs": 1788.090458999999,
+      "codes": {
+        "NOT_WHITELISTED": 100
+      },
+      "maxScheduleLagMs": 4.051541999999245
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 5,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 1190.596458,
+      "elapsedMs": 1191.3347919999997,
+      "codes": {
+        "SCOPE_GRANTED": 100
+      },
+      "maxScheduleLagMs": 5.820459000000483
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 6,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 792.6336670000001,
+      "elapsedMs": 793.1746669999993,
+      "codes": {
+        "SCOPE_GRANTED": 100
+      },
+      "maxScheduleLagMs": 3.087874999999258
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 7,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 495.9199580000004,
+      "elapsedMs": 496.87120799999866,
+      "codes": {
+        "SCOPE_GRANTED": 100
+      },
+      "maxScheduleLagMs": 3.6034579999995913
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 8,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 1,
+      "sendSpanMs": 298.7961670000004,
+      "elapsedMs": 298.95700000000033,
+      "codes": {
+        "NOT_WHITELISTED": 100
+      },
+      "maxScheduleLagMs": 1.8712090000008175
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 9,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 2,
+      "sendSpanMs": 100.15154199999961,
+      "elapsedMs": 100.34516699999949,
+      "codes": {
+        "NOT_WHITELISTED": 100
+      },
+      "maxScheduleLagMs": 1.4338339999994787
+    },
+    {
+      "event": "round_complete",
+      "runId": "stress-20260910T042441767Z-25990a2a",
+      "round": 10,
+      "agentId": "agent.stress.07",
+      "pid": 88125,
+      "sent": 100,
+      "received": 100,
+      "backpressure": 0,
+      "maxOutstanding": 100,
+      "sendSpanMs": 1.3213329999998678,
+      "elapsedMs": 6.228791999999885,
+      "codes": {
+        "NOT_WHITELISTED": 100
+      },
+      "maxScheduleLagMs": 1.3274170000004233
+    }
+  ]
+}

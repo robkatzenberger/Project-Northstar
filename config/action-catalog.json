@@ -1,0 +1,113 @@
+{
+  "catalogId": "apex.gate-actions",
+  "version": 1,
+  "status": "action_ids_active_material_fields_draft",
+  "runtimeEnforcement": "action_ids_and_exact_scope_rules",
+  "materialFieldValidation": "not_implemented",
+  "matching": "exact_case_sensitive",
+  "unknownActionBehavior": "block_after_switchboard",
+  "actions": [
+    {
+      "id": "send_email",
+      "label": "Send email",
+      "description": "Request sending one identified message to one exact recipient. Additional recipients require separately declared scope.",
+      "targetKind": "recipient",
+      "targetExample": "recipient:demo",
+      "materialFields": [
+        { "name": "senderRef", "type": "opaque_reference", "required": true, "label": "Sender account" },
+        { "name": "messageRef", "type": "opaque_reference", "required": true, "label": "Message reference" },
+        { "name": "messageDigest", "type": "sha256_digest", "required": true, "label": "Message digest" },
+        { "name": "attachments", "type": "reference_digest_list", "required": true, "emptyAllowed": true, "label": "Attachments" }
+      ],
+      "definitionNotes": [
+        "Recipient, sender, message, and every attachment are material to the request.",
+        "All To, Cc, and Bcc recipients must be declared; this first definition permits one recipient total.",
+        "The trusted adapter must verify exactly one effective delivery-envelope recipient matches the declared target, validate all recipient-bearing fields, and reject additional or implicit recipients.",
+        "The trusted adapter must verify the message and attachment digests against what would be sent."
+      ]
+    },
+    {
+      "id": "delete_file",
+      "label": "Delete file",
+      "description": "Request removal of one exact file at its expected version. Does not include recursive directory deletion.",
+      "targetKind": "file",
+      "targetExample": "file:demo",
+      "materialFields": [
+        { "name": "expectedVersion", "type": "opaque_version", "required": true, "label": "Expected file version" },
+        { "name": "expectedDigest", "type": "sha256_digest", "required": true, "label": "Expected file digest" },
+        { "name": "deletionMode", "type": "enum", "values": ["trash", "permanent"], "required": true, "label": "Deletion mode" }
+      ],
+      "definitionNotes": [
+        "No implicit recursive deletion, glob expansion, or target normalization.",
+        "Trash and permanent deletion are distinct material choices, neither selected by default."
+      ]
+    },
+    {
+      "id": "execute_file",
+      "label": "Execute file",
+      "description": "Request one invocation of an identified executable with explicit arguments and an operator-defined execution profile.",
+      "targetKind": "executable",
+      "targetExample": "executable:demo",
+      "materialFields": [
+        { "name": "executableDigest", "type": "sha256_digest", "required": true, "label": "Executable digest" },
+        { "name": "arguments", "type": "string_list", "required": true, "emptyAllowed": true, "label": "Arguments" },
+        { "name": "workingDirectoryRef", "type": "opaque_reference", "required": true, "label": "Working directory" },
+        { "name": "executionProfileRef", "type": "opaque_reference", "required": true, "label": "Execution profile" },
+        { "name": "executionProfileVersion", "type": "opaque_version", "required": true, "label": "Execution profile version" }
+      ],
+      "definitionNotes": [
+        "Arguments are structured values, not an interpolated shell command.",
+        "The trusted profile must define environment, standard input, timeout, capabilities, and treatment of dynamic dependencies; caller-selected profile names do not establish authority.",
+        "Approving an invocation does not establish control over the executable's subsequent effects."
+      ]
+    },
+    {
+      "id": "write_file",
+      "label": "Write file",
+      "description": "Request one create, replace, or append operation on an exact file with identified content and a checked precondition.",
+      "targetKind": "file",
+      "targetExample": "file:demo",
+      "materialFields": [
+        { "name": "writeMode", "type": "enum", "values": ["create", "replace", "append"], "required": true, "label": "Write mode" },
+        { "name": "contentRef", "type": "opaque_reference", "required": true, "label": "Content reference" },
+        { "name": "contentDigest", "type": "sha256_digest", "required": true, "label": "Content digest" },
+        { "name": "precondition", "type": "file_precondition", "required": true, "label": "Expected file state" }
+      ],
+      "definitionNotes": [
+        "Create requires absence; replace and append require an exact expected file version and digest.",
+        "The declared content digest identifies the new content for create/replace and the appended bytes for append.",
+        "No implicit rename, directory creation, or additional metadata mutation is included."
+      ]
+    },
+    {
+      "id": "read_file",
+      "label": "Read file",
+      "description": "Request reading the contents of one exact file at an identified version. This definition does not include writing, deleting, executing, or forwarding the contents.",
+      "targetKind": "file",
+      "targetExample": "file:demo",
+      "materialFields": [
+        { "name": "expectedVersion", "type": "opaque_version", "required": true, "label": "Expected file version" },
+        { "name": "expectedDigest", "type": "sha256_digest", "required": true, "label": "Expected file digest" }
+      ],
+      "definitionNotes": [
+        "This first definition reads the whole identified file; ranges or filtered reads require explicit later definitions.",
+        "Permission to read does not grant permission to disclose or send the returned contents."
+      ]
+    }
+  ],
+  "permissionPresets": [
+    {
+      "id": "read_only",
+      "label": "Read only",
+      "description": "Prepare read_file grants for operator-selected exact file targets. Creates no global mode or wildcard grant.",
+      "actionIds": ["read_file"],
+      "requiresExplicitTargets": true,
+      "applyBehavior": "preview_explicit_grants_before_save",
+      "existingOtherGrants": "must_be_resolved_before_claiming_read_only"
+    }
+  ],
+  "inputSuggestions": [
+    { "input": "write", "suggestedActionId": "write_file", "requiresExplicitSelection": true },
+    { "input": "read_only", "suggestedPresetId": "read_only", "requiresExplicitSelection": true }
+  ]
+}

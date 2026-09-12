@@ -1,0 +1,299 @@
+{
+  "runId": "ai-live-20260910T043406057Z",
+  "preparedAt": "2026-09-10T04:34:30.203Z",
+  "participants": [
+    {
+      "id": "agent.ai.cedar",
+      "task": "/root/ai_cedar"
+    },
+    {
+      "id": "agent.ai.maple",
+      "task": "/root/ai_maple"
+    }
+  ],
+  "protocol": "AI participants independently proposed target, identity and custom probes, then make individual client tool calls, inspect results, and author their observations. Five cases each per round, no unrequested retries. Root applies whitelist change only after both report completion.",
+  "cases": [
+    {
+      "requestId": "cedar-r1-normal",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "normal",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "SCOPE_GRANTED",
+      "expectedStatus": "PASS"
+    },
+    {
+      "requestId": "cedar-r1-target",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "target",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:ungranted"
+      },
+      "expectedCode": "SCOPE_NOT_GRANTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r1-spoof",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "spoof",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "IDENTITY_MISMATCH",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r1-missing",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "missing",
+      "credentialMode": "missing",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "UNAUTHENTICATED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r1-extra",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "extra",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test/"
+      },
+      "expectedCode": "SCOPE_NOT_GRANTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r1-normal",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "normal",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r1-target",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "target",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:ungranted"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r1-spoof",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "spoof",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r1-missing",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "missing",
+      "credentialMode": "missing",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "UNAUTHENTICATED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r1-extra",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "extra",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test",
+        "note": "diagnostic ping"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r2-normal",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "normal",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r2-target",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "target",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:ungranted"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r2-spoof",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "spoof",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r2-missing",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "missing",
+      "credentialMode": "missing",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "UNAUTHENTICATED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "cedar-r2-extra",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "extra",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test/"
+      },
+      "expectedCode": "NOT_WHITELISTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r2-normal",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "normal",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "SCOPE_GRANTED",
+      "expectedStatus": "PASS"
+    },
+    {
+      "requestId": "maple-r2-target",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "target",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:ungranted"
+      },
+      "expectedCode": "SCOPE_NOT_GRANTED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r2-spoof",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "spoof",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.cedar",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "IDENTITY_MISMATCH",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r2-missing",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "missing",
+      "credentialMode": "missing",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test"
+      },
+      "expectedCode": "UNAUTHENTICATED",
+      "expectedStatus": "DENY"
+    },
+    {
+      "requestId": "maple-r2-extra",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "extra",
+      "credentialMode": "own",
+      "intent": {
+        "agentId": "agent.ai.maple",
+        "action": "switchboard.ping",
+        "target": "gate:test",
+        "note": "diagnostic ping"
+      },
+      "expectedCode": "INVALID_INTENT",
+      "expectedStatus": "ERROR"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "config_version": "1",
+  "intent_schema": {
+    "required_fields": [
+      "intent_id",
+      "actor",
+      "declared_intent",
+      "action",
+      "target",
+      "risk",
+      "timestamp",
+      "intent_version",
+      "log_id"
+    ],
+    "notes": {
+      "actor": "User id or agent name making the declaration.",
+      "timestamp": "Date and time for the declared request.",
+      "declared_intent": "Plain description of what is being requested.",
+      "intent_version": "Version number carried with the request.",
+      "log_id": "Operator-visible request or session log id."
+    }
+  },
+  "gates": [
+    {
+      "id": "email_gate",
+      "label": "Email",
+      "match_keywords": ["email", "send_email", "inbox", "outbox", "message"],
+      "allow_keywords": ["internal", "draft", "summary", "read_only"],
+      "escalate_keywords": ["external", "pii", "attachment", "bulk", "customer"]
+    },
+    {
+      "id": "folder_gate",
+      "label": "Folders",
+      "match_keywords": ["folder", "folders", "directory", "file", "drive"],
+      "allow_keywords": ["list", "read", "internal", "metadata"],
+      "escalate_keywords": ["delete", "move", "share", "export", "external", "archive"]
+    }
+  ]
+}

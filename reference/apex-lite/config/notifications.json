@@ -1,0 +1,14 @@
+{
+  "config_version": "1",
+  "sms": {
+    "enabled": false,
+    "provider": "log_only",
+    "from": "APEX-Lite",
+    "recipients": [],
+    "twilio": {
+      "account_sid_env": "TWILIO_ACCOUNT_SID",
+      "auth_token_env": "TWILIO_AUTH_TOKEN",
+      "from_number_env": "TWILIO_FROM_NUMBER"
+    }
+  }
+}

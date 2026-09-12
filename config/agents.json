@@ -1,0 +1,23 @@
+{
+  "id": "apex.demo",
+  "version": 1,
+  "agents": [
+    {
+      "id": "report-assistant",
+      "whitelisted": true,
+      "grants": [
+        {
+          "id": "read-demo-report",
+          "action": "report.read",
+          "target": "report:demo",
+          "issuedBy": "operator:demo-owner"
+        }
+      ]
+    },
+    {
+      "id": "paused-assistant",
+      "whitelisted": false,
+      "grants": []
+    }
+  ]
+}

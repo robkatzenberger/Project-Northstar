@@ -1,0 +1,13 @@
+{
+  "name": "apex-lite",
+  "version": "0.1.0",
+  "description": "Deterministic execution boundary for AI systems",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node scripts/test-apex-lite.mjs"
+  },
+  "bin": {
+    "apex-lite": "./bin/apex-lite.js"
+  }
+}

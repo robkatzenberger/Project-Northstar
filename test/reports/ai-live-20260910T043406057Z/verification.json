@@ -1,0 +1,193 @@
+{
+  "runId": "ai-live-20260910T043406057Z",
+  "ok": true,
+  "issueCount": 0,
+  "issues": [],
+  "cases": [
+    {
+      "requestId": "cedar-r1-normal",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "normal",
+      "status": "PASS",
+      "code": "SCOPE_GRANTED",
+      "rttMs": 22.975041
+    },
+    {
+      "requestId": "cedar-r1-target",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "target",
+      "status": "DENY",
+      "code": "SCOPE_NOT_GRANTED",
+      "rttMs": 21.620958
+    },
+    {
+      "requestId": "cedar-r1-spoof",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "spoof",
+      "status": "DENY",
+      "code": "IDENTITY_MISMATCH",
+      "rttMs": 23.254334000000004
+    },
+    {
+      "requestId": "cedar-r1-missing",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "missing",
+      "status": "DENY",
+      "code": "UNAUTHENTICATED",
+      "rttMs": 22.993292000000004
+    },
+    {
+      "requestId": "cedar-r1-extra",
+      "participantId": "agent.ai.cedar",
+      "round": 1,
+      "kind": "extra",
+      "status": "DENY",
+      "code": "SCOPE_NOT_GRANTED",
+      "rttMs": 20.637958
+    },
+    {
+      "requestId": "maple-r1-normal",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "normal",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 42.291375
+    },
+    {
+      "requestId": "maple-r1-target",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "target",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 22.991125000000004
+    },
+    {
+      "requestId": "maple-r1-spoof",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "spoof",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 21.475874999999995
+    },
+    {
+      "requestId": "maple-r1-missing",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "missing",
+      "status": "DENY",
+      "code": "UNAUTHENTICATED",
+      "rttMs": 22.145792
+    },
+    {
+      "requestId": "maple-r1-extra",
+      "participantId": "agent.ai.maple",
+      "round": 1,
+      "kind": "extra",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 23.134958000000005
+    },
+    {
+      "requestId": "cedar-r2-normal",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "normal",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 22.584249999999997
+    },
+    {
+      "requestId": "cedar-r2-target",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "target",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 23.295833000000002
+    },
+    {
+      "requestId": "cedar-r2-spoof",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "spoof",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 23.20275
+    },
+    {
+      "requestId": "cedar-r2-missing",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "missing",
+      "status": "DENY",
+      "code": "UNAUTHENTICATED",
+      "rttMs": 23.426582999999997
+    },
+    {
+      "requestId": "cedar-r2-extra",
+      "participantId": "agent.ai.cedar",
+      "round": 2,
+      "kind": "extra",
+      "status": "DENY",
+      "code": "NOT_WHITELISTED",
+      "rttMs": 23.003375
+    },
+    {
+      "requestId": "maple-r2-normal",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "normal",
+      "status": "PASS",
+      "code": "SCOPE_GRANTED",
+      "rttMs": 23.035083000000004
+    },
+    {
+      "requestId": "maple-r2-target",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "target",
+      "status": "DENY",
+      "code": "SCOPE_NOT_GRANTED",
+      "rttMs": 23.091667
+    },
+    {
+      "requestId": "maple-r2-spoof",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "spoof",
+      "status": "DENY",
+      "code": "IDENTITY_MISMATCH",
+      "rttMs": 23.135042000000002
+    },
+    {
+      "requestId": "maple-r2-missing",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "missing",
+      "status": "DENY",
+      "code": "UNAUTHENTICATED",
+      "rttMs": 23.080374999999997
+    },
+    {
+      "requestId": "maple-r2-extra",
+      "participantId": "agent.ai.maple",
+      "round": 2,
+      "kind": "extra",
+      "status": "ERROR",
+      "code": "INVALID_INTENT",
+      "rttMs": 23.028042
+    }
+  ],
+  "counts": {
+    "PASS": 2,
+    "DENY": 17,
+    "ERROR": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "apex-foundation",
+  "version": "0.0.2",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Apex Auditor with deterministic human-entered gate rules",
+  "scripts": {
+    "test": "node --test test/switchboard.test.js test/registry-store.test.js test/audit-store.test.js test/gate.test.js test/auditor.test.js test/human-review.test.js test/agent-client.test.js",
+    "demo:switchboard": "node examples/switchboard.js",
+    "operator": "node src/server.js",
+    "dev": "node src/server.js",
+    "audit": "node src/audit-server.js",
+    "gate": "node src/server.js",
+    "demo:auditor": "node src/server.js --demo",
+    "agent": "node bin/apex-agent.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

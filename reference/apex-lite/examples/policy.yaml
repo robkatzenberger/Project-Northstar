@@ -1,0 +1,11 @@
+rules:
+  - id: rule_01
+    description: Require approval for high-risk actions
+    if: risk == "high"
+    require: human_approval
+
+  - id: rule_02
+    description: Require approval when PII is involved
+    if: action == "send_email" and "PII" in data_classes
+    require: human_approval
+

@@ -1,0 +1,7 @@
+{
+  "decision": "REQUIRE_APPROVAL",
+  "reason": "Require approval when PII is involved",
+  "policy_id": "rule_02",
+  "apex_version": "lite-0.1",
+  "timestamp": 1730000123
+}

@@ -1,0 +1,9 @@
+node_modules/
+var/
+audit/data/
+test/live/credentials.json
+test/live/*.jsonl
+.DS_Store
+*.key
+.env
+.env.*
